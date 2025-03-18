@@ -880,6 +880,7 @@ func newRTFDeploymentHttp(deployment_settings_d map[string]interface{}) *applica
 		http_list_d := val.([]interface{})
 		if len(http_list_d) > 0 {
 			http_d := http_list_d[0].(map[string]interface{})
+			http_inbound.SetPublicUrl(http_d["inbound_public_url"].(string))
 			http_inbound.SetLastMileSecurity(http_d["inbound_last_mile_security"].(bool))
 			http_inbound.SetForwardSslSession(http_d["inbound_forward_ssl_session"].(bool))
 			http.SetInbound(*http_inbound)
