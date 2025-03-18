@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -296,7 +297,7 @@ func resourceApimMule4Update(ctx context.Context, d *schema.ResourceData, m inte
 			if httpr != nil && httpr.StatusCode >= 400 {
 				defer httpr.Body.Close()
 				b, _ := io.ReadAll(httpr.Body)
-				details = fmt.Errorf(string(b))
+				details = errors.New(string(b))
 			} else {
 				details = err
 			}

@@ -51,10 +51,17 @@ func resourceOIDC() *schema.Resource {
 				Computed:    true,
 				Description: "The type of the identity provider, contains description and the name of the type of the provider (saml or oidc)",
 			},
+			"login_disabled": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "Whether this provider is disabled for login",
+			},
 			"oidc_provider": {
-				Type:        schema.TypeSet,
+				Type:        schema.TypeList,
 				Description: "The description of provider specific for OIDC types",
 				Required:    true,
+				MaxItems:    1,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"token_url": {
@@ -167,7 +174,7 @@ func resourceOIDCCreate(ctx context.Context, d *schema.ResourceData, m interface
 		return diags
 	}
 	defer httpr.Body.Close()
-	d.SetId(res.GetProviderId())
+	d.SetId(res.OpenIDProviderGet.GetProviderId())
 	return resourceOIDCRead(ctx, d, m)
 }
 
@@ -200,7 +207,7 @@ func resourceOIDCRead(ctx context.Context, d *schema.ResourceData, m interface{}
 	}
 	defer httpr.Body.Close()
 	//process data
-	idpinstance := flattenIDPData(&res)
+	idpinstance := flattenIDPData(res)
 	//save in data source schema
 	if err := setIDPAttributesToResourceData(d, idpinstance); err != nil {
 		diags := append(diags, diag.Diagnostic{
@@ -291,70 +298,118 @@ func newOIDCPostBody(d *schema.ResourceData) (*idp.IdpPostBody, diag.Diagnostics
 	var diags diag.Diagnostics
 
 	name := d.Get("name").(string)
-	oidc_provider_input := d.Get("oidc_provider")
+	oidc_provider_input := d.Get("oidc_provider").([]interface{})
+	oidc_provider_data := oidc_provider_input[0].(map[string]interface{})
 
-	body := idp.NewIdpPostBody()
+	// in case we have dynamic registration
+	if _, ok := oidc_provider_data["client_registration_url"]; ok {
+		body := newDynamicOIDCPostBody(name, oidc_provider_data)
+		return &idp.IdpPostBody{
+			OpenIDProviderDynamicPostBody: body,
+		}, diags
 
-	oidc_type := idp.NewIdpPostBodyType()
-	oidc_type.SetName("openid")
+	} else {
+		body := newManualOIDCPostBody(name, oidc_provider_data)
+		return &idp.IdpPostBody{
+			OpenIDProviderManualPostBody: body,
+		}, diags
+	}
+}
+
+func newDynamicOIDCPostBody(name string, oidc_provider_data map[string]interface{}) *idp.OpenIDProviderDynamicPostBody {
+	body := idp.NewOpenIDProviderDynamicPostBodyWithDefaults()
+	oidc_type := idp.NewOpenIDProviderManualPostBodyType("openid")
 	oidc_type.SetDescription("OpenID Connect")
-
-	oidc_provider := idp.NewOidcProvider1()
-
-	if oidc_provider_input != nil {
-		set := oidc_provider_input.(*schema.Set)
-		list := set.List()
-		if len(list) > 0 {
-			item := list[0]
-			data := item.(map[string]interface{})
-			// reads client registration or credentials depending on which one is added
-			client := idp.NewClient1()
-			client_urls := idp.NewUrls1()
-			if client_registration_url, ok := data["client_registration_url"]; ok {
-				client_urls.SetRegister(client_registration_url.(string))
-				client.SetUrls(*client_urls)
-			} else {
-				credentials := idp.NewCredentials1()
-				if client_credentials_id, ok := data["client_credentials_id"]; ok {
-					credentials.SetId(client_credentials_id.(string))
-				}
-				if client_credentials_secret, ok := data["client_credentials_secret"]; ok {
-					credentials.SetSecret(client_credentials_secret.(string))
-				}
-				client.SetCredentials(*credentials)
-			}
-			oidc_provider.SetClient(*client)
-
-			//Parsing URLs
-			urls := idp.NewUrls3()
-			if token_url, ok := data["token_url"]; ok {
-				urls.SetToken(token_url.(string))
-			}
-			if userinfo_url, ok := data["userinfo_url"]; ok {
-				urls.SetUserinfo(userinfo_url.(string))
-			}
-			if authorize_url, ok := data["authorize_url"]; ok {
-				urls.SetAuthorize(authorize_url.(string))
-			}
-			oidc_provider.SetUrls(*urls)
-
-			if issuer, ok := data["issuer"]; ok {
-				oidc_provider.SetIssuer(issuer.(string))
-			}
-			if group_scope, ok := data["group_scope"]; ok {
-				oidc_provider.SetGroupScope(group_scope.(string))
-			}
-			if allow_untrusted_certificates, ok := data["allow_untrusted_certificates"]; ok {
-				body.SetAllowUntrustedCertificates(allow_untrusted_certificates.(bool))
-			}
-		}
+	oidc_provider := idp.NewOpenIDProviderDynamicPostBodyOidcProviderWithDefaults()
+	//parsing client data - regisration url
+	register_url := idp.NewOpenIDProviderDynamicPostBodyOidcProviderClientUrls(oidc_provider_data["client_registration_url"].(string))
+	client := idp.NewOpenIDProviderDynamicPostBodyOidcProviderClient(*register_url)
+	oidc_provider.SetClient(*client)
+	//parsing urls
+	urls := idp.NewOpenIDProviderManualPostBodyOidcProviderUrlsWithDefaults()
+	if token_url, ok := oidc_provider_data["token_url"]; ok {
+		urls.SetToken(token_url.(string))
+	}
+	if userinfo_url, ok := oidc_provider_data["userinfo_url"]; ok {
+		urls.SetUserinfo(userinfo_url.(string))
+	}
+	if authorize_url, ok := oidc_provider_data["authorize_url"]; ok {
+		urls.SetAuthorize(authorize_url.(string))
+	}
+	oidc_provider.SetUrls(*urls)
+	//parsing issuer
+	if issuer, ok := oidc_provider_data["issuer"]; ok {
+		oidc_provider.SetIssuer(issuer.(string))
+	}
+	//parsing oidc provider data group scope
+	if group_scope, ok := oidc_provider_data["group_scope"]; ok {
+		oidc_provider.SetGroupScope(group_scope.(string))
+	}
+	//parsing allow_untrusted_certificates
+	if allow_untrusted_certificates, ok := oidc_provider_data["allow_untrusted_certificates"]; ok {
+		body.SetAllowUntrustedCertificates(allow_untrusted_certificates.(bool))
+	}
+	//parsing login_disabled
+	if login_disabled, ok := oidc_provider_data["login_disabled"]; ok {
+		body.SetLoginDisabled(login_disabled.(bool))
 	}
 
-	body.SetType(*oidc_type)
 	body.SetName(name)
+	body.SetType(*oidc_type)
 	body.SetOidcProvider(*oidc_provider)
 
-	return body, diags
+	return body
+}
+
+func newManualOIDCPostBody(name string, oidc_provider_data map[string]interface{}) *idp.OpenIDProviderManualPostBody {
+	body := idp.NewOpenIDProviderManualPostBodyWithDefaults()
+	oidc_type := idp.NewOpenIDProviderManualPostBodyType("openid")
+	oidc_type.SetDescription("OpenID Connect")
+	oidc_provider := idp.NewOpenIDProviderManualPostBodyOidcProviderWithDefaults()
+	//parsing credentials
+	credentials := idp.NewOpenIDProviderManualPostBodyOidcProviderClientCredentialsWithDefaults()
+	if client_credentials_id, ok := oidc_provider_data["client_credentials_id"]; ok {
+		credentials.SetId(client_credentials_id.(string))
+	}
+	if client_credentials_secret, ok := oidc_provider_data["client_credentials_secret"]; ok {
+		credentials.SetSecret(client_credentials_secret.(string))
+	}
+	client := idp.NewOpenIDProviderManualPostBodyOidcProviderClient(*credentials)
+	oidc_provider.SetClient(*client)
+	//parsing urls
+	urls := idp.NewOpenIDProviderManualPostBodyOidcProviderUrlsWithDefaults()
+	if token_url, ok := oidc_provider_data["token_url"]; ok {
+		urls.SetToken(token_url.(string))
+	}
+	if userinfo_url, ok := oidc_provider_data["userinfo_url"]; ok {
+		urls.SetUserinfo(userinfo_url.(string))
+	}
+	if authorize_url, ok := oidc_provider_data["authorize_url"]; ok {
+		urls.SetAuthorize(authorize_url.(string))
+	}
+	oidc_provider.SetUrls(*urls)
+	//parsing issuer
+	if issuer, ok := oidc_provider_data["issuer"]; ok {
+		oidc_provider.SetIssuer(issuer.(string))
+	}
+	//parsing oidc provider data group scope
+	if group_scope, ok := oidc_provider_data["group_scope"]; ok {
+		oidc_provider.SetGroupScope(group_scope.(string))
+	}
+	//parsing allow_untrusted_certificates
+	if allow_untrusted_certificates, ok := oidc_provider_data["allow_untrusted_certificates"]; ok {
+		body.SetAllowUntrustedCertificates(allow_untrusted_certificates.(bool))
+	}
+	//parsing login_disabled
+	if login_disabled, ok := oidc_provider_data["login_disabled"]; ok {
+		body.SetLoginDisabled(login_disabled.(bool))
+	}
+
+	body.SetName(name)
+	body.SetType(*oidc_type)
+	body.SetOidcProvider(*oidc_provider)
+
+	return body
 }
 
 /* Prepares the body required to patch an OIDC provider*/
@@ -362,69 +417,67 @@ func newOIDCPatchBody(d *schema.ResourceData) (*idp.IdpPatchBody, diag.Diagnosti
 	var diags diag.Diagnostics
 
 	name := d.Get("name").(string)
-	oidc_provider_input := d.Get("oidc_provider")
+	oidc_provider_input := d.Get("oidc_provider").([]interface{})
+	oidc_provider_data := oidc_provider_input[0].(map[string]interface{})
 
-	body := idp.NewIdpPatchBody()
-
-	oidc_type := idp.NewIdpPatchBodyType()
+	body := idp.NewOpenIDProviderPatchWithDefaults()
+	oidc_type := idp.NewSamlProviderPatchType()
 	oidc_type.SetDescription("OpenID Connect")
-
-	oidc_provider := idp.NewOidcProvider1()
-
-	if oidc_provider_input != nil {
-		set := oidc_provider_input.(*schema.Set)
-		list := set.List()
-		if set.Len() > 0 {
-			item := list[0]
-			data := item.(map[string]interface{})
-			// reads client registration or credentials depending on which one is added
-			client := idp.NewClient1()
-			client_urls := idp.NewUrls1()
-			if client_registration_url, ok := data["client_registration_url"]; ok {
-				client_urls.SetRegister(client_registration_url.(string))
-				client.SetUrls(*client_urls)
-			} else {
-				credentials := idp.NewCredentials1()
-				if client_credentials_id, ok := data["client_credentials_id"]; ok {
-					credentials.SetId(client_credentials_id.(string))
-				}
-				if client_credentials_secret, ok := data["client_credentials_secret"]; ok {
-					credentials.SetSecret(client_credentials_secret.(string))
-				}
-				client.SetCredentials(*credentials)
-			}
-			oidc_provider.SetClient(*client)
-
-			//Parsing URLs
-			urls := idp.NewUrls3()
-			if token_url, ok := data["token_url"]; ok {
-				urls.SetToken(token_url.(string))
-			}
-			if userinfo_url, ok := data["userinfo_url"]; ok {
-				urls.SetUserinfo(userinfo_url.(string))
-			}
-			if authorize_url, ok := data["authorize_url"]; ok {
-				urls.SetAuthorize(authorize_url.(string))
-			}
-			oidc_provider.SetUrls(*urls)
-
-			if issuer, ok := data["issuer"]; ok {
-				oidc_provider.SetIssuer(issuer.(string))
-			}
-			if group_scope, ok := data["group_scope"]; ok {
-				oidc_provider.SetGroupScope(group_scope.(string))
-			}
-			if allow_untrusted_certificates, ok := data["allow_untrusted_certificates"]; ok {
-				body.SetAllowUntrustedCertificates(allow_untrusted_certificates.(bool))
-			}
+	oidc_provider := idp.NewOpenIDProviderPatchOidcProvider()
+	client := idp.NewOpenIDProviderPatchOidcProviderClient()
+	// in case we have dynamic registration
+	if client_registration_url, ok := oidc_provider_data["client_registration_url"]; ok {
+		register_url := idp.NewOpenIDProviderPatchOidcProviderClientUrls()
+		register_url.SetRegister(client_registration_url.(string))
+		client.SetUrls(*register_url)
+	} else {
+		credentials := idp.NewOpenIDProviderPatchOidcProviderClientCredentials()
+		if client_credentials_id, ok := oidc_provider_data["client_credentials_id"]; ok {
+			credentials.SetId(client_credentials_id.(string))
 		}
+		if client_credentials_secret, ok := oidc_provider_data["client_credentials_secret"]; ok {
+			credentials.SetSecret(client_credentials_secret.(string))
+		}
+		client.SetCredentials(*credentials)
+	}
+	oidc_provider.SetClient(*client)
+
+	//Parsing URLs
+	urls := idp.NewOpenIDProviderPatchOidcProviderUrls()
+	if token_url, ok := oidc_provider_data["token_url"]; ok {
+		urls.SetToken(token_url.(string))
+	}
+	if userinfo_url, ok := oidc_provider_data["userinfo_url"]; ok {
+		urls.SetUserinfo(userinfo_url.(string))
+	}
+	if authorize_url, ok := oidc_provider_data["authorize_url"]; ok {
+		urls.SetAuthorize(authorize_url.(string))
+	}
+	oidc_provider.SetUrls(*urls)
+	//parsing issuer
+	if issuer, ok := oidc_provider_data["issuer"]; ok {
+		oidc_provider.SetIssuer(issuer.(string))
+	}
+	//parsing groupe_scope
+	if group_scope, ok := oidc_provider_data["group_scope"]; ok {
+		oidc_provider.SetGroupScope(group_scope.(string))
+	}
+	//parsing allow_untrusted_certificates
+	if allow_untrusted_certificates, ok := oidc_provider_data["allow_untrusted_certificates"]; ok {
+		body.SetAllowUntrustedCertificates(allow_untrusted_certificates.(bool))
+	}
+	//parsing login_disabled
+	if login_disabled, ok := oidc_provider_data["login_disabled"]; ok {
+		body.SetLoginDisabled(login_disabled.(bool))
 	}
 
 	body.SetType(*oidc_type)
 	body.SetName(name)
 	body.SetOidcProvider(*oidc_provider)
 
-	return body, diags
+	return &idp.IdpPatchBody{
+		OpenIDProviderPatch: body,
+	}, diags
 }
 
 func getIDPAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Context {

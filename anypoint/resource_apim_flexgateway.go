@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -549,7 +550,7 @@ func resourceApimFlexGatewayUpstreamsCreate(ctx context.Context, d *schema.Resou
 				if httpr != nil && httpr.StatusCode >= 400 {
 					defer httpr.Body.Close()
 					b, _ := io.ReadAll(httpr.Body)
-					details = fmt.Errorf(string(b))
+					details = errors.New(string(b))
 				} else {
 					details = err
 				}
@@ -638,7 +639,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 				if httpr != nil && httpr.StatusCode >= 400 {
 					defer httpr.Body.Close()
 					b, _ := io.ReadAll(httpr.Body)
-					details = fmt.Errorf(string(b))
+					details = errors.New(string(b))
 				} else {
 					details = err
 				}
@@ -661,7 +662,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 				if httpr != nil && httpr.StatusCode >= 400 {
 					defer httpr.Body.Close()
 					b, _ := io.ReadAll(httpr.Body)
-					details = fmt.Errorf(string(b))
+					details = errors.New(string(b))
 				} else {
 					details = err
 				}
@@ -683,7 +684,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 			if httpr != nil && httpr.StatusCode >= 400 {
 				defer httpr.Body.Close()
 				b, _ := io.ReadAll(httpr.Body)
-				details = fmt.Errorf(string(b))
+				details = errors.New(string(b))
 			} else {
 				details = err
 			}
@@ -706,7 +707,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 				if httpr != nil && httpr.StatusCode >= 400 {
 					defer httpr.Body.Close()
 					b, _ := io.ReadAll(httpr.Body)
-					details = fmt.Errorf(string(b))
+					details = errors.New(string(b))
 				} else {
 					details = err
 				}
@@ -811,7 +812,7 @@ func resourceApimFlexGatewayDeleteDefaultUpstream(ctx context.Context, d *schema
 				var details error
 				if httpr != nil {
 					b, _ := io.ReadAll(httpr.Body)
-					details = fmt.Errorf(string(b))
+					details = errors.New(string(b))
 				} else {
 					details = err
 				}
