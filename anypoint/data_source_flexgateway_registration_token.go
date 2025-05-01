@@ -36,7 +36,7 @@ func dataSourceFlexGatewayRegistrationToken() *schema.Resource {
 	}
 }
 
-func dataSourceFlexGatewayRegistrationTokenRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceFlexGatewayRegistrationTokenRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)

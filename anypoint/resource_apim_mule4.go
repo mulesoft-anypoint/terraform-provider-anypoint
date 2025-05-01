@@ -196,7 +196,7 @@ func resourceApimMule4() *schema.Resource {
 	}
 }
 
-func resourceApimMule4Create(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimMule4Create(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// init variables
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -234,7 +234,7 @@ func resourceApimMule4Create(ctx context.Context, d *schema.ResourceData, m inte
 }
 
 // refresh the state of the flex gateway instance
-func resourceApimMule4Read(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimMule4Read(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -281,7 +281,7 @@ func resourceApimMule4Read(ctx context.Context, d *schema.ResourceData, m interf
 }
 
 // updates the whole apim instance in case of changes
-func resourceApimMule4Update(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimMule4Update(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -315,7 +315,7 @@ func resourceApimMule4Update(ctx context.Context, d *schema.ResourceData, m inte
 }
 
 // deletes the api manager instnace mule4
-func resourceApimMule4Delete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimMule4Delete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -367,8 +367,8 @@ func newApimMule4PostBody(d *schema.ResourceData) *apim.ApimInstancePostBody {
 }
 
 // creates patch body depending on the changes occured on the updatable attributes
-func newApimMule4PatchBody(d *schema.ResourceData) map[string]interface{} {
-	body := make(map[string]interface{})
+func newApimMule4PatchBody(d *schema.ResourceData) map[string]any {
+	body := make(map[string]any)
 	attributes := FilterStrList(getApimMule4UpdatableAttributes(), func(s string) bool {
 		return !strings.HasPrefix(s, "endpoint")
 	})
@@ -381,7 +381,7 @@ func newApimMule4PatchBody(d *schema.ResourceData) map[string]interface{} {
 	return body
 }
 
-func setApimMule4AttributesToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setApimMule4AttributesToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getApimMule4DetailsAttributes()
 	if data != nil {
 		for _, attr := range attributes {

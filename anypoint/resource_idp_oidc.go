@@ -144,7 +144,7 @@ func resourceOIDC() *schema.Resource {
 	}
 }
 
-func resourceOIDCCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceOIDCCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -178,7 +178,7 @@ func resourceOIDCCreate(ctx context.Context, d *schema.ResourceData, m interface
 	return resourceOIDCRead(ctx, d, m)
 }
 
-func resourceOIDCRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceOIDCRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	idpid := d.Id()
@@ -222,7 +222,7 @@ func resourceOIDCRead(ctx context.Context, d *schema.ResourceData, m interface{}
 	return diags
 }
 
-func resourceOIDCUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceOIDCUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	idpid := d.Id()
@@ -261,7 +261,7 @@ func resourceOIDCUpdate(ctx context.Context, d *schema.ResourceData, m interface
 	return diags
 }
 
-func resourceOIDCDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceOIDCDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	idpid := d.Id()
@@ -298,8 +298,8 @@ func newOIDCPostBody(d *schema.ResourceData) (*idp.IdpPostBody, diag.Diagnostics
 	var diags diag.Diagnostics
 
 	name := d.Get("name").(string)
-	oidc_provider_input := d.Get("oidc_provider").([]interface{})
-	oidc_provider_data := oidc_provider_input[0].(map[string]interface{})
+	oidc_provider_input := d.Get("oidc_provider").([]any)
+	oidc_provider_data := oidc_provider_input[0].(map[string]any)
 
 	// in case we have dynamic registration
 	if _, ok := oidc_provider_data["client_registration_url"]; ok {
@@ -316,7 +316,7 @@ func newOIDCPostBody(d *schema.ResourceData) (*idp.IdpPostBody, diag.Diagnostics
 	}
 }
 
-func newDynamicOIDCPostBody(name string, oidc_provider_data map[string]interface{}) *idp.OpenIDProviderDynamicPostBody {
+func newDynamicOIDCPostBody(name string, oidc_provider_data map[string]any) *idp.OpenIDProviderDynamicPostBody {
 	body := idp.NewOpenIDProviderDynamicPostBodyWithDefaults()
 	oidc_type := idp.NewOpenIDProviderManualPostBodyType("openid")
 	oidc_type.SetDescription("OpenID Connect")
@@ -361,7 +361,7 @@ func newDynamicOIDCPostBody(name string, oidc_provider_data map[string]interface
 	return body
 }
 
-func newManualOIDCPostBody(name string, oidc_provider_data map[string]interface{}) *idp.OpenIDProviderManualPostBody {
+func newManualOIDCPostBody(name string, oidc_provider_data map[string]any) *idp.OpenIDProviderManualPostBody {
 	body := idp.NewOpenIDProviderManualPostBodyWithDefaults()
 	oidc_type := idp.NewOpenIDProviderManualPostBodyType("openid")
 	oidc_type.SetDescription("OpenID Connect")
@@ -417,8 +417,8 @@ func newOIDCPatchBody(d *schema.ResourceData) (*idp.IdpPatchBody, diag.Diagnosti
 	var diags diag.Diagnostics
 
 	name := d.Get("name").(string)
-	oidc_provider_input := d.Get("oidc_provider").([]interface{})
-	oidc_provider_data := oidc_provider_input[0].(map[string]interface{})
+	oidc_provider_input := d.Get("oidc_provider").([]any)
+	oidc_provider_data := oidc_provider_input[0].(map[string]any)
 
 	body := idp.NewOpenIDProviderPatchWithDefaults()
 	oidc_type := idp.NewSamlProviderPatchType()

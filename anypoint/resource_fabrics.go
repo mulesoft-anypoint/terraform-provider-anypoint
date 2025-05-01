@@ -173,7 +173,7 @@ func resourceFabrics() *schema.Resource {
 	}
 }
 
-func resourceFabricsCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceFabricsCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -205,7 +205,7 @@ func resourceFabricsCreate(ctx context.Context, d *schema.ResourceData, m interf
 	return resourceFabricsRead(ctx, d, m)
 }
 
-func resourceFabricsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceFabricsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	fabricsid := d.Id()
@@ -249,11 +249,11 @@ func resourceFabricsRead(ctx context.Context, d *schema.ResourceData, m interfac
 	return diags
 }
 
-func resourceFabricsUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceFabricsUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	return resourceFabricsRead(ctx, d, m)
 }
 
-func resourceFabricsDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceFabricsDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	fabricsid := d.Id()

@@ -365,7 +365,7 @@ func dataSourceSecretGroupTlsContextSF() *schema.Resource {
 	}
 }
 
-func dataSourceSecretGroupTlsContextSFRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceSecretGroupTlsContextSFRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -414,8 +414,8 @@ func dataSourceSecretGroupTlsContextSFRead(ctx context.Context, d *schema.Resour
 	return diags
 }
 
-func flattenSgTlsContextSF(sf *secretgroup_tlscontext.TlsContextDetails) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextSF(sf *secretgroup_tlscontext.TlsContextDetails) map[string]any {
+	item := make(map[string]any)
 	if meta, ok := sf.GetMetaOk(); ok {
 		maps.Copy(item, flattenSgTlsContextMeta(meta))
 	}
@@ -435,22 +435,22 @@ func flattenSgTlsContextSF(sf *secretgroup_tlscontext.TlsContextDetails) map[str
 		item["truststore_path"] = val.GetPath()
 	}
 	if val, ok := sf.GetAcceptableTlsVersionsOk(); ok {
-		item["acceptable_tls_versions"] = []interface{}{flattenSgTlsContextSFAcceptableTlsVersions(val)}
+		item["acceptable_tls_versions"] = []any{flattenSgTlsContextSFAcceptableTlsVersions(val)}
 	}
 	if val, ok := sf.GetEnableMutualAuthenticationOk(); ok {
 		item["enable_mutual_authentication"] = *val
 	}
 	if val, ok := sf.GetAcceptableCipherSuitesOk(); ok {
-		item["acceptable_cipher_suites"] = []interface{}{flattenSgTlsContextSFAcceptableCipherSuites(val)}
+		item["acceptable_cipher_suites"] = []any{flattenSgTlsContextSFAcceptableCipherSuites(val)}
 	}
 	if val, ok := sf.GetMutualAuthenticationOk(); ok {
-		item["mutual_authentication"] = []interface{}{flattenSgTlsContextSFMutualAuthentication(val)}
+		item["mutual_authentication"] = []any{flattenSgTlsContextSFMutualAuthentication(val)}
 	}
 	return item
 }
 
-func flattenSgTlsContextSFAcceptableTlsVersions(atv *secretgroup_tlscontext.AcceptableTlsVersions) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextSFAcceptableTlsVersions(atv *secretgroup_tlscontext.AcceptableTlsVersions) map[string]any {
+	item := make(map[string]any)
 	if val, ok := atv.GetTlsV1Dot1Ok(); ok {
 		item["tls_v1_dot1"] = *val
 	}
@@ -463,8 +463,8 @@ func flattenSgTlsContextSFAcceptableTlsVersions(atv *secretgroup_tlscontext.Acce
 	return item
 }
 
-func flattenSgTlsContextSFAcceptableCipherSuites(acs *secretgroup_tlscontext.AcceptableCipherSuites) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextSFAcceptableCipherSuites(acs *secretgroup_tlscontext.AcceptableCipherSuites) map[string]any {
+	item := make(map[string]any)
 	if val, ok := acs.GetAes128GcmSha256Ok(); ok {
 		item["aes128_gcm_sha256"] = *val
 	}
@@ -534,8 +534,8 @@ func flattenSgTlsContextSFAcceptableCipherSuites(acs *secretgroup_tlscontext.Acc
 	return item
 }
 
-func flattenSgTlsContextSFMutualAuthentication(ma *secretgroup_tlscontext.MutualAuthentication) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextSFMutualAuthentication(ma *secretgroup_tlscontext.MutualAuthentication) map[string]any {
+	item := make(map[string]any)
 	if val, ok := ma.GetCertificatePoliciesOk(); ok {
 		item["certificate_policies"] = val
 	}
@@ -573,14 +573,14 @@ func flattenSgTlsContextSFMutualAuthentication(ma *secretgroup_tlscontext.Mutual
 		item["certificate_pinning"] = flattenSgTlsContextSFCertPinning(val)
 	}
 	if val, ok := ma.GetAuthenticationOverridesOk(); ok {
-		item["authentication_overrides"] = []interface{}{flattenSgTlsContextSFAuthOverrides(val)}
+		item["authentication_overrides"] = []any{flattenSgTlsContextSFAuthOverrides(val)}
 	}
 
 	return item
 }
 
-func flattenSgTlsContextSFCertPinning(certp *secretgroup_tlscontext.CertificatePinning) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextSFCertPinning(certp *secretgroup_tlscontext.CertificatePinning) map[string]any {
+	item := make(map[string]any)
 	if val, ok := certp.GetCertificatePinsetOk(); ok {
 		item["certificate_pinset"] = val.GetPath()
 	}
@@ -590,8 +590,8 @@ func flattenSgTlsContextSFCertPinning(certp *secretgroup_tlscontext.CertificateP
 	return item
 }
 
-func flattenSgTlsContextSFAuthOverrides(authoverrides *secretgroup_tlscontext.AuthenticationOverrides) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextSFAuthOverrides(authoverrides *secretgroup_tlscontext.AuthenticationOverrides) map[string]any {
+	item := make(map[string]any)
 	if val, ok := authoverrides.GetCertificateBadFormatOk(); ok {
 		item["certificate_bad_format"] = *val
 	}
@@ -625,7 +625,7 @@ func flattenSgTlsContextSFAuthOverrides(authoverrides *secretgroup_tlscontext.Au
 	return item
 }
 
-func setSgTlsContextSFAttributesToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setSgTlsContextSFAttributesToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getSgTlsContextSFAttributes()
 	if data != nil {
 		for _, attr := range attributes {

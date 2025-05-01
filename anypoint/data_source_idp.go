@@ -190,7 +190,7 @@ func dataSourceIDP() *schema.Resource {
 	}
 }
 
-func dataSourceIDPRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceIDPRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	idpid := d.Get("id").(string)
@@ -235,7 +235,7 @@ func dataSourceIDPRead(ctx context.Context, d *schema.ResourceData, m interface{
 /*
 * Transforms a idp.Idp object to the dataSourceIDP schema
  */
-func flattenIDPData(idpitem *idp.Idp) map[string]interface{} {
+func flattenIDPData(idpitem *idp.Idp) map[string]any {
 	if idpitem != nil && idpitem.OpenIDProviderGet != nil {
 		return flattenOIDCData(idpitem.OpenIDProviderGet)
 	} else if idpitem != nil && idpitem.SamlProviderGet != nil {
@@ -245,8 +245,8 @@ func flattenIDPData(idpitem *idp.Idp) map[string]interface{} {
 	return nil
 }
 
-func flattenOIDCData(idpitem *idp.OpenIDProviderGet) map[string]interface{} {
-	result := make(map[string]interface{})
+func flattenOIDCData(idpitem *idp.OpenIDProviderGet) map[string]any {
+	result := make(map[string]any)
 
 	result["provider_id"] = idpitem.GetProviderId()
 	result["name"] = idpitem.GetName()
@@ -255,8 +255,8 @@ func flattenOIDCData(idpitem *idp.OpenIDProviderGet) map[string]interface{} {
 	t_tmp["description"] = t.GetDescription()
 	t_tmp["name"] = t.GetName()
 	result["type"] = t_tmp
-	array := make([]interface{}, 0)
-	item := make(map[string]interface{})
+	array := make([]any, 0)
+	item := make(map[string]any)
 	oidcdata := idpitem.GetOidcProvider()
 	if urls, ok := oidcdata.GetUrlsOk(); ok {
 		item["token_url"] = urls.GetToken()
@@ -307,8 +307,8 @@ func flattenOIDCData(idpitem *idp.OpenIDProviderGet) map[string]interface{} {
 	return result
 }
 
-func flattenSAMLData(idpitem *idp.SamlProviderGet) map[string]interface{} {
-	result := make(map[string]interface{})
+func flattenSAMLData(idpitem *idp.SamlProviderGet) map[string]any {
+	result := make(map[string]any)
 
 	result["provider_id"] = idpitem.GetProviderId()
 	result["name"] = idpitem.GetName()
@@ -318,8 +318,8 @@ func flattenSAMLData(idpitem *idp.SamlProviderGet) map[string]interface{} {
 	t_tmp["name"] = t.GetName()
 	result["type"] = t_tmp
 
-	array := make([]interface{}, 0)
-	item := make(map[string]interface{})
+	array := make([]any, 0)
+	item := make(map[string]any)
 	samldata := idpitem.GetSaml()
 
 	item["issuer"] = samldata.GetIssuer()
@@ -379,7 +379,7 @@ func flattenSAMLData(idpitem *idp.SamlProviderGet) map[string]interface{} {
 /*
 * Copies the given idp instance into the given resource data
  */
-func setIDPAttributesToResourceData(d *schema.ResourceData, idpitem map[string]interface{}) error {
+func setIDPAttributesToResourceData(d *schema.ResourceData, idpitem map[string]any) error {
 	attributes := getIDPAttributes()
 	if idpitem != nil {
 		for _, attr := range attributes {

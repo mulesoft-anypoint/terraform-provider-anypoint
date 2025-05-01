@@ -87,7 +87,7 @@ func resourceTeamGroupMappings() *schema.Resource {
 	}
 }
 
-func resourceTeamGroupMappingsCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamGroupMappingsCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -119,7 +119,7 @@ func resourceTeamGroupMappingsCreate(ctx context.Context, d *schema.ResourceData
 	return resourceTeamGroupMappingsRead(ctx, d, m)
 }
 
-func resourceTeamGroupMappingsUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamGroupMappingsUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -149,7 +149,7 @@ func resourceTeamGroupMappingsUpdate(ctx context.Context, d *schema.ResourceData
 	return resourceTeamGroupMappingsRead(ctx, d, m)
 }
 
-func resourceTeamGroupMappingsDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamGroupMappingsDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -179,7 +179,7 @@ func resourceTeamGroupMappingsDelete(ctx context.Context, d *schema.ResourceData
 	return diags
 }
 
-func resourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -238,18 +238,18 @@ func resourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData, 
 	return diags
 }
 
-func newTeamGroupMappingsPutBody(d *schema.ResourceData) []map[string]interface{} {
-	teamgroupmappings := d.Get("groupmappings").([]interface{})
+func newTeamGroupMappingsPutBody(d *schema.ResourceData) []map[string]any {
+	teamgroupmappings := d.Get("groupmappings").([]any)
 
-	if teamgroupmappings == nil || len(teamgroupmappings) <= 0 {
-		return make([]map[string]interface{}, 0)
+	if len(teamgroupmappings) <= 0 {
+		return make([]map[string]any, 0)
 	}
 
-	body := make([]map[string]interface{}, len(teamgroupmappings))
+	body := make([]map[string]any, len(teamgroupmappings))
 
 	for i, teamgroupmapping := range teamgroupmappings {
-		content := teamgroupmapping.(map[string]interface{})
-		item := make(map[string]interface{})
+		content := teamgroupmapping.(map[string]any)
+		item := make(map[string]any)
 		item["membership_type"] = content["membership_type"]
 		item["external_group_name"] = content["external_group_name"]
 		if val, ok := content["provider_id"]; ok {
@@ -263,9 +263,9 @@ func newTeamGroupMappingsPutBody(d *schema.ResourceData) []map[string]interface{
 
 // Compares old and new values of group mappings
 // returns true if they are the same, false otherwise
-func equalTeamGroupMappings(old, new interface{}) bool {
-	old_list := old.([]interface{})
-	new_list := new.([]interface{})
+func equalTeamGroupMappings(old, new any) bool {
+	old_list := old.([]any)
+	new_list := new.([]any)
 	sortAttrs := []string{"membership_type", "external_group_name", "provider_id"}
 	SortMapListAl(old_list, sortAttrs)
 	SortMapListAl(new_list, sortAttrs)
@@ -281,9 +281,9 @@ func equalTeamGroupMappings(old, new interface{}) bool {
 }
 
 // compares 2 single group mappings
-func equalTeamGroupMapping(old, new interface{}) bool {
-	old_role := old.(map[string]interface{})
-	new_role := new.(map[string]interface{})
+func equalTeamGroupMapping(old, new any) bool {
+	old_role := old.(map[string]any)
+	new_role := new.(map[string]any)
 
 	keys := []string{"membership_type", "external_group_name", "provider_id"}
 

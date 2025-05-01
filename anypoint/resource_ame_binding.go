@@ -287,7 +287,7 @@ func resourceAMEBinding() *schema.Resource {
 	}
 }
 
-func resourceAMEBindingCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMEBindingCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -328,7 +328,7 @@ func resourceAMEBindingCreate(ctx context.Context, d *schema.ResourceData, m int
 	return resourceAMEBindingRead(ctx, d, m)
 }
 
-func resourceAMEBindingRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMEBindingRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -374,7 +374,7 @@ func resourceAMEBindingRead(ctx context.Context, d *schema.ResourceData, m inter
 }
 
 // Updates Binding by updating the rules (only updatable )
-func resourceAMEBindingUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMEBindingUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	//Updates the rules only if any change
 	if d.HasChanges(getAMEBindingRulesWatchAttributes()...) {
@@ -394,7 +394,7 @@ func resourceAMEBindingUpdate(ctx context.Context, d *schema.ResourceData, m int
 	return diags
 }
 
-func resourceAMEBindingDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMEBindingDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -434,7 +434,7 @@ func decomposeAMEBindingId(d *schema.ResourceData, separator ...string) (string,
 	return s[0], s[1], s[2], s[3], s[4]
 }
 
-func resourceAMEBindingRulesCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMEBindingRulesCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -470,7 +470,7 @@ func resourceAMEBindingRulesCreate(ctx context.Context, d *schema.ResourceData, 
 	return diags
 }
 
-func resourceAMEBindingRulesDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMEBindingRulesDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -511,11 +511,11 @@ func newAMEBindingRuleBody(d *schema.ResourceData) *ame_binding.AMEBindingRuleBo
 	}
 
 	body := ame_binding.NewAMEBindingRuleBody()
-	list := make([]map[string]interface{}, len(rules))
+	list := make([]map[string]any, len(rules))
 
 	for i, rule := range rules {
-		content := rule.(map[string]interface{})
-		item := make(map[string]interface{})
+		content := rule.(map[string]any)
+		item := make(map[string]any)
 		item["propertyName"] = content["property_name"]
 		item["propertyType"] = content["property_type"]
 		item["matcherType"] = content["matcher_type"]
@@ -527,8 +527,8 @@ func newAMEBindingRuleBody(d *schema.ResourceData) *ame_binding.AMEBindingRuleBo
 	return body
 }
 
-func extractAMEBindingRules(d *schema.ResourceData) []interface{} {
-	var rules []interface{}
+func extractAMEBindingRules(d *schema.ResourceData) []any {
+	var rules []any
 
 	if rule_str_compare := d.Get("rule_str_compare").(*schema.Set); rule_str_compare.Len() > 0 {
 		rules = rule_str_compare.List()
@@ -549,7 +549,7 @@ func extractAMEBindingRules(d *schema.ResourceData) []interface{} {
 }
 
 // sets the binding rules to the correct type
-func setAMEBindingRulesAttributesToResourceData(d *schema.ResourceData, rules []map[string]interface{}) {
+func setAMEBindingRulesAttributesToResourceData(d *schema.ResourceData, rules []map[string]any) {
 	if isRuleStrCompare(rules) {
 		d.Set("rule_str_compare", rules)
 	} else if isRuleStrState(rules) {
@@ -565,28 +565,28 @@ func setAMEBindingRulesAttributesToResourceData(d *schema.ResourceData, rules []
 	}
 }
 
-func isRuleStrCompare(rules []map[string]interface{}) bool {
+func isRuleStrCompare(rules []map[string]any) bool {
 	if len(rules) > 0 {
 		rule := rules[0]
 		return rule["propertyType"] == "STRING" && (rule["matcherType"] == "EQ" || rule["matcherType"] == "PREFIX")
 	}
 	return false
 }
-func isRuleStrState(rules []map[string]interface{}) bool {
+func isRuleStrState(rules []map[string]any) bool {
 	if len(rules) > 0 {
 		rule := rules[0]
 		return rule["propertyType"] == "STRING" && rule["matcherType"] == "EXISTS"
 	}
 	return false
 }
-func isRuleStrSet(rules []map[string]interface{}) bool {
+func isRuleStrSet(rules []map[string]any) bool {
 	if len(rules) > 0 {
 		rule := rules[0]
 		return rule["propertyType"] == "STRING" && (rule["matcherType"] == "ANY_OF" || rule["matcherType"] == "NONE_OF")
 	}
 	return false
 }
-func isRuleNumCompare(rules []map[string]interface{}) bool {
+func isRuleNumCompare(rules []map[string]any) bool {
 	if len(rules) > 0 {
 		rule := rules[0]
 		return rule["propertyType"] == "NUMERIC" &&
@@ -594,14 +594,14 @@ func isRuleNumCompare(rules []map[string]interface{}) bool {
 	}
 	return false
 }
-func isRuleNumState(rules []map[string]interface{}) bool {
+func isRuleNumState(rules []map[string]any) bool {
 	if len(rules) > 0 {
 		rule := rules[0]
 		return rule["propertyType"] == "NUMERIC" && rule["matcherType"] == "EXISTS"
 	}
 	return false
 }
-func isRuleNumSet(rules []map[string]interface{}) bool {
+func isRuleNumSet(rules []map[string]any) bool {
 	if len(rules) > 0 {
 		rule := rules[0]
 		return rule["propertyType"] == "NUMERIC" && (rule["matcherType"] == "RANGE" || rule["matcherType"] == "NONE_OF")
@@ -609,17 +609,17 @@ func isRuleNumSet(rules []map[string]interface{}) bool {
 	return false
 }
 
-func parseAMERBindingRules(data ame_binding.ExchangeBindingWithRules) []map[string]interface{} {
-	var rules []map[string]interface{}
+func parseAMERBindingRules(data ame_binding.ExchangeBindingWithRules) []map[string]any {
+	var rules []map[string]any
 	if val, ok := data.GetRulesOk(); ok {
 		rules = *val
 	} else {
 		return rules
 	}
-	result := make([]map[string]interface{}, len(rules))
+	result := make([]map[string]any, len(rules))
 
 	for i, rule := range rules {
-		item := make(map[string]interface{})
+		item := make(map[string]any)
 		item["property_name"] = rule["propertyName"]
 		item["property_type"] = rule["propertyType"]
 		item["matcher_type"] = rule["matcherType"]

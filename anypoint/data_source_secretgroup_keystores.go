@@ -94,7 +94,7 @@ func dataSourceSecretGroupKeystores() *schema.Resource {
 	}
 }
 
-func dataSourceSecretGroupKeystoresRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceSecretGroupKeystoresRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	searchOpts := d.Get("params").(*schema.Set)
@@ -153,7 +153,7 @@ func parseSgKeystoreSearchOpts(req secretgroup_keystore.DefaultApiGetSecretGroup
 		return req, diags
 	}
 	opts := params.List()[0]
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "type" {
 			req = req.Type_(v.(string))
 			continue
@@ -162,20 +162,20 @@ func parseSgKeystoreSearchOpts(req secretgroup_keystore.DefaultApiGetSecretGroup
 	return req, diags
 }
 
-func flattenSgKeystoresSummaryCollection(collection []secretgroup_keystore.KeystoreSummary) []interface{} {
+func flattenSgKeystoresSummaryCollection(collection []secretgroup_keystore.KeystoreSummary) []any {
 	length := len(collection)
 	if length > 0 {
-		res := make([]interface{}, length)
+		res := make([]any, length)
 		for i, keystore := range collection {
 			res[i] = flattenSgKeystoreSummary(&keystore)
 		}
 		return res
 	}
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
 
-func flattenSgKeystoreSummary(ksummary *secretgroup_keystore.KeystoreSummary) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgKeystoreSummary(ksummary *secretgroup_keystore.KeystoreSummary) map[string]any {
+	item := make(map[string]any)
 	if val, ok := ksummary.GetNameOk(); ok {
 		item["name"] = *val
 	}

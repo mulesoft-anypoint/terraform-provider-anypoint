@@ -173,7 +173,7 @@ func dataSourceUsers() *schema.Resource {
 	}
 }
 
-func dataSourceUsersRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceUsersRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	searchOpts := d.Get("params").(*schema.Set)
@@ -252,7 +252,7 @@ func parseUsersSearchOpts(req user.DefaultApiApiOrganizationsOrgIdUsersGetReques
 
 	opts := params.List()[0]
 
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "offset" {
 			req = req.Offset(int32(v.(int)))
 			continue
@@ -273,12 +273,12 @@ func parseUsersSearchOpts(req user.DefaultApiApiOrganizationsOrgIdUsersGetReques
 /*
 Transforms a set of users to the dataSourceUsers schema
 */
-func flattenUsersData(users *[]user.User) []interface{} {
+func flattenUsersData(users *[]user.User) []any {
 	if users == nil || len(*users) <= 0 {
-		return make([]interface{}, 0)
+		return make([]any, 0)
 	}
 
-	res := make([]interface{}, len(*users))
+	res := make([]any, len(*users))
 	for i, usr := range *users {
 		res[i] = flattenUserData(&usr)
 	}

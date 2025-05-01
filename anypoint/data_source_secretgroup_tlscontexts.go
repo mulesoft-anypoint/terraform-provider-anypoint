@@ -72,7 +72,7 @@ func dataSourceSecretGroupTlsContexts() *schema.Resource {
 	}
 }
 
-func dataSourceSecretGroupTlsContextsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceSecretGroupTlsContextsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -113,20 +113,20 @@ func dataSourceSecretGroupTlsContextsRead(ctx context.Context, d *schema.Resourc
 	return diags
 }
 
-func flattenSgTlsContextSummaryCollection(collection []secretgroup_tlscontext.TlsContextSummary) []interface{} {
+func flattenSgTlsContextSummaryCollection(collection []secretgroup_tlscontext.TlsContextSummary) []any {
 	length := len(collection)
 	if length > 0 {
-		res := make([]interface{}, length)
+		res := make([]any, length)
 		for i, tls := range collection {
 			res[i] = flattenSgTlsContextSummary(&tls)
 		}
 		return res
 	}
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
 
-func flattenSgTlsContextSummary(tls *secretgroup_tlscontext.TlsContextSummary) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextSummary(tls *secretgroup_tlscontext.TlsContextSummary) map[string]any {
+	item := make(map[string]any)
 	if val, ok := tls.GetNameOk(); ok {
 		item["name"] = *val
 	}
@@ -142,8 +142,8 @@ func flattenSgTlsContextSummary(tls *secretgroup_tlscontext.TlsContextSummary) m
 	return item
 }
 
-func flattenSgTlsContextMeta(meta *secretgroup_tlscontext.Meta) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextMeta(meta *secretgroup_tlscontext.Meta) map[string]any {
+	item := make(map[string]any)
 	if val, ok := meta.GetIdOk(); ok {
 		item["id"] = *val
 	}

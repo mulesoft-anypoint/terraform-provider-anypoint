@@ -436,7 +436,7 @@ func resourceSecretGroupTlsContextSF() *schema.Resource {
 	}
 }
 
-func resourceSecretGroupTlsContextSFCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTlsContextSFCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -470,7 +470,7 @@ func resourceSecretGroupTlsContextSFCreate(ctx context.Context, d *schema.Resour
 	return resourceSecretGroupTlsContextSFRead(ctx, d, m)
 }
 
-func resourceSecretGroupTlsContextSFRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTlsContextSFRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -526,7 +526,7 @@ func resourceSecretGroupTlsContextSFRead(ctx context.Context, d *schema.Resource
 	return diags
 }
 
-func resourceSecretGroupTlsContextSFUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTlsContextSFUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	if d.HasChanges(getSgTlsContextSFUpdatableAttributes()...) {
 		pco := m.(ProviderConfOutput)
@@ -563,7 +563,7 @@ func resourceSecretGroupTlsContextSFUpdate(ctx context.Context, d *schema.Resour
 	return diags
 }
 
-func resourceSecretGroupTlsContextSFDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTlsContextSFDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	// NOTE: The delete action is not supported for this resource.
 	// a tls-context cannot be deleted, only secret-group (parent) can be deleted
@@ -599,9 +599,9 @@ func newSgTlsContextSFBody(d *schema.ResourceData) *secretgroup_tlscontext.TlsCo
 		body.SetTruststore(*truststore)
 	}
 	if val, ok := d.GetOk("acceptable_tls_versions"); ok {
-		list := val.([]interface{})
+		list := val.([]any)
 		if len(list) > 0 {
-			item := list[0].(map[string]interface{})
+			item := list[0].(map[string]any)
 			versions := secretgroup_tlscontext.NewAcceptableTlsVersions()
 			if val, ok := item["tls_v1_dot1"]; ok {
 				versions.SetTlsV1Dot1(val.(bool))
@@ -619,23 +619,23 @@ func newSgTlsContextSFBody(d *schema.ResourceData) *secretgroup_tlscontext.TlsCo
 		body.SetEnableMutualAuthentication(val.(bool))
 	}
 	if val, ok := d.GetOk("acceptable_cipher_suites"); ok {
-		list := val.([]interface{})
+		list := val.([]any)
 		if len(list) > 0 {
-			acs := newSgTlsContextSFAcceptableCipherSuites(list[0].(map[string]interface{}))
+			acs := newSgTlsContextSFAcceptableCipherSuites(list[0].(map[string]any))
 			body.SetAcceptableCipherSuites(*acs)
 		}
 	}
 	if val, ok := d.GetOk("mutual_authentication"); ok {
-		list := val.([]interface{})
+		list := val.([]any)
 		if len(list) > 0 {
-			ma := newSgTlsContextSFMutualAuthentication(list[0].(map[string]interface{}))
+			ma := newSgTlsContextSFMutualAuthentication(list[0].(map[string]any))
 			body.SetMutualAuthentication(*ma)
 		}
 	}
 	return body
 }
 
-func newSgTlsContextSFAcceptableCipherSuites(data map[string]interface{}) *secretgroup_tlscontext.AcceptableCipherSuites {
+func newSgTlsContextSFAcceptableCipherSuites(data map[string]any) *secretgroup_tlscontext.AcceptableCipherSuites {
 	body := secretgroup_tlscontext.NewAcceptableCipherSuites()
 	if val, ok := data["aes128_gcm_sha256"]; ok {
 		body.SetAes128GcmSha256(val.(bool))
@@ -706,10 +706,10 @@ func newSgTlsContextSFAcceptableCipherSuites(data map[string]interface{}) *secre
 	return body
 }
 
-func newSgTlsContextSFMutualAuthentication(data map[string]interface{}) *secretgroup_tlscontext.MutualAuthentication {
+func newSgTlsContextSFMutualAuthentication(data map[string]any) *secretgroup_tlscontext.MutualAuthentication {
 	body := secretgroup_tlscontext.NewMutualAuthentication()
 	if val, ok := data["certificate_policies"]; ok {
-		body.SetCertificatePolicies(ListInterface2ListStrings(val.([]interface{})))
+		body.SetCertificatePolicies(ListInterface2ListStrings(val.([]any)))
 	}
 	if val, ok := data["cert_checking_strength"]; ok {
 		body.SetCertCheckingStrength(val.(string))
@@ -744,16 +744,16 @@ func newSgTlsContextSFMutualAuthentication(data map[string]interface{}) *secretg
 		body.SetSendTruststore(val.(bool))
 	}
 	if val, ok := data["authentication_overrides"]; ok {
-		list := val.([]interface{})
+		list := val.([]any)
 		if len(list) > 0 {
-			ao := newSgTlsContextSFAuthOverrides(list[0].(map[string]interface{}))
+			ao := newSgTlsContextSFAuthOverrides(list[0].(map[string]any))
 			body.SetAuthenticationOverrides(*ao)
 		}
 	}
 	return body
 }
 
-func newSgTlsContextSFAuthOverrides(data map[string]interface{}) *secretgroup_tlscontext.AuthenticationOverrides {
+func newSgTlsContextSFAuthOverrides(data map[string]any) *secretgroup_tlscontext.AuthenticationOverrides {
 	body := secretgroup_tlscontext.NewAuthenticationOverrides()
 	if val, ok := data["certificate_bad_format"]; ok {
 		body.SetCertificateBadFormat(val.(bool))

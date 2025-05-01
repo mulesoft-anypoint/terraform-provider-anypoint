@@ -83,7 +83,7 @@ func resourceAME() *schema.Resource {
 	}
 }
 
-func resourceAMECreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMECreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -117,7 +117,7 @@ func resourceAMECreate(ctx context.Context, d *schema.ResourceData, m interface{
 	return resourceAMERead(ctx, d, m)
 }
 
-func resourceAMERead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMERead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -169,7 +169,7 @@ func resourceAMERead(ctx context.Context, d *schema.ResourceData, m interface{})
 	return diags
 }
 
-func resourceAMEUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMEUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -205,7 +205,7 @@ func resourceAMEUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	return diags
 }
 
-func resourceAMEDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMEDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)

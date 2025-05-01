@@ -67,7 +67,7 @@ func dataSourceSecretGroupCrlDistribCfgsList() *schema.Resource {
 	}
 }
 
-func dataSourceSecretGroupCrlDistribCfgsListRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceSecretGroupCrlDistribCfgsListRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -108,20 +108,20 @@ func dataSourceSecretGroupCrlDistribCfgsListRead(ctx context.Context, d *schema.
 	return diags
 }
 
-func flattenSgCrlDistribCfgsSummaryCollection(collection []secretgroup_crl_distributor_configs.CrlDistribCfgSummary) []interface{} {
+func flattenSgCrlDistribCfgsSummaryCollection(collection []secretgroup_crl_distributor_configs.CrlDistribCfgSummary) []any {
 	length := len(collection)
 	if length > 0 {
-		res := make([]interface{}, length)
+		res := make([]any, length)
 		for i, cdc := range collection {
 			res[i] = flattenSgCrlDistribCfgsSummary(&cdc)
 		}
 		return res
 	}
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
 
-func flattenSgCrlDistribCfgsSummary(cdc *secretgroup_crl_distributor_configs.CrlDistribCfgSummary) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgCrlDistribCfgsSummary(cdc *secretgroup_crl_distributor_configs.CrlDistribCfgSummary) map[string]any {
+	item := make(map[string]any)
 	if val, ok := cdc.GetNameOk(); ok {
 		item["name"] = *val
 	}
@@ -134,8 +134,8 @@ func flattenSgCrlDistribCfgsSummary(cdc *secretgroup_crl_distributor_configs.Crl
 	return item
 }
 
-func flattenSgCrlDistribCfgsMeta(meta *secretgroup_crl_distributor_configs.Meta) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgCrlDistribCfgsMeta(meta *secretgroup_crl_distributor_configs.Meta) map[string]any {
+	item := make(map[string]any)
 	if val, ok := meta.GetIdOk(); ok {
 		item["id"] = *val
 	}

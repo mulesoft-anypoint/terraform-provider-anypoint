@@ -99,7 +99,7 @@ func dataSourceFlexGatewayTarget() *schema.Resource {
 	}
 }
 
-func dataSourceFlexGatewayTargetRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceFlexGatewayTargetRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -139,8 +139,8 @@ func dataSourceFlexGatewayTargetRead(ctx context.Context, d *schema.ResourceData
 	return diags
 }
 
-func flattenFlexGatewayTargetDetails(target *flexgateway.FlexGatewayTargetDetails) map[string]interface{} {
-	elem := make(map[string]interface{})
+func flattenFlexGatewayTargetDetails(target *flexgateway.FlexGatewayTargetDetails) map[string]any {
+	elem := make(map[string]any)
 	if val, ok := target.GetNameOk(); ok && val != nil {
 		elem["name"] = *val
 	}
@@ -166,10 +166,10 @@ func flattenFlexGatewayTargetDetails(target *flexgateway.FlexGatewayTargetDetail
 	return elem
 }
 
-func flattenFlexGatewayTargetReplicas(replicas []flexgateway.FlexGatewayTargetDetailsReplicasInner) []map[string]interface{} {
-	slice := make([]map[string]interface{}, len(replicas))
+func flattenFlexGatewayTargetReplicas(replicas []flexgateway.FlexGatewayTargetDetailsReplicasInner) []map[string]any {
+	slice := make([]map[string]any, len(replicas))
 	for i, r := range replicas {
-		elem := make(map[string]interface{})
+		elem := make(map[string]any)
 		if val, ok := r.GetStatusOk(); ok && val != nil {
 			elem["status"] = *val
 		}
@@ -188,7 +188,7 @@ func flattenFlexGatewayTargetReplicas(replicas []flexgateway.FlexGatewayTargetDe
 	return slice
 }
 
-func setFlexGatewayTargetAttributesToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setFlexGatewayTargetAttributesToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getFlexGatewayTargetAttributes()
 	if data != nil {
 		for _, attr := range attributes {

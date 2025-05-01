@@ -87,7 +87,7 @@ func dataSourceUserRolegroup() *schema.Resource {
 	}
 }
 
-func dataSourceUserRolegroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceUserRolegroupRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	userid := d.Get("user_id").(string)
 	rolegroupid := d.Id()
@@ -113,7 +113,7 @@ func dataSourceUserRolegroupRead(ctx context.Context, d *schema.ResourceData, m 
 /*
 Searches for the rolegroup in the list of results that has the same id as the one given by the user
 */
-func searchUserRolegroup(ctx context.Context, d *schema.ResourceData, m interface{}) (*user_rolegroups.Rolegroup, diag.Diagnostics) {
+func searchUserRolegroup(ctx context.Context, d *schema.ResourceData, m any) (*user_rolegroups.Rolegroup, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	userid := d.Get("user_id").(string)
@@ -175,7 +175,7 @@ func searchUserRolegroup(ctx context.Context, d *schema.ResourceData, m interfac
 /*
 Copies the given user rolegroup instance into the given Source data
 */
-func setUserRolegroupAttributesToResourceData(d *schema.ResourceData, rg map[string]interface{}) error {
+func setUserRolegroupAttributesToResourceData(d *schema.ResourceData, rg map[string]any) error {
 	attributes := getUserRolegroupAttributes()
 	if rg != nil {
 		for _, attr := range attributes {

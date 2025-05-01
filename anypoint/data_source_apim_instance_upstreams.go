@@ -105,7 +105,7 @@ func dataSourceApimInstanceUpstreams() *schema.Resource {
 	}
 }
 
-func dataSourceApimInstanceUpstreamsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceApimInstanceUpstreamsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -155,20 +155,20 @@ func dataSourceApimInstanceUpstreamsRead(ctx context.Context, d *schema.Resource
 	return diags
 }
 
-func flattenApimUpstreamsResult(upstreams []apim_upstream.UpstreamDetails) []interface{} {
+func flattenApimUpstreamsResult(upstreams []apim_upstream.UpstreamDetails) []any {
 	length := len(upstreams)
 	if length > 0 {
-		res := make([]interface{}, length)
+		res := make([]any, length)
 		for i, upstream := range upstreams {
 			res[i] = flattenApimUpstream(&upstream)
 		}
 		return res
 	}
-	return []interface{}{}
+	return []any{}
 }
 
-func flattenApimUpstream(upstream *apim_upstream.UpstreamDetails) map[string]interface{} {
-	result := make(map[string]interface{})
+func flattenApimUpstream(upstream *apim_upstream.UpstreamDetails) map[string]any {
+	result := make(map[string]any)
 
 	if val, ok := upstream.GetAuditOk(); ok {
 		result["audit"] = flattenApimUpstreamAudit(val)
@@ -183,7 +183,7 @@ func flattenApimUpstream(upstream *apim_upstream.UpstreamDetails) map[string]int
 		result["uri"] = *val
 	}
 	if tlscontext, ok := upstream.GetTlsContextOk(); ok {
-		tlcres := make(map[string]interface{})
+		tlcres := make(map[string]any)
 		if val, ok := tlscontext.GetAuditOk(); ok {
 			tlcres["audit"] = flattenApimUpstreamAudit(val)
 		}
@@ -199,14 +199,14 @@ func flattenApimUpstream(upstream *apim_upstream.UpstreamDetails) map[string]int
 		if val, ok := tlscontext.GetSecretGroupIdOk(); ok && val != nil {
 			tlcres["secret_group_id"] = *val
 		}
-		result["tls_context"] = []interface{}{tlcres}
+		result["tls_context"] = []any{tlcres}
 	}
 
 	return result
 }
 
-func flattenApimUpstreamAudit(audit *apim_upstream.Audit) map[string]interface{} {
-	result := make(map[string]interface{})
+func flattenApimUpstreamAudit(audit *apim_upstream.Audit) map[string]any {
+	result := make(map[string]any)
 	if audit == nil {
 		return result
 	}

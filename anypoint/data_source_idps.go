@@ -61,7 +61,7 @@ func dataSourceIDPs() *schema.Resource {
 	}
 }
 
-func dataSourceIDPsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceIDPsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -114,10 +114,10 @@ func dataSourceIDPsRead(ctx context.Context, d *schema.ResourceData, m interface
 /*
 * Transforms a list of idp summaries object to the dataSourceIDPs schema
  */
-func flattenIDPsData(idps []idp.IdpSummary) []interface{} {
-	result := make([]interface{}, len(idps))
+func flattenIDPsData(idps []idp.IdpSummary) []any {
+	result := make([]any, len(idps))
 	for i, idpItem := range idps {
-		item := make(map[string]interface{})
+		item := make(map[string]any)
 		item["provider_id"] = idpItem.GetProviderId()
 		item["org_id"] = idpItem.GetOrgId()
 		item["name"] = idpItem.GetName()

@@ -133,7 +133,7 @@ func dataSourceConnectedApp() *schema.Resource {
 	}
 }
 
-func dataSourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	connappid := d.Get("id").(string)
@@ -187,7 +187,7 @@ func dataSourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m i
 	return diags
 }
 
-func readScopesByConnectedAppId(ctx context.Context, orgid string, connappid string, m interface{}) ([]interface{}, error) {
+func readScopesByConnectedAppId(ctx context.Context, orgid string, connappid string, m any) ([]any, error) {
 	pco := m.(ProviderConfOutput)
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	limit := 500
@@ -211,9 +211,9 @@ func readScopesByConnectedAppId(ctx context.Context, orgid string, connappid str
 /*
 * Copies the given connected app instance into the given resource data
 * @param d *schema.ResourceData the resource data schema
-* @param connappitem map[string]interface{} the connected app instance
+* @param connappitem map[string]any the connected app instance
  */
-func setConnectedAppAttributesToResourceData(d *schema.ResourceData, connappitem map[string]interface{}) error {
+func setConnectedAppAttributesToResourceData(d *schema.ResourceData, connappitem map[string]any) error {
 	attributes := getConnectedAppAttributes()
 	if connappitem != nil {
 		for _, attr := range attributes {
@@ -230,8 +230,8 @@ func setConnectedAppAttributesToResourceData(d *schema.ResourceData, connappitem
 * @param connappitem *connected_app.ConnectedAppRespExt the connected app struct
 * @return the connected app mapped struct
  */
-func flattenConnectedAppData(connappitem *connected_app.ConnectedAppRespExt) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenConnectedAppData(connappitem *connected_app.ConnectedAppRespExt) map[string]any {
+	item := make(map[string]any)
 	if connappitem == nil { // if empty
 		return item
 	}
@@ -256,9 +256,9 @@ func flattenConnectedAppData(connappitem *connected_app.ConnectedAppRespExt) map
 	}
 
 	if val, ok := connappitem.GetScopesOk(); ok {
-		scopes := make([]interface{}, len(val))
+		scopes := make([]any, len(val))
 		for j, scope := range connappitem.GetScopes() {
-			s := make(map[string]interface{})
+			s := make(map[string]any)
 			s["scope"] = scope
 			scopes[j] = s
 		}
@@ -294,12 +294,12 @@ func flattenConnectedAppData(connappitem *connected_app.ConnectedAppRespExt) map
 	return item
 }
 
-func flattenConnectedAppScopesData(scopes *connected_app.GetConnectedAppScopes200Response) []interface{} {
+func flattenConnectedAppScopesData(scopes *connected_app.GetConnectedAppScopes200Response) []any {
 	if scopes != nil {
-		scopes_list := make([]interface{}, len(scopes.GetData()))
+		scopes_list := make([]any, len(scopes.GetData()))
 
 		for j, scope := range scopes.GetData() {
-			s := make(map[string]interface{})
+			s := make(map[string]any)
 
 			s["scope"] = scope.GetScope()
 

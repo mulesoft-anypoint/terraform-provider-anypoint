@@ -165,7 +165,7 @@ func resourceVPC() *schema.Resource {
 	}
 }
 
-func resourceVPCCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceVPCCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -196,7 +196,7 @@ func resourceVPCCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	return resourceVPCRead(ctx, d, m)
 }
 
-func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	vpcid := d.Id()
@@ -242,7 +242,7 @@ func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	return diags
 }
 
-func resourceVPCUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceVPCUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	vpcid := d.Id()
@@ -278,7 +278,7 @@ func resourceVPCUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	return diags
 }
 
-func resourceVPCDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceVPCDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	vpcid := d.Id()
@@ -323,7 +323,7 @@ func newVPCBody(d *schema.ResourceData) *vpc.VpcCore {
 	body.SetOwnerId(d.Get("owner_id").(string))
 
 	//preparing shared with list
-	sw := d.Get("shared_with").([]interface{})
+	sw := d.Get("shared_with").([]any)
 	shared_with := make([]string, len(sw))
 	for index, e := range sw {
 		shared_with[index] = e.(string)
@@ -331,7 +331,7 @@ func newVPCBody(d *schema.ResourceData) *vpc.VpcCore {
 	body.SetSharedWith(shared_with)
 
 	//preparing associated environments list
-	aes := d.Get("associated_environments").([]interface{})
+	aes := d.Get("associated_environments").([]any)
 	associated_environments := make([]string, len(aes))
 	for index, ae := range aes {
 		associated_environments[index] = ae.(string)
@@ -339,12 +339,12 @@ func newVPCBody(d *schema.ResourceData) *vpc.VpcCore {
 	body.SetAssociatedEnvironments(associated_environments)
 
 	//preparing internal_dns structure
-	idss := d.Get("internal_dns_servers").([]interface{})
+	idss := d.Get("internal_dns_servers").([]any)
 	dns_servers := make([]string, len(idss))
 	for index, dns_server := range idss {
 		dns_servers[index] = dns_server.(string)
 	}
-	idsds := d.Get("internal_dns_special_domains").([]interface{})
+	idsds := d.Get("internal_dns_special_domains").([]any)
 	special_domains := make([]string, len(idsds))
 	for index, special_domain := range idsds {
 		special_domains[index] = special_domain.(string)
@@ -352,10 +352,10 @@ func newVPCBody(d *schema.ResourceData) *vpc.VpcCore {
 	body.SetInternalDns(*vpc.NewInternalDns(dns_servers, special_domains))
 
 	//preparing firewall rules
-	orules := d.Get("firewall_rules").([]interface{})
+	orules := d.Get("firewall_rules").([]any)
 	frules := make([]vpc.FirewallRule, len(orules))
 	for index, rule := range orules {
-		frules[index] = *vpc.NewFirewallRule(rule.(map[string]interface{})["cidr_block"].(string), int32(rule.(map[string]interface{})["from_port"].(int)), rule.(map[string]interface{})["protocol"].(string), int32(rule.(map[string]interface{})["to_port"].(int)))
+		frules[index] = *vpc.NewFirewallRule(rule.(map[string]any)["cidr_block"].(string), int32(rule.(map[string]any)["from_port"].(int)), rule.(map[string]any)["protocol"].(string), int32(rule.(map[string]any)["to_port"].(int)))
 	}
 	body.SetFirewallRules(frules)
 
@@ -372,9 +372,9 @@ func getVPCAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Context
 
 // Compares 2 firewall rules lists
 // returns true if they are the same, false otherwise
-func equalsVPCFirewallRules(old, new interface{}) bool {
-	old_list := old.([]interface{})
-	new_list := new.([]interface{})
+func equalsVPCFirewallRules(old, new any) bool {
+	old_list := old.([]any)
+	new_list := new.([]any)
 
 	if len(new_list) != len(old_list) {
 		return false
@@ -388,8 +388,8 @@ func equalsVPCFirewallRules(old, new interface{}) bool {
 	sortFirewallRules(new_list)
 
 	for i, val := range old_list {
-		o := val.(map[string]interface{})
-		n := new_list[i].(map[string]interface{})
+		o := val.(map[string]any)
+		n := new_list[i].(map[string]any)
 
 		old_cidr_block := o["cidr_block"].(string)
 		new_cidr_block := n["cidr_block"].(string)
@@ -423,10 +423,10 @@ func equalsVPCFirewallRules(old, new interface{}) bool {
 	return true
 }
 
-func sortFirewallRules(list []interface{}) {
+func sortFirewallRules(list []any) {
 	sort.SliceStable(list, func(i, j int) bool {
-		i_elem := list[i].(map[string]interface{})
-		j_elem := list[j].(map[string]interface{})
+		i_elem := list[i].(map[string]any)
+		j_elem := list[j].(map[string]any)
 
 		i_cidr_block := i_elem["cidr_block"].(string)
 		j_cidr_block := j_elem["cidr_block"].(string)

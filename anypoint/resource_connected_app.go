@@ -87,7 +87,7 @@ func resourceConnectedApp() *schema.Resource {
 				Description: "Configure which URIs users may be directed to after authorization",
 				Type:        schema.TypeList,
 				Optional:    true,
-				DefaultFunc: func() (interface{}, error) {
+				DefaultFunc: func() (any, error) {
 					return make([]string, 0), nil
 				},
 				Elem: &schema.Schema{
@@ -101,8 +101,8 @@ func resourceConnectedApp() *schema.Resource {
 				Description: "The scopes this connected app has authorization to work on",
 				Type:        schema.TypeList,
 				Optional:    true,
-				DefaultFunc: func() (interface{}, error) {
-					return make([]interface{}, 0), nil
+				DefaultFunc: func() (any, error) {
+					return make([]any, 0), nil
 				},
 				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
 					return equalsConnectedAppScopes(d.GetChange("scope"))
@@ -130,7 +130,7 @@ func resourceConnectedApp() *schema.Resource {
 			"public_keys": {
 				Type:     schema.TypeList,
 				Optional: true,
-				DefaultFunc: func() (interface{}, error) {
+				DefaultFunc: func() (any, error) {
 					return make([]string, 0), nil
 				},
 				Elem: &schema.Schema{
@@ -180,7 +180,7 @@ func resourceConnectedApp() *schema.Resource {
 	}
 }
 
-func resourceConnectedAppCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceConnectedAppCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -209,7 +209,7 @@ func resourceConnectedAppCreate(ctx context.Context, d *schema.ResourceData, m i
 	// Is it a "on its own behalf" connected apps?
 	if grant_types, ok := body.GetGrantTypesOk(); ok && StringInSlice(grant_types, "client_credentials", true) {
 		// Are there scopes to be saved?
-		if scopes := d.Get("scope"); scopes != nil && len(scopes.([]interface{})) > 0 {
+		if scopes := d.Get("scope"); scopes != nil && len(scopes.([]any)) > 0 {
 			// Save the connected app scopes
 			if error := replaceConnectedAppScopes(authctx, d, m); error != nil {
 				diags := append(diags, diag.Diagnostic{
@@ -225,7 +225,7 @@ func resourceConnectedAppCreate(ctx context.Context, d *schema.ResourceData, m i
 	return resourceConnectedAppRead(ctx, d, m)
 }
 
-func resourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -293,7 +293,7 @@ func resourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m int
 	return diags
 }
 
-func resourceConnectedAppUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceConnectedAppUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -323,7 +323,7 @@ func resourceConnectedAppUpdate(ctx context.Context, d *schema.ResourceData, m i
 		// Is it a "on its own behalf" connected apps?
 		if grant_types, ok := body.GetGrantTypesOk(); ok && StringInSlice(grant_types, "client_credentials", true) {
 			// Are there scopes to be saved?
-			if scopes := d.Get("scope"); scopes != nil && len(scopes.([]interface{})) > 0 {
+			if scopes := d.Get("scope"); scopes != nil && len(scopes.([]any)) > 0 {
 				// Save the connected app scopes
 				if error := replaceConnectedAppScopes(authctx, d, m); error != nil {
 					diags := append(diags, diag.Diagnostic{
@@ -340,7 +340,7 @@ func resourceConnectedAppUpdate(ctx context.Context, d *schema.ResourceData, m i
 	return diags
 }
 
-func resourceConnectedAppDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceConnectedAppDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -372,7 +372,7 @@ func resourceConnectedAppDelete(ctx context.Context, d *schema.ResourceData, m i
 	return diags
 }
 
-func replaceConnectedAppScopes(ctx context.Context, d *schema.ResourceData, m interface{}) error {
+func replaceConnectedAppScopes(ctx context.Context, d *schema.ResourceData, m any) error {
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
 	connappid := d.Id()
@@ -398,10 +398,10 @@ func newConnectedAppScopesPutBody(d *schema.ResourceData) *connected_app.Connect
 	body := connected_app.NewConnectedAppScopesPutBodyWithDefaults()
 	// Is there any scope set in the resource?
 	if scopes, ok := d.GetOk("scope"); ok {
-		scopes_list := scopes.([]interface{})
+		scopes_list := scopes.([]any)
 		scopes_body := make([]connected_app.ScopeCore, len(scopes_list))
 		for i, scope := range scopes_list {
-			scope_map := scope.(map[string]interface{})
+			scope_map := scope.(map[string]any)
 			scope_core := connected_app.NewScopeCoreWithDefaults()
 			if val, ok := scope_map["scope"]; ok {
 				scope_core.SetScope(val.(string))
@@ -430,19 +430,19 @@ func newConnectedAppPostBody(d *schema.ResourceData) *connected_app.ConnectedApp
 
 	// connected_app.ConnectedAppCore attributes
 	body.SetClientName(d.Get("name").(string))
-	body.SetGrantTypes(ListInterface2ListStrings(d.Get("grant_types").([]interface{})))
+	body.SetGrantTypes(ListInterface2ListStrings(d.Get("grant_types").([]any)))
 	body.SetAudience(d.Get("audience").(string))
 
 	// Required by Anypoint endpoint, but value can be an empty list
 	if publickeys, ok := d.GetOk("public_keys"); ok {
-		body.SetPublicKeys(ListInterface2ListStrings(publickeys.([]interface{})))
+		body.SetPublicKeys(ListInterface2ListStrings(publickeys.([]any)))
 	} else {
 		body.SetPublicKeys(make([]string, 0))
 	}
 
 	// Required by Anypoint endpoint, but value can be an empty list
 	if redirecturis, ok := d.GetOk("redirect_uris"); ok {
-		body.SetRedirectUris(ListInterface2ListStrings(redirecturis.([]interface{})))
+		body.SetRedirectUris(ListInterface2ListStrings(redirecturis.([]any)))
 	} else {
 		body.SetRedirectUris(make([]string, 0))
 	}
@@ -450,10 +450,10 @@ func newConnectedAppPostBody(d *schema.ResourceData) *connected_app.ConnectedApp
 	if grant_types, ok := body.GetGrantTypesOk(); ok && !StringInSlice(grant_types, "client_credentials", true) {
 		// Is there any scope set in the resource?
 		if scopes := d.Get("scope"); scopes != nil {
-			scopes_list := scopes.([]interface{})
+			scopes_list := scopes.([]any)
 			scopes_body := make([]string, len(scopes_list))
 			for i, scope := range scopes_list {
-				scope_map := scope.(map[string]interface{})
+				scope_map := scope.(map[string]any)
 				if val := scope_map["scope"]; val != nil {
 					scopes_body[i] = val.(string)
 				}
@@ -477,19 +477,19 @@ func newConnectedAppPatchBody(d *schema.ResourceData) *connected_app.ConnectedAp
 
 	// connected_app.ConnectedAppCore attributes
 	body.SetClientName(d.Get("name").(string))
-	body.SetGrantTypes(ListInterface2ListStrings(d.Get("grant_types").([]interface{})))
+	body.SetGrantTypes(ListInterface2ListStrings(d.Get("grant_types").([]any)))
 	body.SetAudience(d.Get("audience").(string))
 
 	// Required by Anypoint endpoint, but value can be an empty list
 	if publickeys, ok := d.GetOk("public_keys"); ok {
-		body.SetPublicKeys(ListInterface2ListStrings(publickeys.([]interface{})))
+		body.SetPublicKeys(ListInterface2ListStrings(publickeys.([]any)))
 	} else {
 		body.SetPublicKeys(make([]string, 0))
 	}
 
 	// Required by Anypoint endpoint, but value can be an empty list
 	if redirecturis, ok := d.GetOk("redirect_uris"); ok {
-		body.SetRedirectUris(ListInterface2ListStrings(redirecturis.([]interface{})))
+		body.SetRedirectUris(ListInterface2ListStrings(redirecturis.([]any)))
 	} else {
 		body.SetRedirectUris(make([]string, 0))
 	}
@@ -497,10 +497,10 @@ func newConnectedAppPatchBody(d *schema.ResourceData) *connected_app.ConnectedAp
 	if val, ok := body.GetGrantTypesOk(); ok && !StringInSlice(val, "client_credentials", true) {
 		// Is there any scope set in the resource?
 		if scopes := d.Get("scope"); scopes != nil {
-			scopes_list := scopes.([]interface{})
+			scopes_list := scopes.([]any)
 			scopes_body := make([]string, len(scopes_list))
 			for i, scope := range scopes_list {
-				scope_map := scope.(map[string]interface{})
+				scope_map := scope.(map[string]any)
 				if val, ok := scope_map["scope"]; ok {
 					scopes_body[i] = val.(string)
 				}
@@ -525,9 +525,9 @@ func newConnectedAppPatchBody(d *schema.ResourceData) *connected_app.ConnectedAp
 
 // Compares 2 scopes lists
 // returns true if they are the same, false otherwise
-func equalsConnectedAppScopes(old, new interface{}) bool {
-	old_list := old.([]interface{})
-	new_list := new.([]interface{})
+func equalsConnectedAppScopes(old, new any) bool {
+	old_list := old.([]any)
+	new_list := new.([]any)
 
 	old_list = removeProfileScope(old_list)
 	new_list = removeProfileScope(new_list)
@@ -544,8 +544,8 @@ func equalsConnectedAppScopes(old, new interface{}) bool {
 	sortScopes(new_list)
 
 	for i, val := range old_list {
-		o := val.(map[string]interface{})
-		n := new_list[i].(map[string]interface{})
+		o := val.(map[string]any)
+		n := new_list[i].(map[string]any)
 
 		old_scope := o["scope"].(string)
 		new_scope := n["scope"].(string)
@@ -574,13 +574,13 @@ func equalsConnectedAppScopes(old, new interface{}) bool {
 
 // "Profile" is a defaul scope added to "act on its own behalf" connected apps.
 // It should not be considered when dealing with this kind of connecte app
-func removeProfileScope(scopes []interface{}) []interface{} {
+func removeProfileScope(scopes []any) []any {
 	if len(scopes) == 0 {
 		return scopes
 	}
 
 	for i, scope := range scopes {
-		scope_map := scope.(map[string]interface{})
+		scope_map := scope.(map[string]any)
 
 		if strings.EqualFold(scope_map["scope"].(string), "profile") {
 			scopes[i] = scopes[len(scopes)-1]
@@ -591,10 +591,10 @@ func removeProfileScope(scopes []interface{}) []interface{} {
 	return scopes
 }
 
-func sortScopes(list []interface{}) {
+func sortScopes(list []any) {
 	sort.SliceStable(list, func(i, j int) bool {
-		i_elem := list[i].(map[string]interface{})
-		j_elem := list[j].(map[string]interface{})
+		i_elem := list[i].(map[string]any)
+		j_elem := list[j].(map[string]any)
 		i_scope := i_elem["scope"].(string)
 		j_scope := j_elem["scope"].(string)
 		if i_scope != j_scope {

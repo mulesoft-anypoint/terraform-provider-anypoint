@@ -186,7 +186,7 @@ func resourceVPN() *schema.Resource {
 	}
 }
 
-func resourceVPNCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceVPNCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -218,7 +218,7 @@ func resourceVPNCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	return resourceVPNRead(ctx, d, m)
 }
 
-func resourceVPNRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceVPNRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -275,7 +275,7 @@ func resourceVPNRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	return diags
 }
 
-func resourceVPNDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceVPNDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -318,17 +318,17 @@ func newVPNBody(d *schema.ResourceData) *vpn.VpnPostReqBody {
 	body.SetRemoteIpAddress(d.Get("remote_ip_address").(string))
 
 	//preparing remote_networks
-	rn := d.Get("remote_networks").([]interface{})
+	rn := d.Get("remote_networks").([]any)
 	remote_networks := make([]string, len(rn))
 	for index, e := range rn {
 		remote_networks[index] = e.(string)
 	}
 	body.SetRemoteNetworks(remote_networks)
 	//preparing tunnel_configs
-	tc := d.Get("tunnel_configs").([]interface{})
+	tc := d.Get("tunnel_configs").([]any)
 	tunnel_configs := make([]vpn.TunnelConfig, len(tc))
 	for index, tunnel_config := range tc {
-		tunnel_configs[index] = *vpn.NewTunnelConfig(tunnel_config.(map[string]interface{})["psk"].(string), tunnel_config.(map[string]interface{})["ptp_cidr"].(string))
+		tunnel_configs[index] = *vpn.NewTunnelConfig(tunnel_config.(map[string]any)["psk"].(string), tunnel_config.(map[string]any)["ptp_cidr"].(string))
 	}
 	body.SetTunnelConfigs(tunnel_configs)
 

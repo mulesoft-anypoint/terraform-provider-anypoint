@@ -90,7 +90,7 @@ func resourceTeamMember() *schema.Resource {
 	}
 }
 
-func resourceTeamMemberCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamMemberCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -124,7 +124,7 @@ func resourceTeamMemberCreate(ctx context.Context, d *schema.ResourceData, m int
 	return resourceTeamMemberRead(ctx, d, m)
 }
 
-func resourceTeamMemberRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamMemberRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -184,7 +184,7 @@ func resourceTeamMemberRead(ctx context.Context, d *schema.ResourceData, m inter
 	return diags
 }
 
-func resourceTeamMemberDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamMemberDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -226,7 +226,7 @@ func newTeamMemberPutBody(d *schema.ResourceData) *team_members.TeamMemberPutBod
 /*
  * Copies the given user instance into the given Source data
  */
-func setTeamMemberAttributesToResourceData(d *schema.ResourceData, teammember map[string]interface{}) error {
+func setTeamMemberAttributesToResourceData(d *schema.ResourceData, teammember map[string]any) error {
 	attributes := getTeamMemberAttributes()
 	if teammember != nil {
 		for _, attr := range attributes {

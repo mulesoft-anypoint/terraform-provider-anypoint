@@ -109,7 +109,7 @@ func resourceSecretGroupCertificate() *schema.Resource {
 	}
 }
 
-func resourceSecretGroupCertificateCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCertificateCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -154,7 +154,7 @@ func resourceSecretGroupCertificateCreate(ctx context.Context, d *schema.Resourc
 	return resourceSecretGroupCertificateRead(ctx, d, m)
 }
 
-func resourceSecretGroupCertificateRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCertificateRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -203,7 +203,7 @@ func resourceSecretGroupCertificateRead(ctx context.Context, d *schema.ResourceD
 	return diags
 }
 
-func resourceSecretGroupCertificateUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCertificateUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	if d.HasChanges(getSgCertificateUpdatableAttributes()...) {
 		pco := m.(ProviderConfOutput)
@@ -250,7 +250,7 @@ func resourceSecretGroupCertificateUpdate(ctx context.Context, d *schema.Resourc
 	return diags
 }
 
-func resourceSecretGroupCertificateDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCertificateDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	// NOTE: The delete action is not supported for this resource.
 	// a certificate cannot be deleted, only secret-group (parent) can be deleted

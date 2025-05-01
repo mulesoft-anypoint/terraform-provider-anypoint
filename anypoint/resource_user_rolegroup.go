@@ -105,7 +105,7 @@ func resourceUserRolegroup() *schema.Resource {
 	}
 }
 
-func resourceUserRolegroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceUserRolegroupCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -136,7 +136,7 @@ func resourceUserRolegroupCreate(ctx context.Context, d *schema.ResourceData, m 
 	return resourceUserRead(ctx, d, m)
 }
 
-func resourceUserRolegroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceUserRolegroupRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	orgid := d.Get("org_id").(string)
 	userid := d.Get("user_id").(string)
@@ -172,7 +172,7 @@ func resourceUserRolegroupRead(ctx context.Context, d *schema.ResourceData, m in
 	return diags
 }
 
-func resourceUserRolegroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceUserRolegroupDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)

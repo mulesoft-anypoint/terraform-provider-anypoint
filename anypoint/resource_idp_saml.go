@@ -150,7 +150,7 @@ func resourceSAML() *schema.Resource {
 	}
 }
 
-func resourceSAMLCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSAMLCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -184,7 +184,7 @@ func resourceSAMLCreate(ctx context.Context, d *schema.ResourceData, m interface
 	return resourceSAMLRead(ctx, d, m)
 }
 
-func resourceSAMLRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSAMLRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	idpid := d.Id()
@@ -230,7 +230,7 @@ func resourceSAMLRead(ctx context.Context, d *schema.ResourceData, m interface{}
 	return diags
 }
 
-func resourceSAMLUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSAMLUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	idpid := d.Id()
@@ -270,7 +270,7 @@ func resourceSAMLUpdate(ctx context.Context, d *schema.ResourceData, m interface
 	return diags
 }
 
-func resourceSAMLDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSAMLDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	idpid := d.Id()
@@ -307,8 +307,8 @@ func newSAMLPostBody(d *schema.ResourceData) (*idp.IdpPostBody, diag.Diagnostics
 	var diags diag.Diagnostics
 
 	name := d.Get("name").(string)
-	saml_input := d.Get("saml").([]interface{})
-	saml_data := saml_input[0].(map[string]interface{})
+	saml_input := d.Get("saml").([]any)
+	saml_data := saml_input[0].(map[string]any)
 	sp_sign_on_url := d.Get("sp_sign_on_url").(string)
 	sp_sign_out_url := d.Get("sp_sign_out_url").(string)
 	// init body SAML body
@@ -324,7 +324,7 @@ func newSAMLPostBody(d *schema.ResourceData) (*idp.IdpPostBody, diag.Diagnostics
 		saml.SetAudience(audience.(string))
 	}
 	if public_key, ok := saml_data["public_key"]; ok {
-		l := public_key.([]interface{})
+		l := public_key.([]any)
 		keys := make([]string, len(l))
 		for i, k := range l {
 			keys[i] = k.(string)
@@ -382,8 +382,8 @@ func newSAMLPatchBody(d *schema.ResourceData) (*idp.IdpPatchBody, diag.Diagnosti
 	var diags diag.Diagnostics
 
 	name := d.Get("name").(string)
-	saml_input := d.Get("saml").([]interface{})
-	saml_data := saml_input[0].(map[string]interface{})
+	saml_input := d.Get("saml").([]any)
+	saml_data := saml_input[0].(map[string]any)
 	sp_sign_on_url := d.Get("sp_sign_on_url").(string)
 	sp_sign_out_url := d.Get("sp_sign_out_url").(string)
 	// init body SAML body
@@ -399,7 +399,7 @@ func newSAMLPatchBody(d *schema.ResourceData) (*idp.IdpPatchBody, diag.Diagnosti
 		saml.SetAudience(audience.(string))
 	}
 	if public_key, ok := saml_data["public_key"]; ok {
-		l := public_key.([]interface{})
+		l := public_key.([]any)
 		keys := make([]string, len(l))
 		for i, k := range l {
 			keys[i] = k.(string)

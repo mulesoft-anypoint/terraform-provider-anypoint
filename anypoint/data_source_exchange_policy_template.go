@@ -267,7 +267,7 @@ func dataSourceExchangePolicyTemplate() *schema.Resource {
 	}
 }
 
-func dataSourceExchangePolicyTemplateRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceExchangePolicyTemplateRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -309,8 +309,8 @@ func dataSourceExchangePolicyTemplateRead(ctx context.Context, d *schema.Resourc
 	return diags
 }
 
-func flattenExchangePolicyTemplate(template *apim_policy.ExchangePolicyTemplate) map[string]interface{} {
-	result := make(map[string]interface{})
+func flattenExchangePolicyTemplate(template *apim_policy.ExchangePolicyTemplate) map[string]any {
+	result := make(map[string]any)
 	if val, ok := template.GetIdOk(); ok {
 		result["id"] = strconv.Itoa(int(*val))
 	}
@@ -407,16 +407,16 @@ func flattenExchangePolicyTemplate(template *apim_policy.ExchangePolicyTemplate)
 	return result
 }
 
-func flattenExchPolicyTempConfigs(collection []apim_policy.PolicyConfiguration) []interface{} {
-	slice := make([]interface{}, len(collection))
+func flattenExchPolicyTempConfigs(collection []apim_policy.PolicyConfiguration) []any {
+	slice := make([]any, len(collection))
 	for i, conf := range collection {
 		slice[i] = flattenExchPolicyTempConfig(&conf)
 	}
 	return slice
 }
 
-func flattenExchPolicyTempConfig(conf *apim_policy.PolicyConfiguration) map[string]interface{} {
-	result := make(map[string]interface{})
+func flattenExchPolicyTempConfig(conf *apim_policy.PolicyConfiguration) map[string]any {
+	result := make(map[string]any)
 	if val, ok := conf.GetPropertyNameOk(); ok {
 		result["property_name"] = *val
 	}
@@ -447,10 +447,10 @@ func flattenExchPolicyTempConfig(conf *apim_policy.PolicyConfiguration) map[stri
 	return result
 }
 
-func flattenExchPolicyTempConfigOpts(opts []map[string]interface{}) []interface{} {
-	slice := make([]interface{}, len(opts))
+func flattenExchPolicyTempConfigOpts(opts []map[string]any) []any {
+	slice := make([]any, len(opts))
 	for i, opt := range opts {
-		data := make(map[string]interface{})
+		data := make(map[string]any)
 		if val, ok := opt["name"]; ok {
 			data["name"] = ConvPrimtiveInterface2String(val)
 		}
@@ -462,10 +462,10 @@ func flattenExchPolicyTempConfigOpts(opts []map[string]interface{}) []interface{
 	return slice
 }
 
-func flattenExchPolicyTempConfigOptsConfig(collection []apim_policy.PolicyConfigurationConfigurationInner) []interface{} {
-	slice := make([]interface{}, len(collection))
+func flattenExchPolicyTempConfigOptsConfig(collection []apim_policy.PolicyConfigurationConfigurationInner) []any {
+	slice := make([]any, len(collection))
 	for i, c := range collection {
-		data := make(map[string]interface{})
+		data := make(map[string]any)
 		if val, ok := c.GetPropertyNameOk(); ok {
 			data["property_name"] = *val
 		}
@@ -477,10 +477,10 @@ func flattenExchPolicyTempConfigOptsConfig(collection []apim_policy.PolicyConfig
 	return slice
 }
 
-func flattenExchPolicyTempAllVersions(collection []apim_policy.ExchangePolicyTemplateAllVersionsInner) []interface{} {
-	slice := make([]interface{}, len(collection))
+func flattenExchPolicyTempAllVersions(collection []apim_policy.ExchangePolicyTemplateAllVersionsInner) []any {
+	slice := make([]any, len(collection))
 	for i, version := range collection {
-		data := make(map[string]interface{})
+		data := make(map[string]any)
 		if val, ok := version.GetGroupIdOk(); ok {
 			data["group_id"] = *val
 		}
@@ -495,7 +495,7 @@ func flattenExchPolicyTempAllVersions(collection []apim_policy.ExchangePolicyTem
 	return slice
 }
 
-func setApimExchPolicyTempToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setApimExchPolicyTempToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getExchPolicyTempDetailsAttributes()
 	if data != nil {
 		for _, attr := range attributes {

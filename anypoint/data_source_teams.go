@@ -154,7 +154,7 @@ func dataSourceTeams() *schema.Resource {
 	}
 }
 
-func dataSourceTeamsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceTeamsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	searchOpts := d.Get("params").(*schema.Set)
@@ -229,7 +229,7 @@ func parseTeamSearchOpts(req team.DefaultApiApiOrganizationsOrgIdTeamsGetRequest
 
 	opts := params.List()[0]
 
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "ancestor_team_id" {
 			req = req.AncestorTeamId(v.([]string))
 			continue
@@ -271,14 +271,14 @@ func parseTeamSearchOpts(req team.DefaultApiApiOrganizationsOrgIdTeamsGetRequest
 	return req, diags
 }
 
-func flattenTeamsData(teams *[]team.Team) []interface{} {
+func flattenTeamsData(teams *[]team.Team) []any {
 	if teams != nil && len(*teams) > 0 {
-		res := make([]interface{}, len(*teams))
+		res := make([]any, len(*teams))
 		for i, team := range *teams {
 			res[i] = flattenTeamData(&team)
 		}
 		return res
 	}
 
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }

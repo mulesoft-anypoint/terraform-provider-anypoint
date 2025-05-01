@@ -174,7 +174,7 @@ func resourceSecretGroupKeystore() *schema.Resource {
 				},
 			},
 		},
-		CustomizeDiff: func(ctx context.Context, rd *schema.ResourceDiff, i interface{}) error {
+		CustomizeDiff: func(ctx context.Context, rd *schema.ResourceDiff, i any) error {
 			return validateKeystoreInput(rd)
 		},
 		Importer: &schema.ResourceImporter{
@@ -183,7 +183,7 @@ func resourceSecretGroupKeystore() *schema.Resource {
 	}
 }
 
-func resourceSecretGroupKeystoreCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupKeystoreCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -227,7 +227,7 @@ func resourceSecretGroupKeystoreCreate(ctx context.Context, d *schema.ResourceDa
 	return resourceSecretGroupKeystoreRead(ctx, d, m)
 }
 
-func resourceSecretGroupKeystoreRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupKeystoreRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -274,7 +274,7 @@ func resourceSecretGroupKeystoreRead(ctx context.Context, d *schema.ResourceData
 	return diags
 }
 
-func resourceSecretGroupKeystoreUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupKeystoreUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	var attributes []string
 	t := d.Get("type").(string)
@@ -327,7 +327,7 @@ func resourceSecretGroupKeystoreUpdate(ctx context.Context, d *schema.ResourceDa
 	return diags
 }
 
-func resourceSecretGroupKeystoreDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupKeystoreDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	// NOTE: The delete action is not supported for this resource.
 	// a keystore cannot be deleted, only secret-group (parent) can be deleted

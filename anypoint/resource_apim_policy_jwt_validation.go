@@ -381,7 +381,7 @@ func resourceApimInstancePolicyJwtValidation() *schema.Resource {
 				Description: "the policy template version in anypoint exchange.",
 			},
 		},
-		CustomizeDiff: func(ctx context.Context, rd *schema.ResourceDiff, i interface{}) error {
+		CustomizeDiff: func(ctx context.Context, rd *schema.ResourceDiff, i any) error {
 			return validateJwtValidationCfg(rd)
 		},
 		Importer: &schema.ResourceImporter{
@@ -390,7 +390,7 @@ func resourceApimInstancePolicyJwtValidation() *schema.Resource {
 	}
 }
 
-func resourceApimInstancePolicyJwtValidationCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimInstancePolicyJwtValidationCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -431,7 +431,7 @@ func resourceApimInstancePolicyJwtValidationCreate(ctx context.Context, d *schem
 	return diags
 }
 
-func resourceApimInstancePolicyJwtValidationRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimInstancePolicyJwtValidationRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -463,7 +463,7 @@ func resourceApimInstancePolicyJwtValidationRead(ctx context.Context, d *schema.
 	defer httpr.Body.Close()
 	// process data
 	data := flattenApimInstancePolicy(res)
-	data["configuration_data"] = []interface{}{flattenApimPolicyJwtValidationCfg(d, res)}
+	data["configuration_data"] = []any{flattenApimPolicyJwtValidationCfg(d, res)}
 	if err := setApimInstancePolicyAttributesToResourceData(d, data); err != nil {
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -479,7 +479,7 @@ func resourceApimInstancePolicyJwtValidationRead(ctx context.Context, d *schema.
 	return diags
 }
 
-func resourceApimInstancePolicyJwtValidationUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimInstancePolicyJwtValidationUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	//detect change
 	if d.HasChanges("configuration_data", "pointcut_data") {
@@ -525,7 +525,7 @@ func resourceApimInstancePolicyJwtValidationUpdate(ctx context.Context, d *schem
 	return diags
 }
 
-func resourceApimInstancePolicyJwtValidationDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimInstancePolicyJwtValidationDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -557,7 +557,7 @@ func resourceApimInstancePolicyJwtValidationDelete(ctx context.Context, d *schem
 	return diags
 }
 
-func enableApimInstancePolicyJwtValidation(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func enableApimInstancePolicyJwtValidation(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -586,7 +586,7 @@ func enableApimInstancePolicyJwtValidation(ctx context.Context, d *schema.Resour
 	return diags
 }
 
-func disableApimInstancePolicyJwtValidation(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func disableApimInstancePolicyJwtValidation(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -615,18 +615,18 @@ func disableApimInstancePolicyJwtValidation(ctx context.Context, d *schema.Resou
 	return diags
 }
 
-func flattenApimPolicyJwtValidationCfg(d *schema.ResourceData, policy *apim_policy.ApimPolicy) map[string]interface{} {
-	data := make(map[string]interface{})
+func flattenApimPolicyJwtValidationCfg(d *schema.ResourceData, policy *apim_policy.ApimPolicy) map[string]any {
+	data := make(map[string]any)
 	cfg := policy.GetConfigurationData()
 	for k, v := range cfg {
 		k_snake := strcase.ToSnake(k)
 		data[k_snake] = v
 	}
-	l := d.Get("configuration_data").([]interface{})
+	l := d.Get("configuration_data").([]any)
 	if len(l) == 0 {
 		return data
 	}
-	dst := l[0].(map[string]interface{})
+	dst := l[0].(map[string]any)
 	maps.Copy(dst, data)
 	return dst
 }
@@ -634,13 +634,13 @@ func flattenApimPolicyJwtValidationCfg(d *schema.ResourceData, policy *apim_poli
 func newApimPolicyJwtValidationBody(d *schema.ResourceData) *apim_policy.ApimPolicyBody {
 	body := apim_policy.NewApimPolicyBody()
 	if val, ok := d.GetOk("configuration_data"); ok {
-		l := val.([]interface{})
-		cfg := l[0].(map[string]interface{})
+		l := val.([]any)
+		cfg := l[0].(map[string]any)
 		data := newApimPolicyJwtValidationCfg(cfg)
 		body.SetConfigurationData(data)
 	}
 	if val, ok := d.GetOk("pointcut_data"); ok {
-		body.SetPointcutData(newApimPolicyJwtValidationPointcutDataBody(val.([]interface{})))
+		body.SetPointcutData(newApimPolicyJwtValidationPointcutDataBody(val.([]any)))
 	}
 	if val, ok := d.GetOk("asset_group_id"); ok {
 		body.SetGroupId(val.(string))
@@ -654,17 +654,17 @@ func newApimPolicyJwtValidationBody(d *schema.ResourceData) *apim_policy.ApimPol
 	return body
 }
 
-func newApimPolicyJwtValidationPatchBody(d *schema.ResourceData) map[string]interface{} {
-	body := make(map[string]interface{})
+func newApimPolicyJwtValidationPatchBody(d *schema.ResourceData) map[string]any {
+	body := make(map[string]any)
 	if val, ok := d.GetOk("configuration_data"); ok {
-		l := val.([]interface{})
-		cfg := l[0].(map[string]interface{})
+		l := val.([]any)
+		cfg := l[0].(map[string]any)
 		data := newApimPolicyJwtValidationCfg(cfg)
 		body["configurationData"] = data
 	}
 	if val, ok := d.GetOk("pointcut_data"); ok {
-		collection := newApimPolicyClientIdEnfPointcutDataBody(val.([]interface{}))
-		slice := make([]map[string]interface{}, len(collection))
+		collection := newApimPolicyClientIdEnfPointcutDataBody(val.([]any))
+		slice := make([]map[string]any, len(collection))
 		for i, item := range collection {
 			m, _ := item.ToMap()
 			slice[i] = m
@@ -685,8 +685,8 @@ func newApimPolicyJwtValidationPatchBody(d *schema.ResourceData) map[string]inte
 	return body
 }
 
-func newApimPolicyJwtValidationCfg(input map[string]interface{}) map[string]interface{} {
-	body := make(map[string]interface{})
+func newApimPolicyJwtValidationCfg(input map[string]any) map[string]any {
+	body := make(map[string]any)
 	attributes := getApimPolicyJwtValidationCfgAttributes()
 	for _, attr := range attributes {
 		if val, ok := input[attr]; ok {
@@ -696,10 +696,10 @@ func newApimPolicyJwtValidationCfg(input map[string]interface{}) map[string]inte
 	return body
 }
 
-func newApimPolicyJwtValidationPointcutDataBody(collection []interface{}) []apim_policy.PointcutDataItem {
+func newApimPolicyJwtValidationPointcutDataBody(collection []any) []apim_policy.PointcutDataItem {
 	slice := make([]apim_policy.PointcutDataItem, len(collection))
 	for i, item := range collection {
-		data := item.(map[string]interface{})
+		data := item.(map[string]any)
 		body := apim_policy.NewPointcutDataItem()
 		if val, ok := data["method_regex"]; ok && val != nil {
 			set := val.(*schema.Set)
@@ -715,8 +715,8 @@ func newApimPolicyJwtValidationPointcutDataBody(collection []interface{}) []apim
 
 func validateJwtValidationCfg(d *schema.ResourceDiff) error {
 	c := d.Get("configuration_data")
-	l := c.([]interface{})
-	cfg := l[0].(map[string]interface{})
+	l := c.([]any)
+	cfg := l[0].(map[string]any)
 	jwt_origin := cfg["jwt_origin"].(string)
 	if _, ok := cfg["jwt_expression"]; !ok && jwt_origin == "customExpression" {
 		return fmt.Errorf("attribute jwt_expression is required in \"customExpression\" mode")

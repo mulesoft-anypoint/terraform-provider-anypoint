@@ -96,7 +96,7 @@ func resourceSecretGroup() *schema.Resource {
 	}
 }
 
-func resourceSecretGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -129,7 +129,7 @@ func resourceSecretGroupCreate(ctx context.Context, d *schema.ResourceData, m in
 	return resourceSecretGroupRead(ctx, d, m)
 }
 
-func resourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -175,7 +175,7 @@ func resourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m inte
 	return diags
 }
 
-func resourceSecretGroupUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	if d.HasChange("name") {
@@ -209,7 +209,7 @@ func resourceSecretGroupUpdate(ctx context.Context, d *schema.ResourceData, m in
 	return diags
 }
 
-func resourceSecretGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)

@@ -44,7 +44,7 @@ func dataSourceFabricsHelmRepoProps() *schema.Resource {
 	}
 }
 
-func dataSourceFabricsHelmRepoPropsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceFabricsHelmRepoPropsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -85,8 +85,8 @@ func dataSourceFabricsHelmRepoPropsRead(ctx context.Context, d *schema.ResourceD
 	return diags
 }
 
-func flattenFabricsHelmRepoProps(props *rtf.FabricsHelmRepoProps) map[string]interface{} {
-	data := make(map[string]interface{})
+func flattenFabricsHelmRepoProps(props *rtf.FabricsHelmRepoProps) map[string]any {
+	data := make(map[string]any)
 	if props == nil {
 		return data
 	}
@@ -104,7 +104,7 @@ func flattenFabricsHelmRepoProps(props *rtf.FabricsHelmRepoProps) map[string]int
 	return data
 }
 
-func setFabricsHelmRepoResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setFabricsHelmRepoResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getFabricsHelmRepoAttributes()
 	if data != nil {
 		for _, attr := range attributes {

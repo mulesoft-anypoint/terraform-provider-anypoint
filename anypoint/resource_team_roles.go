@@ -89,7 +89,7 @@ Depending on the ` + "`" + `role` + "`" + `, some roles are environment scoped o
 	}
 }
 
-func resourceTeamRolesCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamRolesCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -120,7 +120,7 @@ func resourceTeamRolesCreate(ctx context.Context, d *schema.ResourceData, m inte
 	return resourceTeamRolesRead(ctx, d, m)
 }
 
-func resourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -178,7 +178,7 @@ func resourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m interf
 	return diags
 }
 
-func resourceTeamRolesDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceTeamRolesDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -212,18 +212,18 @@ func resourceTeamRolesDelete(ctx context.Context, d *schema.ResourceData, m inte
 	return diags
 }
 
-func newTeamRolesPostBody(d *schema.ResourceData) []map[string]interface{} {
-	roles := d.Get("roles").([]interface{})
+func newTeamRolesPostBody(d *schema.ResourceData) []map[string]any {
+	roles := d.Get("roles").([]any)
 
-	if roles == nil || len(roles) <= 0 {
-		return make([]map[string]interface{}, 0)
+	if len(roles) <= 0 {
+		return make([]map[string]any, 0)
 	}
 
-	body := make([]map[string]interface{}, len(roles))
+	body := make([]map[string]any, len(roles))
 
 	for i, role := range roles {
-		content := role.(map[string]interface{})
-		item := make(map[string]interface{})
+		content := role.(map[string]any)
+		item := make(map[string]any)
 		item["role_id"] = content["role_id"]
 		item["context_params"] = content["context_params"]
 		body[i] = item
@@ -232,21 +232,21 @@ func newTeamRolesPostBody(d *schema.ResourceData) []map[string]interface{} {
 	return body
 }
 
-func newTeamRolesDeleteBody(d *schema.ResourceData) []map[string]interface{} {
-	roles := d.Get("roles").([]interface{})
+func newTeamRolesDeleteBody(d *schema.ResourceData) []map[string]any {
+	roles := d.Get("roles").([]any)
 
-	if roles == nil || len(roles) <= 0 {
-		return make([]map[string]interface{}, 0)
+	if len(roles) <= 0 {
+		return make([]map[string]any, 0)
 	}
 
-	body := make([]map[string]interface{}, 0) // It is forbidden to remove the Business Group Viewer role
+	body := make([]map[string]any, 0) // It is forbidden to remove the Business Group Viewer role
 
 	for _, role := range roles {
-		content := role.(map[string]interface{})
+		content := role.(map[string]any)
 		if content["role_id"] == BG_VIEWER_ROLE { // It is forbidden to remove the Business Group Viewer role
 			continue
 		}
-		item := make(map[string]interface{})
+		item := make(map[string]any)
 		item["role_id"] = content["role_id"]
 		item["context_params"] = content["context_params"]
 		body = append(body, item)
@@ -257,9 +257,9 @@ func newTeamRolesDeleteBody(d *schema.ResourceData) []map[string]interface{} {
 
 // Compares old and new values of roles
 // returns true if they are the same, false otherwise
-func equalTeamRoles(old, new interface{}) bool {
-	old_list := old.([]interface{})
-	new_list := new.([]interface{})
+func equalTeamRoles(old, new any) bool {
+	old_list := old.([]any)
+	new_list := new.([]any)
 	old_list = FilterMapList(old_list, rolesSkipFilter)
 	new_list = FilterMapList(new_list, rolesSkipFilter)
 	sortMapListRoles(old_list)
@@ -276,9 +276,9 @@ func equalTeamRoles(old, new interface{}) bool {
 }
 
 // compares 2 singles roles
-func equalTeamRole(old, new interface{}) bool {
-	old_role := old.(map[string]interface{})
-	new_role := new.(map[string]interface{})
+func equalTeamRole(old, new any) bool {
+	old_role := old.(map[string]any)
+	new_role := new.(map[string]any)
 
 	ridkey := "role_id"
 	cparamskey := "context_params"
@@ -293,9 +293,9 @@ func equalTeamRole(old, new interface{}) bool {
 }
 
 // compares 2 role contexts
-func equalTeamRoleContextParams(old, new interface{}) bool {
-	old_cparams := old.(map[string]interface{})
-	new_cparams := new.(map[string]interface{})
+func equalTeamRoleContextParams(old, new any) bool {
+	old_cparams := old.(map[string]any)
+	new_cparams := new.(map[string]any)
 
 	for k := range old_cparams {
 		oldVal, oldOk := old_cparams[k].(string)
@@ -330,17 +330,17 @@ func equalTeamRoleContextParams(old, new interface{}) bool {
 
 // filter for roles to skip when attempting to calculate the diffin
 // the role ids in this function are automatically added when a team is created. Therefore should be skipped
-func rolesSkipFilter(item map[string]interface{}) bool {
+func rolesSkipFilter(item map[string]any) bool {
 	skip := []string{BG_VIEWER_ROLE}
 	ridkey := "role_id"
 	return !StringInSlice(skip, item[ridkey].(string), false)
 }
 
 // sorts a list of roles by role_id, org, envId
-func sortMapListRoles(roles []interface{}) {
+func sortMapListRoles(roles []any) {
 	sort.SliceStable(roles, func(i, j int) bool {
-		i_elem := roles[i].(map[string]interface{})
-		j_elem := roles[j].(map[string]interface{})
+		i_elem := roles[i].(map[string]any)
+		j_elem := roles[j].(map[string]any)
 
 		sortAttrA := "role_id"
 		sortAttrB := "context_params"
@@ -350,8 +350,8 @@ func sortMapListRoles(roles []interface{}) {
 
 		sortAttrC := "org"
 		sortAttrD := "envId"
-		i_context := i_elem[sortAttrB].(map[string]interface{})
-		j_context := j_elem[sortAttrB].(map[string]interface{})
+		i_context := i_elem[sortAttrB].(map[string]any)
+		j_context := j_elem[sortAttrB].(map[string]any)
 		if i_context[sortAttrC] != nil && j_context[sortAttrC] != nil && i_context[sortAttrC].(string) != j_context[sortAttrC].(string) {
 			return i_context[sortAttrC].(string) < j_context[sortAttrC].(string)
 		}

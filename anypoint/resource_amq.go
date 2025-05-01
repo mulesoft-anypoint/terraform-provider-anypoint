@@ -117,7 +117,7 @@ func resourceAMQ() *schema.Resource {
 	}
 }
 
-func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -151,7 +151,7 @@ func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	return resourceAMQRead(ctx, d, m)
 }
 
-func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -204,7 +204,7 @@ func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	return diags
 }
 
-func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -241,7 +241,7 @@ func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	return diags
 }
 
-func resourceAMQDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMQDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)

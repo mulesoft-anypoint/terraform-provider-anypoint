@@ -75,7 +75,7 @@ func dataSourceSecretGroupCertificate() *schema.Resource {
 	}
 }
 
-func dataSourceSecretGroupCertificateRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceSecretGroupCertificateRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -117,8 +117,8 @@ func dataSourceSecretGroupCertificateRead(ctx context.Context, d *schema.Resourc
 	return diags
 }
 
-func flattenSgCertificate(cert *secretgroup_certificate.Certificate) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgCertificate(cert *secretgroup_certificate.Certificate) map[string]any {
+	item := make(map[string]any)
 	if val, ok := cert.GetNameOk(); ok {
 		item["name"] = *val
 	}
@@ -135,14 +135,14 @@ func flattenSgCertificate(cert *secretgroup_certificate.Certificate) map[string]
 		maps.Copy(item, flattenSgCertificateMeta(val))
 	}
 	if val, ok := cert.GetDetailsOk(); ok {
-		item["details"] = []interface{}{flattenSgCertificateDetails(val)}
+		item["details"] = []any{flattenSgCertificateDetails(val)}
 	}
 
 	return item
 }
 
-func flattenSgCertificateDetails(cert *secretgroup_certificate.CertificateDetails) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgCertificateDetails(cert *secretgroup_certificate.CertificateDetails) map[string]any {
+	item := make(map[string]any)
 	if val, ok := cert.GetIssuerOk(); ok {
 		item["issuer"] = flattenSgCertificateIssuerSubject(val)
 	}
@@ -184,8 +184,8 @@ func flattenSgCertificateDetails(cert *secretgroup_certificate.CertificateDetail
 	return item
 }
 
-func flattenSgCertificateIssuerSubject(is *secretgroup_certificate.IssuerSubject) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgCertificateIssuerSubject(is *secretgroup_certificate.IssuerSubject) map[string]any {
+	item := make(map[string]any)
 	if val, ok := is.GetCommonNameOk(); ok {
 		item["common_name"] = *val
 	}
@@ -207,8 +207,8 @@ func flattenSgCertificateIssuerSubject(is *secretgroup_certificate.IssuerSubject
 	return item
 }
 
-func flattenSgCertificateCertificateValidity(validity *secretgroup_certificate.CertificateValidity) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgCertificateCertificateValidity(validity *secretgroup_certificate.CertificateValidity) map[string]any {
+	item := make(map[string]any)
 	if val, ok := validity.GetNotBeforeOk(); ok {
 		item["not_before"] = *val
 	}
@@ -218,8 +218,8 @@ func flattenSgCertificateCertificateValidity(validity *secretgroup_certificate.C
 	return item
 }
 
-func flattenSgCertificateMeta(meta *secretgroup_certificate.Meta) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgCertificateMeta(meta *secretgroup_certificate.Meta) map[string]any {
+	item := make(map[string]any)
 	if val, ok := meta.GetIdOk(); ok {
 		item["id"] = *val
 	}
@@ -229,7 +229,7 @@ func flattenSgCertificateMeta(meta *secretgroup_certificate.Meta) map[string]int
 	return item
 }
 
-func setSgCertificateAttributesToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setSgCertificateAttributesToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getSgCertificateAttributes()
 	if data != nil {
 		for _, attr := range attributes {

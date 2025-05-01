@@ -144,7 +144,7 @@ func dataSourceAppDeploymentsV2() *schema.Resource {
 	}
 }
 
-func dataSourceAppDeploymentsV2Read(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceAppDeploymentsV2Read(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	searchOpts := d.Get("params").(*schema.Set)
@@ -210,7 +210,7 @@ func parseAppDeploymentSearchOpts(req application_manager_v2.DefaultApiGetAllDep
 		return req, diags
 	}
 	opts := params.List()[0]
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "target_id" {
 			req = req.TargetId(v.(string))
 			continue
@@ -227,19 +227,19 @@ func parseAppDeploymentSearchOpts(req application_manager_v2.DefaultApiGetAllDep
 	return req, diags
 }
 
-func flattenAppDeploymentV2ItemsResult(items []application_manager_v2.DeploymentItem) []interface{} {
+func flattenAppDeploymentV2ItemsResult(items []application_manager_v2.DeploymentItem) []any {
 	if len(items) > 0 {
-		res := make([]interface{}, len(items))
+		res := make([]any, len(items))
 		for i, item := range items {
 			res[i] = flattenAppDeploymentV2ItemResult(&item)
 		}
 		return res
 	}
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
 
-func flattenAppDeploymentV2ItemResult(data *application_manager_v2.DeploymentItem) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenAppDeploymentV2ItemResult(data *application_manager_v2.DeploymentItem) map[string]any {
+	item := make(map[string]any)
 	if data == nil {
 		return item
 	}

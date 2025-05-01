@@ -90,7 +90,7 @@ func dataSourceSecretGroupCrlDistribCfgs() *schema.Resource {
 	}
 }
 
-func dataSourceSecretGroupCrlDistribCfgsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceSecretGroupCrlDistribCfgsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -131,8 +131,8 @@ func dataSourceSecretGroupCrlDistribCfgsRead(ctx context.Context, d *schema.Reso
 	return diags
 }
 
-func flattenSgCrlDistribCfgsDetails(cdc *secretgroup_crl_distributor_configs.CrlDistribCfgsDetails) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgCrlDistribCfgsDetails(cdc *secretgroup_crl_distributor_configs.CrlDistribCfgsDetails) map[string]any {
+	item := make(map[string]any)
 	if val, ok := cdc.GetNameOk(); ok {
 		item["name"] = *val
 	}
@@ -160,7 +160,7 @@ func flattenSgCrlDistribCfgsDetails(cdc *secretgroup_crl_distributor_configs.Crl
 	return item
 }
 
-func setSgCrlDistribCfgsAttributesToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setSgCrlDistribCfgsAttributesToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getSgCrlDistribCfgsAttributes()
 	if data != nil {
 		for _, attr := range attributes {

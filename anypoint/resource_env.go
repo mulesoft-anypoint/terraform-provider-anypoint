@@ -68,7 +68,7 @@ func resourceENV() *schema.Resource {
 	}
 }
 
-func resourceENVCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceENVCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -97,7 +97,7 @@ func resourceENVCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	return resourceENVRead(ctx, d, m)
 }
 
-func resourceENVRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceENVRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	envid := d.Id()
@@ -141,7 +141,7 @@ func resourceENVRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	return diags
 }
 
-func resourceENVUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceENVUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	envid := d.Id()
@@ -175,7 +175,7 @@ func resourceENVUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	return diags
 }
 
-func resourceENVDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceENVDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	envid := d.Id()

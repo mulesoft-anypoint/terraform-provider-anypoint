@@ -81,7 +81,7 @@ func dataSourceSecretGroup() *schema.Resource {
 	}
 }
 
-func dataSourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	//init vars
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -123,7 +123,7 @@ func dataSourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m in
 	return diags
 }
 
-func setSecretGroupAttributesToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setSecretGroupAttributesToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getSecretGroupAttributes()
 	if data != nil {
 		for _, attr := range attributes {

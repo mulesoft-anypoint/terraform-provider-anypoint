@@ -80,7 +80,7 @@ func resourceFabricsAssociations() *schema.Resource {
 	}
 }
 
-func resourceFabricsAssociationsCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceFabricsAssociationsCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -112,7 +112,7 @@ func resourceFabricsAssociationsCreate(ctx context.Context, d *schema.ResourceDa
 	return resourceFabricsAssociationsRead(ctx, d, m)
 }
 
-func resourceFabricsAssociationsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceFabricsAssociationsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	fabricsid := d.Get("fabrics_id").(string)
@@ -157,7 +157,7 @@ func resourceFabricsAssociationsRead(ctx context.Context, d *schema.ResourceData
 	return diags
 }
 
-func resourceFabricsAssociationsDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceFabricsAssociationsDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	fabricsid := d.Get("fabrics_id").(string)
@@ -199,7 +199,7 @@ func prepareFabricsAssociationsPostBody(d *schema.ResourceData) *rtf.FabricsAsso
 	}
 	res := make([]rtf.FabricsAssociationsPostBodyAssociationsInner, associations.Len())
 	for i, association := range associations.List() {
-		parsedAssoc := association.(map[string]interface{})
+		parsedAssoc := association.(map[string]any)
 		inner := rtf.NewFabricsAssociationsPostBodyAssociationsInner()
 		inner.SetOrganizationId(parsedAssoc["org_id"].(string))
 		inner.SetEnvironment(parsedAssoc["env_id"].(string))
@@ -230,7 +230,7 @@ func decomposeFabricsAssociationsId(d *schema.ResourceData) (string, string) {
 	return s[0], s[1]
 }
 
-func equalFabricsAssociations(old, new interface{}) bool {
+func equalFabricsAssociations(old, new any) bool {
 	old_set := old.(*schema.Set)
 	old_list := old_set.List()
 	new_set := new.(*schema.Set)
@@ -243,8 +243,8 @@ func equalFabricsAssociations(old, new interface{}) bool {
 		return false
 	}
 	for i, val := range old_list {
-		o := val.(map[string]interface{})
-		n := new_list[i].(map[string]interface{})
+		o := val.(map[string]any)
+		n := new_list[i].(map[string]any)
 		if n["org_id"].(string) != o["org_id"].(string) || n["env_id"].(string) != o["env_id"].(string) {
 			return false
 		}

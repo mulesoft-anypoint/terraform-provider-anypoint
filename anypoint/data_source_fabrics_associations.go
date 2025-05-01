@@ -60,7 +60,7 @@ func dataSourceFabricsAssociations() *schema.Resource {
 	}
 }
 
-func dataSourceFabricsAssociationsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceFabricsAssociationsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -111,19 +111,19 @@ func dataSourceFabricsAssociationsRead(ctx context.Context, d *schema.ResourceDa
 	return diags
 }
 
-func flattenFabricsAssociationsData(associations []rtf.FabricsAssociationsInner) []interface{} {
+func flattenFabricsAssociationsData(associations []rtf.FabricsAssociationsInner) []any {
 	if len(associations) == 0 {
-		return make([]interface{}, 0)
+		return make([]any, 0)
 	}
-	res := make([]interface{}, len(associations))
+	res := make([]any, len(associations))
 	for i, association := range associations {
 		res[i] = flattenFabricsAssociationData(&association)
 	}
 	return res
 }
 
-func flattenFabricsAssociationData(association *rtf.FabricsAssociationsInner) map[string]interface{} {
-	mappedItem := make(map[string]interface{})
+func flattenFabricsAssociationData(association *rtf.FabricsAssociationsInner) map[string]any {
+	mappedItem := make(map[string]any)
 
 	if val, ok := association.GetIdOk(); ok {
 		mappedItem["id"] = *val

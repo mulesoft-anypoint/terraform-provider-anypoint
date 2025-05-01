@@ -104,7 +104,7 @@ func resourceSecretGroupCrlDistribCfgs() *schema.Resource {
 	}
 }
 
-func resourceSecretGroupCrlDistribCfgsCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCrlDistribCfgsCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -137,7 +137,7 @@ func resourceSecretGroupCrlDistribCfgsCreate(ctx context.Context, d *schema.Reso
 	return resourceSecretGroupCrlDistribCfgsRead(ctx, d, m)
 }
 
-func resourceSecretGroupCrlDistribCfgsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCrlDistribCfgsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -185,7 +185,7 @@ func resourceSecretGroupCrlDistribCfgsRead(ctx context.Context, d *schema.Resour
 	return diags
 }
 
-func resourceSecretGroupCrlDistribCfgsUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCrlDistribCfgsUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	if d.HasChanges(getSgCrlDistribCfgsUpdatableAttributes()...) {
 		pco := m.(ProviderConfOutput)
@@ -221,7 +221,7 @@ func resourceSecretGroupCrlDistribCfgsUpdate(ctx context.Context, d *schema.Reso
 	return diags
 }
 
-func resourceSecretGroupCrlDistribCfgsDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCrlDistribCfgsDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	// NOTE: The delete action is not supported for this resource.
 	// a keystore cannot be deleted, only secret-group (parent) can be deleted

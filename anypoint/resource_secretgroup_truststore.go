@@ -129,7 +129,7 @@ func resourceSecretGroupTruststore() *schema.Resource {
 				},
 			},
 		},
-		CustomizeDiff: func(ctx context.Context, rd *schema.ResourceDiff, i interface{}) error {
+		CustomizeDiff: func(ctx context.Context, rd *schema.ResourceDiff, i any) error {
 			return validateTruststoreInput(rd)
 		},
 		Importer: &schema.ResourceImporter{
@@ -138,7 +138,7 @@ func resourceSecretGroupTruststore() *schema.Resource {
 	}
 }
 
-func resourceSecretGroupTruststoreCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTruststoreCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -184,7 +184,7 @@ func resourceSecretGroupTruststoreCreate(ctx context.Context, d *schema.Resource
 	return resourceSecretGroupTruststoreRead(ctx, d, m)
 }
 
-func resourceSecretGroupTruststoreRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTruststoreRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -231,7 +231,7 @@ func resourceSecretGroupTruststoreRead(ctx context.Context, d *schema.ResourceDa
 	return diags
 }
 
-func resourceSecretGroupTruststoreUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTruststoreUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	var attributes []string
 	t := d.Get("type").(string)
@@ -284,7 +284,7 @@ func resourceSecretGroupTruststoreUpdate(ctx context.Context, d *schema.Resource
 	return diags
 }
 
-func resourceSecretGroupTruststoreDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTruststoreDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	// NOTE: The delete action is not supported for this resource.
 	// a truststore cannot be deleted, only secret-group (parent) can be deleted

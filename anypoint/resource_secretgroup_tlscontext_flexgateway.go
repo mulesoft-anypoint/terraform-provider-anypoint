@@ -192,7 +192,7 @@ func resourceSecretGroupTlsContextFG() *schema.Resource {
 	}
 }
 
-func resourceSecretGroupTlsContextFGCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTlsContextFGCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -227,7 +227,7 @@ func resourceSecretGroupTlsContextFGCreate(ctx context.Context, d *schema.Resour
 	return resourceSecretGroupTlsContextFGRead(ctx, d, m)
 }
 
-func resourceSecretGroupTlsContextFGRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTlsContextFGRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -282,7 +282,7 @@ func resourceSecretGroupTlsContextFGRead(ctx context.Context, d *schema.Resource
 	return diags
 }
 
-func resourceSecretGroupTlsContextFGUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTlsContextFGUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	if d.HasChanges(getSgTlsContextFGUpdatableAttributes()...) {
 		pco := m.(ProviderConfOutput)
@@ -318,7 +318,7 @@ func resourceSecretGroupTlsContextFGUpdate(ctx context.Context, d *schema.Resour
 	return diags
 }
 
-func resourceSecretGroupTlsContextFGDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupTlsContextFGDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	// NOTE: The delete action is not supported for this resource.
 	// a tls-context cannot be deleted, only secret-group (parent) can be deleted
@@ -368,9 +368,9 @@ func newSgTlsContextFlexGatewayBody(d *schema.ResourceData) *secretgroup_tlscont
 		body.SetAlpnProtocols(ListInterface2ListStrings(set.List()))
 	}
 	if val, ok := d.GetOk("inbound_settings"); ok {
-		list := val.([]interface{})
+		list := val.([]any)
 		if len(list) > 0 {
-			inbound := list[0].(map[string]interface{})
+			inbound := list[0].(map[string]any)
 			if val, ok := inbound["enable_client_cert_validation"]; ok {
 				setting := secretgroup_tlscontext.NewTlsContextFlexGatewayBodyInboundSettings()
 				setting.SetEnableClientCertValidation(val.(bool))
@@ -379,9 +379,9 @@ func newSgTlsContextFlexGatewayBody(d *schema.ResourceData) *secretgroup_tlscont
 		}
 	}
 	if val, ok := d.GetOk("outbound_settings"); ok {
-		list := val.([]interface{})
+		list := val.([]any)
 		if len(list) > 0 {
-			outbound := list[0].(map[string]interface{})
+			outbound := list[0].(map[string]any)
 			if val, ok := outbound["skip_server_cert_validation"]; ok {
 				setting := secretgroup_tlscontext.NewTlsContextFlexGatewayBodyOutboundSettings()
 				setting.SetSkipServerCertValidation(val.(bool))

@@ -478,7 +478,7 @@ func resourceApimFlexGateway() *schema.Resource {
 				Description: "The instance's discovery name",
 			},
 		},
-		CustomizeDiff: func(ctx context.Context, rd *schema.ResourceDiff, i interface{}) error {
+		CustomizeDiff: func(ctx context.Context, rd *schema.ResourceDiff, i any) error {
 			return validateRoutingUpstreams(rd)
 		},
 		Importer: &schema.ResourceImporter{
@@ -487,7 +487,7 @@ func resourceApimFlexGateway() *schema.Resource {
 	}
 }
 
-func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// init variables
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -532,7 +532,7 @@ func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, 
 }
 
 // Create upstreams for the apim flex gateway instance if upstreams is set
-func resourceApimFlexGatewayUpstreamsCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimFlexGatewayUpstreamsCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	if input, ok := d.GetOk("upstreams"); ok {
 		pco := m.(ProviderConfOutput)
@@ -540,7 +540,7 @@ func resourceApimFlexGatewayUpstreamsCreate(ctx context.Context, d *schema.Resou
 		envid := d.Get("env_id").(string)
 		id := d.Get("id").(string)
 		authctx := getApimUpstreamAuthCtx(ctx, &pco)
-		bodies := newApimFlexGatewayUpstreamPostBody(input.([]interface{}))
+		bodies := newApimFlexGatewayUpstreamPostBody(input.([]any))
 		// loop over all new upstreams to create them
 		for _, body := range bodies {
 			//execute post upstream
@@ -569,7 +569,7 @@ func resourceApimFlexGatewayUpstreamsCreate(ctx context.Context, d *schema.Resou
 }
 
 // refresh the state of the flex gateway instance
-func resourceApimFlexGatewayRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimFlexGatewayRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -620,7 +620,7 @@ func resourceApimFlexGatewayRead(ctx context.Context, d *schema.ResourceData, m 
 }
 
 // updates the whole apim flex gateway in case of changes
-func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -631,7 +631,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 		authctx := getApimUpstreamAuthCtx(ctx, &pco)
 		bodies := newApimFlexGatewayUpstreamPatchBody(toupdate)
 		for i, body := range bodies {
-			item := toupdate[i].(map[string]interface{})
+			item := toupdate[i].(map[string]any)
 			id := item["id"].(string)
 			_, httpr, err := pco.apimupstreamclient.DefaultApi.PatchApimInstanceUpstream(authctx, orgid, envid, apimid, id).UpstreamPatchBody(*body).Execute()
 			if err != nil {
@@ -699,7 +699,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 	if len(todelete) > 0 && !diags.HasError() {
 		authctx := getApimUpstreamAuthCtx(ctx, &pco)
 		for _, item_todelete := range todelete {
-			item := item_todelete.(map[string]interface{})
+			item := item_todelete.(map[string]any)
 			id := item["id"].(string)
 			httpr, err := pco.apimupstreamclient.DefaultApi.DeleteApimInstanceUpstream(authctx, orgid, envid, apimid, id).Execute()
 			if err != nil {
@@ -725,7 +725,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 }
 
 // Updates the routing only for the apim flex gateway
-func resourceApimFlexGatewayRoutingUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimFlexGatewayRoutingUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -761,7 +761,7 @@ func resourceApimFlexGatewayRoutingUpdate(ctx context.Context, d *schema.Resourc
 }
 
 // deletes the apim flex gateway
-func resourceApimFlexGatewayDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimFlexGatewayDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -795,12 +795,12 @@ func resourceApimFlexGatewayDelete(ctx context.Context, d *schema.ResourceData, 
 
 // removes the default upstream that is created upon the creation of a flex gateway instance. it has an empty label.
 // the list of upstreams should be updated before calling this function
-func resourceApimFlexGatewayDeleteDefaultUpstream(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimFlexGatewayDeleteDefaultUpstream(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	if upstreams, ok := d.GetOk("upstreams"); ok {
-		filtered := FilterMapList(upstreams.([]interface{}), func(m map[string]interface{}) bool { return len(m["label"].(string)) == 0 })
+		filtered := FilterMapList(upstreams.([]any), func(m map[string]any) bool { return len(m["label"].(string)) == 0 })
 		if len(filtered) > 0 {
-			item := filtered[0].(map[string]interface{})
+			item := filtered[0].(map[string]any)
 			id := item["id"].(string)
 			pco := m.(ProviderConfOutput)
 			orgid := d.Get("org_id").(string)
@@ -889,7 +889,7 @@ func newApimFlexGatewayEndpointTlsContextPostBody(d *schema.ResourceData) *apim.
 		list := set.List()
 		if len(list) > 0 {
 			inbound := apim.NewEndpointPostBodyTlsContextsInbound()
-			item := list[0].(map[string]interface{})
+			item := list[0].(map[string]any)
 			if sgi, ok := item["secret_group_id"]; ok {
 				inbound.SetSecretGroupId(sgi.(string))
 			}
@@ -946,32 +946,32 @@ func newApimFlexGatewaySpecPostBody(d *schema.ResourceData) *apim.Spec {
 	return body
 }
 
-func newApimFlexGatewayRoutingPostBody(d *schema.ResourceData) map[string]interface{} {
-	upstreams_data := d.Get("upstreams").([]interface{})
-	body := make(map[string]interface{})
+func newApimFlexGatewayRoutingPostBody(d *schema.ResourceData) map[string]any {
+	upstreams_data := d.Get("upstreams").([]any)
+	body := make(map[string]any)
 	if routings, ok := d.GetOk("routing"); ok {
-		routings_list := routings.([]interface{})
-		routing_elements := make([]map[string]interface{}, len(routings_list))
+		routings_list := routings.([]any)
+		routing_elements := make([]map[string]any, len(routings_list))
 		for i, routings_item := range routings_list {
-			routing_input := routings_item.(map[string]interface{})
-			routing_output := make(map[string]interface{})
+			routing_input := routings_item.(map[string]any)
+			routing_output := make(map[string]any)
 			if val, ok := routing_input["label"]; ok {
 				routing_output["label"] = val
 			}
 			if upstream_input, ok := routing_input["upstreams"]; ok {
 				upstream_input_set := upstream_input.(*schema.Set)
 				upstream_input_list := upstream_input_set.List()
-				upstreams_output := make([]map[string]interface{}, len(upstream_input_list))
+				upstreams_output := make([]map[string]any, len(upstream_input_list))
 				for j, upstream_item := range upstream_input_list {
-					record := make(map[string]interface{})
-					upstream := upstream_item.(map[string]interface{})
+					record := make(map[string]any)
+					upstream := upstream_item.(map[string]any)
 					if v, ok := upstream["weight"]; ok {
 						record["weight"] = v
 					}
 					if v, ok := upstream["label"]; ok {
-						filtered := FilterMapList(upstreams_data, func(m map[string]interface{}) bool { return m["label"].(string) == v.(string) })
+						filtered := FilterMapList(upstreams_data, func(m map[string]any) bool { return m["label"].(string) == v.(string) })
 						if len(filtered) > 0 {
-							u := filtered[0].(map[string]interface{})
+							u := filtered[0].(map[string]any)
 							record["id"] = u["id"]
 						}
 					}
@@ -992,11 +992,11 @@ func newApimFlexGatewayRoutingPostBody(d *schema.ResourceData) map[string]interf
 	return body
 }
 
-func newApimFlexGatewayRoutingRulesPostBody(rules *schema.Set) map[string]interface{} {
-	body := make(map[string]interface{})
+func newApimFlexGatewayRoutingRulesPostBody(rules *schema.Set) map[string]any {
+	body := make(map[string]any)
 	if rules.Len() > 0 {
 		rules_list := rules.List()
-		rules_map := rules_list[0].(map[string]interface{})
+		rules_map := rules_list[0].(map[string]any)
 		if val, ok := rules_map["methods"]; ok && val != nil {
 			set := val.(*schema.Set)
 			body["methods"] = JoinStringInterfaceSlice(set.List(), "|")
@@ -1008,20 +1008,20 @@ func newApimFlexGatewayRoutingRulesPostBody(rules *schema.Set) map[string]interf
 			body["path"] = val.(string)
 		}
 		if val, ok := rules_map["headers"]; ok && val != nil {
-			body["headers"] = val.(map[string]interface{})
+			body["headers"] = val.(map[string]any)
 		}
 	}
 	return body
 }
 
-func newApimFlexGatewayUpstreamPostBody(upstreams []interface{}) []*apim_upstream.UpstreamPostBody {
+func newApimFlexGatewayUpstreamPostBody(upstreams []any) []*apim_upstream.UpstreamPostBody {
 	length := len(upstreams)
 	if length == 0 {
 		return []*apim_upstream.UpstreamPostBody{}
 	}
 	bodies := make([]*apim_upstream.UpstreamPostBody, length)
 	for i, item := range upstreams {
-		upstream := item.(map[string]interface{})
+		upstream := item.(map[string]any)
 		b := apim_upstream.NewUpstreamPostBody()
 		if val, ok := upstream["label"]; ok {
 			b.SetLabel(val.(string))
@@ -1032,7 +1032,7 @@ func newApimFlexGatewayUpstreamPostBody(upstreams []interface{}) []*apim_upstrea
 		if val, ok := upstream["tls_context"]; ok && val != nil {
 			set := val.(*schema.Set)
 			if set.Len() > 0 {
-				tls_context_input := set.List()[0].(map[string]interface{})
+				tls_context_input := set.List()[0].(map[string]any)
 				tlc_body := apim_upstream.NewUpstreamPostBodyTlsContext()
 				if v, ok := tls_context_input["secret_group_id"]; ok {
 					tlc_body.SetSecretGroupId(v.(string))
@@ -1053,8 +1053,8 @@ func newApimFlexGatewayUpstreamPostBody(upstreams []interface{}) []*apim_upstrea
 }
 
 // creates patch body depending on the changes occured on the updatable attributes
-func newApimFlexGatewayPatchBody(d *schema.ResourceData) map[string]interface{} {
-	body := make(map[string]interface{})
+func newApimFlexGatewayPatchBody(d *schema.ResourceData) map[string]any {
+	body := make(map[string]any)
 	deployment := newApimFlexGatewayDeploymentPostBody(d)
 	deployment_map, _ := deployment.ToMap()
 	endpoint := newApimFlexGatewayEndpointPostBody(d)
@@ -1077,20 +1077,20 @@ func newApimFlexGatewayPatchBody(d *schema.ResourceData) map[string]interface{} 
 }
 
 // returns a routing patch body depending on if there's changes
-func newApimFlexGatewayRoutingPatchBody(d *schema.ResourceData) map[string]interface{} {
+func newApimFlexGatewayRoutingPatchBody(d *schema.ResourceData) map[string]any {
 	if d.HasChange("routing") {
 		return newApimFlexGatewayRoutingPostBody(d)
 	}
-	return map[string]interface{}{}
+	return map[string]any{}
 }
 
 // returns map constructed for the given prefix of attributes (ex endpoint or deployment).
 // the function will get all attributes prefixed by the given prefix
 // the function will return a map with the prefix as its root attribute and all attributes transformed to caml case without the prefix as the object elements.
 // if no changes occured on the prefixed attributes, an empty map is returned
-func newPatchBodyMap4FlattenedAttr(prefix string, d *schema.ResourceData) map[string]interface{} {
+func newPatchBodyMap4FlattenedAttr(prefix string, d *schema.ResourceData) map[string]any {
 	separator := "_"
-	params := make(map[string]interface{})
+	params := make(map[string]any)
 	attributes := FilterStrList(getApimFlexGatewayUpdatableAttributes(), func(s string) bool {
 		return strings.HasPrefix(s, prefix)
 	})
@@ -1100,20 +1100,20 @@ func newPatchBodyMap4FlattenedAttr(prefix string, d *schema.ResourceData) map[st
 			params[strcase.ToCamel(attr_without_prefix)] = d.Get(attr)
 		}
 	}
-	body := make(map[string]interface{})
+	body := make(map[string]any)
 	if len(params) > 0 {
 		body[prefix] = params
 	}
 	return body
 }
 
-func newApimFlexGatewayUpstreamPatchBody(upstreams []interface{}) []*apim_upstream.UpstreamPatchBody {
+func newApimFlexGatewayUpstreamPatchBody(upstreams []any) []*apim_upstream.UpstreamPatchBody {
 	if len(upstreams) == 0 {
 		return []*apim_upstream.UpstreamPatchBody{}
 	}
 	bodies := make([]*apim_upstream.UpstreamPatchBody, len(upstreams))
 	for i, item := range upstreams {
-		upstream := item.(map[string]interface{})
+		upstream := item.(map[string]any)
 		bodies[i] = apim_upstream.NewUpstreamPatchBody()
 		if val, ok := upstream["label"]; ok {
 			bodies[i].SetLabel(val.(string))
@@ -1124,7 +1124,7 @@ func newApimFlexGatewayUpstreamPatchBody(upstreams []interface{}) []*apim_upstre
 		if val, ok := upstream["tls_context"]; ok && val != nil {
 			set := val.(*schema.Set)
 			if set.Len() > 0 {
-				tlscontextinput := set.List()[0].(map[string]interface{})
+				tlscontextinput := set.List()[0].(map[string]any)
 				tlcbody := apim_upstream.NewUpstreamPostBodyTlsContext()
 				if v, ok := tlscontextinput["secret_group_id"]; ok {
 					tlcbody.SetSecretGroupId(v.(string))
@@ -1148,13 +1148,13 @@ func decomposeApimFlexGatewayId(d *schema.ResourceData) (string, string, string)
 	return s[0], s[1], s[2]
 }
 
-func setApimFlexGatewayAttributesToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setApimFlexGatewayAttributesToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getApimInstanceDetailsAttributes()
 	if data != nil {
 		for _, attr := range attributes {
 			if val, ok := data[attr]; ok {
 				if attr == "routing" {
-					result, err := mergeRoutingDetails2ResourceData(d, val.([]map[string]interface{}))
+					result, err := mergeRoutingDetails2ResourceData(d, val.([]map[string]any))
 					if err != nil {
 						return err
 					}
@@ -1173,29 +1173,29 @@ func setApimFlexGatewayAttributesToResourceData(d *schema.ResourceData, data map
 }
 
 // merge the given routing data coming from remote read operation with existing resource data for the case of routing.
-func mergeRoutingDetails2ResourceData(d *schema.ResourceData, data []map[string]interface{}) ([]map[string]interface{}, error) {
+func mergeRoutingDetails2ResourceData(d *schema.ResourceData, data []map[string]any) ([]map[string]any, error) {
 	// the upstreams reference
-	var upstreams_ref []interface{}
+	var upstreams_ref []any
 	if val, ok := d.GetOk("upstreams"); ok {
-		upstreams_ref = val.([]interface{})
+		upstreams_ref = val.([]any)
 	}
 	//Merging routing-details (coming from remote) with resourceData in a new list
-	result := make([]map[string]interface{}, len(data))
+	result := make([]map[string]any, len(data))
 	for i, rdetails := range data {
-		rdetails_upstreams := rdetails["upstreams"].([]map[string]interface{})
+		rdetails_upstreams := rdetails["upstreams"].([]map[string]any)
 		label := rdetails["label"]
-		rupstream_result := make([]map[string]interface{}, 0)
+		rupstream_result := make([]map[string]any, 0)
 		for _, rdetails_upstream := range rdetails_upstreams {
 			id := rdetails_upstream["id"]
 			clone := maps.Clone(rdetails_upstream)
-			filtered := FilterMapList(upstreams_ref, func(m map[string]interface{}) bool { return m["id"].(string) == id.(string) })
+			filtered := FilterMapList(upstreams_ref, func(m map[string]any) bool { return m["id"].(string) == id.(string) })
 			if len(filtered) > 0 {
-				u := filtered[0].(map[string]interface{})
+				u := filtered[0].(map[string]any)
 				clone["label"] = u["label"].(string)
 				rupstream_result = append(rupstream_result, clone)
 			}
 		}
-		result[i] = map[string]interface{}{
+		result[i] = map[string]any{
 			"label":     label,
 			"upstreams": rupstream_result,
 		}
@@ -1208,28 +1208,28 @@ func mergeRoutingDetails2ResourceData(d *schema.ResourceData, data []map[string]
 
 // validates if routing have a declared upstream
 func validateRoutingUpstreams(d *schema.ResourceDiff) error {
-	var upstreams []interface{}
-	var routings []interface{}
+	var upstreams []any
+	var routings []any
 	weight_limit := 100
 	if val, ok := d.GetOk("upstreams"); ok {
-		upstreams = val.([]interface{})
+		upstreams = val.([]any)
 	}
 	if val, ok := d.GetOk("routing"); ok {
-		routings = val.([]interface{})
+		routings = val.([]any)
 	} else {
 		return nil
 	}
 	for _, routing_item := range routings {
-		ritem := routing_item.(map[string]interface{})
+		ritem := routing_item.(map[string]any)
 		label := ritem["label"]
 		if rupstreams, ok := ritem["upstreams"]; ok {
 			set := rupstreams.(*schema.Set)
 			rupstream_list := set.List()
 			weight_total := 0
 			for _, rupstream_item := range rupstream_list {
-				upitem := rupstream_item.(map[string]interface{})
+				upitem := rupstream_item.(map[string]any)
 				if val, ok := upitem["label"]; ok {
-					filtered := FilterMapList(upstreams, func(m map[string]interface{}) bool { return val.(string) == m["label"].(string) })
+					filtered := FilterMapList(upstreams, func(m map[string]any) bool { return val.(string) == m["label"].(string) })
 					if len(filtered) == 0 {
 						return fmt.Errorf("could not find upstream with label %s for routing %s in your list of upstreams", val.(string), label.(string))
 					}
@@ -1264,20 +1264,20 @@ func getApimFlexGatewayUpdatableAttributes() []string {
 
 // calculates the difference between old and new upstreams declaration if any
 // returns list of upstreams to be created, another list of upstreams to be updated and a list of upstreams to be deleted.
-func calcUpstreamsDiff(d *schema.ResourceData) ([]interface{}, []interface{}, []interface{}) {
-	toupdate := make([]interface{}, 0)
-	todelete := make([]interface{}, 0)
-	tocreate := make([]interface{}, 0)
+func calcUpstreamsDiff(d *schema.ResourceData) ([]any, []any, []any) {
+	toupdate := make([]any, 0)
+	todelete := make([]any, 0)
+	tocreate := make([]any, 0)
 	if d.HasChange("upstreams") {
 		old_upstreams, new_upstreams := d.GetChange("upstreams")
-		old_upstreams_list := old_upstreams.([]interface{})
-		new_upstreams_list := new_upstreams.([]interface{})
+		old_upstreams_list := old_upstreams.([]any)
+		new_upstreams_list := new_upstreams.([]any)
 		for _, new_upstream := range new_upstreams_list {
-			new := new_upstream.(map[string]interface{})
+			new := new_upstream.(map[string]any)
 			if id, ok := new["id"]; ok {
-				filtered := FilterMapList(old_upstreams_list, func(m map[string]interface{}) bool { return id.(string) == m["id"].(string) })
+				filtered := FilterMapList(old_upstreams_list, func(m map[string]any) bool { return id.(string) == m["id"].(string) })
 				if len(filtered) > 0 {
-					old_match := filtered[0].(map[string]interface{})
+					old_match := filtered[0].(map[string]any)
 					if !isUpstreamsEqual(new, old_match) {
 						toupdate = append(toupdate, new)
 					}
@@ -1287,8 +1287,8 @@ func calcUpstreamsDiff(d *schema.ResourceData) ([]interface{}, []interface{}, []
 			}
 		}
 		for _, old_upstream := range old_upstreams_list {
-			old := old_upstream.(map[string]interface{})
-			filtered := FilterMapList(new_upstreams_list, func(m map[string]interface{}) bool {
+			old := old_upstream.(map[string]any)
+			filtered := FilterMapList(new_upstreams_list, func(m map[string]any) bool {
 				if id, ok := m["id"]; ok {
 					return old["id"] == id
 				}
@@ -1303,7 +1303,7 @@ func calcUpstreamsDiff(d *schema.ResourceData) ([]interface{}, []interface{}, []
 }
 
 // returns true if the given upstreams are equal
-func isUpstreamsEqual(a, b map[string]interface{}) bool {
+func isUpstreamsEqual(a, b map[string]any) bool {
 	attributes := [...]string{
 		"id", "label", "uri", "tls_context",
 	}
@@ -1334,8 +1334,8 @@ func isUpstreamTlsContextEqual(a *schema.Set, b *schema.Set) bool {
 	}
 	a_list := a.List()
 	b_list := b.List()
-	a_item := a_list[0].(map[string]interface{})
-	b_item := b_list[0].(map[string]interface{})
+	a_item := a_list[0].(map[string]any)
+	b_item := b_list[0].(map[string]any)
 	for _, attr := range attributes {
 		if a_item[attr].(string) != b_item[attr].(string) {
 			return false

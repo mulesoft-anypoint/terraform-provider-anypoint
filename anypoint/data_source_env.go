@@ -50,7 +50,7 @@ func dataSourceENV() *schema.Resource {
 	}
 }
 
-func dataSourceENVRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceENVRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	envid := d.Get("id").(string)
@@ -95,9 +95,9 @@ func dataSourceENVRead(ctx context.Context, d *schema.ResourceData, m interface{
 /*
 * Copies the given env instance into the given resource data
 * @param d *schema.ResourceData the resource data schema
-* @param envitem map[string]interface{} the env instance
+* @param envitem map[string]any the env instance
  */
-func setENVCoreAttributesToResourceData(d *schema.ResourceData, envitem map[string]interface{}) error {
+func setENVCoreAttributesToResourceData(d *schema.ResourceData, envitem map[string]any) error {
 	attributes := getENVCoreAttributes()
 	if envitem != nil {
 		for _, attr := range attributes {
@@ -114,9 +114,9 @@ func setENVCoreAttributesToResourceData(d *schema.ResourceData, envitem map[stri
 * @param envitem *env.Env the env struct
 * @return the env mapped struct
  */
-func flattenENVData(envitem *env.Env) map[string]interface{} {
+func flattenENVData(envitem *env.Env) map[string]any {
 	if envitem != nil {
-		item := make(map[string]interface{})
+		item := make(map[string]any)
 
 		item["id"] = envitem.GetId()
 		item["name"] = envitem.GetName()
