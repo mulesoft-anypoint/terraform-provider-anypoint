@@ -10,7 +10,7 @@ import (
 	"github.com/mulesoft-anypoint/anypoint-client-go/private_space_tlscontext"
 )
 
-func preparePrivateSpaceTlsContextPemResourceSchema() map[string]*schema.Schema {
+func preparePrivateSpaceTlsContextJKSResourceSchema() map[string]*schema.Schema {
 	pstc_schema := cloneSchema(PRIVATE_SPACE_TLSCONTEXT_SCHEMA)
 	pstc_schema["org_id"] = &schema.Schema{
 		Type:        schema.TypeString,
@@ -29,32 +29,30 @@ func preparePrivateSpaceTlsContextPemResourceSchema() map[string]*schema.Schema 
 		Required:    true,
 		Description: "The name of the tls context.",
 	}
-	pstc_schema["certificate"] = &schema.Schema{
+	pstc_schema["keystore"] = &schema.Schema{
 		Type:        schema.TypeString,
 		Required:    true,
-		Description: "The certificate.",
+		Description: "The keystore file content encoded in base64.",
 	}
-	pstc_schema["key"] = &schema.Schema{
+	pstc_schema["keystore_passphrase"] = &schema.Schema{
 		Type:        schema.TypeString,
 		Required:    true,
-		Sensitive:   true,
-		Description: "The private key.",
-	}
-	pstc_schema["capath"] = &schema.Schema{
-		Type:        schema.TypeString,
-		Optional:    true,
-		Description: "The CA Path Certificate.",
+		Description: "The keystore passphrase.",
 	}
 	pstc_schema["key_passphrase"] = &schema.Schema{
 		Type:        schema.TypeString,
 		Optional:    true,
-		Sensitive:   true,
 		Description: "The private key passphrase.",
 	}
-	pstc_schema["key_file_name"] = &schema.Schema{
+	pstc_schema["alias"] = &schema.Schema{
 		Type:        schema.TypeString,
 		Optional:    true,
-		Description: "The private key filename.",
+		Description: "The alias of the certificate.",
+	}
+	pstc_schema["keystore_file_name"] = &schema.Schema{
+		Type:        schema.TypeString,
+		Optional:    true,
+		Description: "The keystore filename.",
 	}
 	pstc_schema["trust_store"] = &schema.Schema{
 		Type:        schema.TypeList,
@@ -71,7 +69,7 @@ func preparePrivateSpaceTlsContextPemResourceSchema() map[string]*schema.Schema 
 				},
 				"content": {
 					Type:        schema.TypeString,
-					Optional:    true,
+					Required:    true,
 					Description: "The content of the certificate in PEM format used as trust store.",
 				},
 			},
@@ -189,32 +187,33 @@ func preparePrivateSpaceTlsContextPemResourceSchema() map[string]*schema.Schema 
 		Default:     true,
 		Description: "The ciphers used by the tls context.",
 	}
+
 	return pstc_schema
 }
 
-func resourcePrivateSpaceTlsContextPem() *schema.Resource {
+func resourcePrivateSpaceTlsContextJKS() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourcePrivateSpaceTlsContextPemCreate,
-		ReadContext:   resourcePrivateSpaceTlsContextPemRead,
-		UpdateContext: resourcePrivateSpaceTlsContextPemUpdate,
-		DeleteContext: resourcePrivateSpaceTlsContextPemDelete,
+		CreateContext: resourcePrivateSpaceTlsContextJKSCreate,
+		ReadContext:   resourcePrivateSpaceTlsContextJKSRead,
+		UpdateContext: resourcePrivateSpaceTlsContextJKSUpdate,
+		DeleteContext: resourcePrivateSpaceTlsContextJKSDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Description: `
-		Manages a ` + "`" + `private space tls context (of type PEM)` + "`" + ` in your private space.
+		Manages a ` + "`" + `private space tls context (of type JKS)` + "`" + ` in your private space.
 		`,
-		Schema: preparePrivateSpaceTlsContextPemResourceSchema(),
+		Schema: preparePrivateSpaceTlsContextJKSResourceSchema(),
 	}
 }
 
-func resourcePrivateSpaceTlsContextPemCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func resourcePrivateSpaceTlsContextJKSCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
 	private_space_id := d.Get("private_space_id").(string)
 	authctx := getPrivateSpaceTlsContextAuthCtx(ctx, &pco)
-	body := createPrivateSpaceTlsContextPemBody(d)
+	body := createPrivateSpaceTlsContextJksBody(d)
 	//request
 	tlscontext, httpr, err := pco.privatespacetlscontextclient.DefaultApi.CreateTlsContext(authctx, orgid, private_space_id).TlsContextPostBody(*body).Execute()
 	if err != nil {
@@ -237,21 +236,21 @@ func resourcePrivateSpaceTlsContextPemCreate(ctx context.Context, d *schema.Reso
 
 	d.SetId(tlscontext.GetId())
 
-	return resourcePrivateSpaceTlsContextPemRead(ctx, d, m)
+	return resourcePrivateSpaceTlsContextJKSRead(ctx, d, m)
 }
 
-func resourcePrivateSpaceTlsContextPemRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func resourcePrivateSpaceTlsContextJKSRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
 	private_space_id := d.Get("private_space_id").(string)
+	authctx := getPrivateSpaceTlsContextAuthCtx(ctx, &pco)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
 		orgid, private_space_id, id = decomposePrivateSpaceTlsContextId(d)
 	}
-	authctx := getPrivateSpaceTlsContextAuthCtx(ctx, &pco)
 	//request
-	res, httpr, err := pco.privatespacetlscontextclient.DefaultApi.GetTlsContext(authctx, orgid, private_space_id, id).Execute()
+	tlscontext, httpr, err := pco.privatespacetlscontextclient.DefaultApi.GetTlsContext(authctx, orgid, private_space_id, id).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
@@ -263,14 +262,14 @@ func resourcePrivateSpaceTlsContextPemRead(ctx context.Context, d *schema.Resour
 		}
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to Get Private Space TLS Context for org " + orgid + " and private space " + private_space_id + " and id " + id,
+			Summary:  "Unable to Read Private Space TLS Context for org " + orgid + " and private space " + private_space_id,
 			Detail:   details,
 		})
 		return diags
 	}
 	defer httpr.Body.Close()
-	//process data
-	private_space_tls_context := flattenPrivateSpaceTlsContextData(res)
+
+	private_space_tls_context := flattenPrivateSpaceTlsContextData(tlscontext)
 	//save in data source schema
 	if err := setPrivateSpaceTlsContextAttributesToResourceData(d, private_space_tls_context); err != nil {
 		diags := append(diags, diag.Diagnostic{
@@ -286,18 +285,17 @@ func resourcePrivateSpaceTlsContextPemRead(ctx context.Context, d *schema.Resour
 	return diags
 }
 
-func resourcePrivateSpaceTlsContextPemUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func resourcePrivateSpaceTlsContextJKSUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
 	private_space_id := d.Get("private_space_id").(string)
-	id := d.Get("id").(string)
 	authctx := getPrivateSpaceTlsContextAuthCtx(ctx, &pco)
-	body := createPrivateSpaceTlsContextPemBody(d)
-
-	if d.HasChanges(updatablePrivateSpaceTlsContextPemAttributes()...) {
+	id := d.Get("id").(string)
+	if d.HasChanges(updatablePrivateSpaceTlsContextJksAttributes()...) {
+		body := createPrivateSpaceTlsContextJksBody(d)
 		//request
-		_, httpr, err := pco.privatespacetlscontextclient.DefaultApi.UpdateTlsContext(authctx, orgid, private_space_id, id).Body(*body).Execute()
+		tlscontext, httpr, err := pco.privatespacetlscontextclient.DefaultApi.UpdateTlsContext(authctx, orgid, private_space_id, id).Body(*body).Execute()
 		if err != nil {
 			var details string
 			if httpr != nil && httpr.StatusCode >= 400 {
@@ -309,25 +307,30 @@ func resourcePrivateSpaceTlsContextPemUpdate(ctx context.Context, d *schema.Reso
 			}
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  "Unable to Update Private Space TLS Context for org " + orgid + " and private space " + private_space_id + " and id " + id,
+				Summary:  "Unable to Update Private Space TLS Context for org " + orgid + " and private space " + private_space_id,
 				Detail:   details,
 			})
 			return diags
 		}
 		defer httpr.Body.Close()
 
-		return resourcePrivateSpaceTlsContextPemRead(ctx, d, m)
+		d.SetId(tlscontext.GetId())
+
+		return resourcePrivateSpaceTlsContextJKSRead(ctx, d, m)
 	}
 	return diags
 }
 
-func resourcePrivateSpaceTlsContextPemDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func resourcePrivateSpaceTlsContextJKSDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
 	private_space_id := d.Get("private_space_id").(string)
-	id := d.Get("id").(string)
 	authctx := getPrivateSpaceTlsContextAuthCtx(ctx, &pco)
+	id := d.Get("id").(string)
+	if isComposedResourceId(id) {
+		orgid, private_space_id, id = decomposePrivateSpaceTlsContextId(d)
+	}
 	//request
 	httpr, err := pco.privatespacetlscontextclient.DefaultApi.DeleteTlsContext(authctx, orgid, private_space_id, id).Execute()
 	if err != nil {
@@ -341,141 +344,55 @@ func resourcePrivateSpaceTlsContextPemDelete(ctx context.Context, d *schema.Reso
 		}
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to Delete Private Space TLS Context for org " + orgid + " and id " + id,
+			Summary:  "Unable to Delete Private Space TLS Context for org " + orgid + " and private space " + private_space_id,
 			Detail:   details,
 		})
 		return diags
 	}
 	defer httpr.Body.Close()
+
 	d.SetId("")
 	return diags
 }
 
-func createPrivateSpaceTlsContextPemBody(d *schema.ResourceData) *private_space_tlscontext.TlsContextPostBody {
+func createPrivateSpaceTlsContextJksBody(d *schema.ResourceData) *private_space_tlscontext.TlsContextPostBody {
 	body := private_space_tlscontext.NewTlsContextPostBody()
 	body.SetName(d.Get("name").(string))
 	tlsconfig := private_space_tlscontext.NewTlsContextPostBodyTlsConfig()
 	tlsconfig.SetKeyStore(private_space_tlscontext.TlsContextPostBodyTlsConfigKeyStore{
-		TlsContextPostBodyKeyStorePEM: createPrivateSpaceTlsContextPemKeystore(d),
+		TlsContextPostBodyKeyStoreJKS: createPrivateSpaceTlsContextJksKeystore(d),
 	})
-	tlsconfig.SetTrustStore(createPrivateSpaceTlsContextTrustStore(d))
-	body.SetCiphers(*createPrivateSpaceTlsContextCiphers(d))
+	tlsconfig.SetTrustStore(createPrivateSpaceTlsContextTrustStore(d)) //defined in the tlscontext PEM resource file
+	body.SetCiphers(*createPrivateSpaceTlsContextCiphers(d))           //defined in the tlscontext PEM resource file
 	body.SetTlsConfig(*tlsconfig)
 	return body
 }
 
-func createPrivateSpaceTlsContextPemKeystore(d *schema.ResourceData) *private_space_tlscontext.TlsContextPostBodyKeyStorePEM {
-	keystore := private_space_tlscontext.NewTlsContextPostBodyKeyStorePEMWithDefaults()
-	keystore.SetKey(d.Get("key").(string))
-	keystore.SetCertificate(d.Get("certificate").(string))
-	if val := d.Get("capath"); val != nil && val.(string) != "" {
-		keystore.SetCapath(val.(string))
-	}
+func createPrivateSpaceTlsContextJksKeystore(d *schema.ResourceData) *private_space_tlscontext.TlsContextPostBodyKeyStoreJKS {
+	keystore := private_space_tlscontext.NewTlsContextPostBodyKeyStoreJKSWithDefaults()
+	keystore.SetKeystoreBase64(d.Get("keystore").(string))
+	keystore.SetStorePassphrase(d.Get("keystore_passphrase").(string))
 	if val := d.Get("key_passphrase"); val != nil && val.(string) != "" {
 		keystore.SetKeyPassphrase(val.(string))
 	}
-	if val := d.Get("key_file_name"); val != nil && val.(string) != "" {
-		keystore.SetKeyFileName(val.(string))
+	if val := d.Get("alias"); val != nil && val.(string) != "" {
+		keystore.SetAlias(val.(string))
 	}
-	if val := d.Get("certificate_file_name"); val != nil && val.(string) != "" {
-		keystore.SetCertificateFileName(val.(string))
+	if val := d.Get("keystore_file_name"); val != nil && val.(string) != "" {
+		keystore.SetKeystoreFileName(val.(string))
 	}
-	if val := d.Get("capath_file_name"); val != nil && val.(string) != "" {
-		keystore.SetCapathFileName(val.(string))
-	}
+
 	return keystore
 }
 
-func createPrivateSpaceTlsContextTrustStore(d *schema.ResourceData) []private_space_tlscontext.TlsContextPostBodyTrustStorePEM {
-	result := []private_space_tlscontext.TlsContextPostBodyTrustStorePEM{}
-	if data, ok := d.GetOk("trust_store"); ok {
-		for _, item := range data.([]any) {
-			itemMap := item.(map[string]any)
-			truststore := private_space_tlscontext.NewTlsContextPostBodyTrustStorePEM()
-			truststore.SetSource(itemMap["source"].(string))
-			truststore.SetTrustStorePEM(itemMap["trust_store_pem"].(string))
-			result = append(result, *truststore)
-		}
-	}
-	return result
-}
-
-func createPrivateSpaceTlsContextCiphers(d *schema.ResourceData) *private_space_tlscontext.Ciphers {
-	ciphers := private_space_tlscontext.NewCiphers()
-	if val, ok := d.GetOk("cipher_aes128_gcm_sha256"); ok {
-		ciphers.SetAes128GcmSha256(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_aes128_sha256"); ok {
-		ciphers.SetAes128Sha256(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_aes256_gcm_sha384"); ok {
-		ciphers.SetAes256GcmSha384(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_aes256_sha256"); ok {
-		ciphers.SetAes256Sha256(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_dhe_rsa_aes128_sha256"); ok {
-		ciphers.SetDheRsaAes128Sha256(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_dhe_rsa_aes256_gcm_sha384"); ok {
-		ciphers.SetDheRsaAes256GcmSha384(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_dhe_rsa_aes256_sha256"); ok {
-		ciphers.SetDheRsaAes256Sha256(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_ecdhe_ecdsa_aes128_gcm_sha256"); ok {
-		ciphers.SetEcdheEcdsaAes128GcmSha256(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_ecdhe_ecdsa_aes256_gcm_sha384"); ok {
-		ciphers.SetEcdheEcdsaAes256GcmSha384(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_ecdhe_rsa_aes128_gcm_sha256"); ok {
-		ciphers.SetEcdheRsaAes128GcmSha256(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_ecdhe_rsa_aes256_gcm_sha384"); ok {
-		ciphers.SetEcdheRsaAes256GcmSha384(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_ecdhe_ecdsa_chacha20_poly1305"); ok {
-		ciphers.SetEcdheEcdsaChacha20Poly1305(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_ecdhe_rsa_chacha20_poly1305"); ok {
-		ciphers.SetEcdheRsaChacha20Poly1305(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_dhe_rsa_chacha20_poly1305"); ok {
-		ciphers.SetDheRsaChacha20Poly1305(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_tls_aes256_gcm_sha384"); ok {
-		ciphers.SetTlsAes256GcmSha384(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_tls_chacha20_poly1305_sha256"); ok {
-		ciphers.SetTlsChacha20Poly1305Sha256(val.(bool))
-	}
-	if val, ok := d.GetOk("cipher_tls_aes128_gcm_sha256"); ok {
-		ciphers.SetTlsAes128GcmSha256(val.(bool))
-	}
-	return ciphers
-}
-
-func getPrivateSpaceTlsContextAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Context {
-	tmp := context.WithValue(ctx, private_space_tlscontext.ContextAccessToken, pco.access_token)
-	return context.WithValue(tmp, private_space_tlscontext.ContextServerIndex, pco.server_index)
-}
-
-func decomposePrivateSpaceTlsContextId(d *schema.ResourceData) (string, string, string) {
-	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2]
-}
-
-func updatablePrivateSpaceTlsContextPemAttributes() []string {
+func updatablePrivateSpaceTlsContextJksAttributes() []string {
 	return []string{
 		"name",
-		"key",
-		"certificate",
+		"keystore",
+		"keystore_passphrase",
 		"key_passphrase",
-		"key_file_name",
-		"certificate_file_name",
-		"capath_file_name",
-		"capath",
+		"alias",
+		"keystore_file_name",
 		"trust_store",
 		"cipher_aes128_gcm_sha256",
 		"cipher_aes128_sha256",

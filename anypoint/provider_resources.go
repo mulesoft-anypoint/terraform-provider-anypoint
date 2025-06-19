@@ -44,4 +44,5 @@ var RESOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_rtf_deployment":                        resourceRTFDeployment(),
 	"anypoint_private_space":                         resourcePrivateSpace(),
 	"anypoint_private_space_tlscontext_pem":          resourcePrivateSpaceTlsContextPem(),
+	"anypoint_private_space_tlscontext_jks":          resourcePrivateSpaceTlsContextJKS(),
 }
