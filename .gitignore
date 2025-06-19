@@ -76,3 +76,6 @@ terraform-provider-anypoint
 **/.secret
 
 **/dist
+
+#Windsurf rules
+.windsurfrules

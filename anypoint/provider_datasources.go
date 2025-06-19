@@ -59,4 +59,8 @@ var DATASOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_fabrics_health":                        dataSourceFabricsHealth(),
 	"anypoint_app_deployment_v2":                     dataSourceAppDeploymentV2(),
 	"anypoint_app_deployments_v2":                    dataSourceAppDeploymentsV2(),
+	"anypoint_private_space":                         dataSourcePrivateSpace(),
+	"anypoint_private_spaces":                        dataSourcePrivateSpaces(),
+	"anypoint_private_space_tlscontext":              dataSourcePrivateSpaceTlsContext(),
+	"anypoint_private_space_tlscontexts":             dataSourcePrivateSpaceTlsContexts(),
 }

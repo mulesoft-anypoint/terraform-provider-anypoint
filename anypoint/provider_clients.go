@@ -5,7 +5,7 @@ import (
 	ame_binding "github.com/mulesoft-anypoint/anypoint-client-go/ame_binding"
 	amq "github.com/mulesoft-anypoint/anypoint-client-go/amq"
 	apim "github.com/mulesoft-anypoint/anypoint-client-go/apim"
-	"github.com/mulesoft-anypoint/anypoint-client-go/apim_policy"
+	apim_policy "github.com/mulesoft-anypoint/anypoint-client-go/apim_policy"
 	apim_upstream "github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream"
 	application_manager_v2 "github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2"
 	connected_app "github.com/mulesoft-anypoint/anypoint-client-go/connected_app"
@@ -14,6 +14,8 @@ import (
 	flexgateway "github.com/mulesoft-anypoint/anypoint-client-go/flexgateway"
 	idp "github.com/mulesoft-anypoint/anypoint-client-go/idp"
 	org "github.com/mulesoft-anypoint/anypoint-client-go/org"
+	private_space "github.com/mulesoft-anypoint/anypoint-client-go/private_space"
+	private_space_tlscontext "github.com/mulesoft-anypoint/anypoint-client-go/private_space_tlscontext"
 	role "github.com/mulesoft-anypoint/anypoint-client-go/role"
 	rolegroup "github.com/mulesoft-anypoint/anypoint-client-go/rolegroup"
 	rtf "github.com/mulesoft-anypoint/anypoint-client-go/rtf"
@@ -34,42 +36,44 @@ import (
 )
 
 type ProviderConfOutput struct {
-	access_token            string
-	server_index            int
-	vpcclient               *vpc.APIClient
-	vpnclient               *vpn.APIClient
-	orgclient               *org.APIClient
-	roleclient              *role.APIClient
-	rolegroupclient         *rolegroup.APIClient
-	userclient              *user.APIClient
-	envclient               *env.APIClient
-	userrgpclient           *user_rolegroups.APIClient
-	teamclient              *team.APIClient
-	teammembersclient       *team_members.APIClient
-	teamrolesclient         *team_roles.APIClient
-	teamgroupmappingsclient *team_group_mappings.APIClient
-	dlbclient               *dlb.APIClient
-	idpclient               *idp.APIClient
-	connectedappclient      *connected_app.APIClient
-	amqclient               *amq.APIClient
-	ameclient               *ame.APIClient
-	amebindingclient        *ame_binding.APIClient
-	apimclient              *apim.APIClient
-	apimpolicyclient        *apim_policy.APIClient
-	apimupstreamclient      *apim_upstream.APIClient
-	flexgatewayclient       *flexgateway.APIClient
-	secretgroupclient       *secretgroup.APIClient
-	sgkeystoreclient        *secretgroup_keystore.APIClient
-	sgtruststoreclient      *secretgroup_truststore.APIClient
-	sgcertificateclient     *secretgroup_certificate.APIClient
-	sgtlscontextclient      *secretgroup_tlscontext.APIClient
-	sgcrldistribcfgsclient  *secretgroup_crl_distributor_configs.APIClient
-	rtfclient               *rtf.APIClient
-	appmanagerclient        *application_manager_v2.APIClient
+	access_token                 string
+	server_index                 int
+	vpcclient                    *vpc.APIClient
+	vpnclient                    *vpn.APIClient
+	orgclient                    *org.APIClient
+	roleclient                   *role.APIClient
+	rolegroupclient              *rolegroup.APIClient
+	userclient                   *user.APIClient
+	envclient                    *env.APIClient
+	userrgpclient                *user_rolegroups.APIClient
+	teamclient                   *team.APIClient
+	teammembersclient            *team_members.APIClient
+	teamrolesclient              *team_roles.APIClient
+	teamgroupmappingsclient      *team_group_mappings.APIClient
+	dlbclient                    *dlb.APIClient
+	idpclient                    *idp.APIClient
+	connectedappclient           *connected_app.APIClient
+	amqclient                    *amq.APIClient
+	ameclient                    *ame.APIClient
+	amebindingclient             *ame_binding.APIClient
+	apimclient                   *apim.APIClient
+	apimpolicyclient             *apim_policy.APIClient
+	apimupstreamclient           *apim_upstream.APIClient
+	flexgatewayclient            *flexgateway.APIClient
+	secretgroupclient            *secretgroup.APIClient
+	sgkeystoreclient             *secretgroup_keystore.APIClient
+	sgtruststoreclient           *secretgroup_truststore.APIClient
+	sgcertificateclient          *secretgroup_certificate.APIClient
+	sgtlscontextclient           *secretgroup_tlscontext.APIClient
+	sgcrldistribcfgsclient       *secretgroup_crl_distributor_configs.APIClient
+	rtfclient                    *rtf.APIClient
+	appmanagerclient             *application_manager_v2.APIClient
+	privatespaceclient           *private_space.APIClient
+	privatespacetlscontextclient *private_space_tlscontext.APIClient
 }
 
 func newProviderConfOutput(access_token string, server_index int) ProviderConfOutput {
-	//preparing clients
+	//--------------------------------------------------------------- API CONFIGURATIONS
 	vpccfg := vpc.NewConfiguration()
 	vpncfg := vpn.NewConfiguration()
 	orgcfg := org.NewConfiguration()
@@ -100,7 +104,9 @@ func newProviderConfOutput(access_token string, server_index int) ProviderConfOu
 	sgcrldistribcfgs_cfg := secretgroup_crl_distributor_configs.NewConfiguration()
 	rtf_cfg := rtf.NewConfiguration()
 	appmanager_cfg := application_manager_v2.NewConfiguration()
-
+	privatespace_cfg := private_space.NewConfiguration()
+	privatespacetlscontext_cfg := private_space_tlscontext.NewConfiguration()
+	// ---------------------------------------------------------------------------- API CLIENTS
 	vpcclient := vpc.NewAPIClient(vpccfg)
 	vpnclient := vpn.NewAPIClient(vpncfg)
 	orgclient := org.NewAPIClient(orgcfg)
@@ -131,39 +137,44 @@ func newProviderConfOutput(access_token string, server_index int) ProviderConfOu
 	sgcrldistribcfgsclient := secretgroup_crl_distributor_configs.NewAPIClient(sgcrldistribcfgs_cfg)
 	rtfclient := rtf.NewAPIClient(rtf_cfg)
 	appmanagerclient := application_manager_v2.NewAPIClient(appmanager_cfg)
+	privatespaceclient := private_space.NewAPIClient(privatespace_cfg)
+	privatespacetlscontextclient := private_space_tlscontext.NewAPIClient(privatespacetlscontext_cfg)
 
+	// ---------------------------------------------------------------------------- RETURN
 	return ProviderConfOutput{
-		access_token:            access_token,
-		server_index:            server_index,
-		vpcclient:               vpcclient,
-		vpnclient:               vpnclient,
-		orgclient:               orgclient,
-		roleclient:              roleclient,
-		rolegroupclient:         rolegroupclient,
-		userclient:              userclient,
-		envclient:               envclient,
-		userrgpclient:           userrgpclient,
-		teamclient:              teamclient,
-		teammembersclient:       teammembersclient,
-		teamrolesclient:         teamrolesclient,
-		teamgroupmappingsclient: teamgroupmappingsclient,
-		dlbclient:               dlbclient,
-		idpclient:               idpclient,
-		connectedappclient:      connectedappclient,
-		amqclient:               amqclient,
-		ameclient:               ameclient,
-		amebindingclient:        amebindingclient,
-		apimclient:              apimclient,
-		apimpolicyclient:        apimpolicyclient,
-		apimupstreamclient:      apimupstreamclient,
-		flexgatewayclient:       flexgatewayclient,
-		secretgroupclient:       secretgroupclient,
-		sgkeystoreclient:        sgkeystoreclient,
-		sgtruststoreclient:      sgtruststoreclient,
-		sgcertificateclient:     sgcertificateclient,
-		sgtlscontextclient:      sgtlscontextclient,
-		sgcrldistribcfgsclient:  sgcrldistribcfgsclient,
-		rtfclient:               rtfclient,
-		appmanagerclient:        appmanagerclient,
+		access_token:                 access_token,
+		server_index:                 server_index,
+		vpcclient:                    vpcclient,
+		vpnclient:                    vpnclient,
+		orgclient:                    orgclient,
+		roleclient:                   roleclient,
+		rolegroupclient:              rolegroupclient,
+		userclient:                   userclient,
+		envclient:                    envclient,
+		userrgpclient:                userrgpclient,
+		teamclient:                   teamclient,
+		teammembersclient:            teammembersclient,
+		teamrolesclient:              teamrolesclient,
+		teamgroupmappingsclient:      teamgroupmappingsclient,
+		dlbclient:                    dlbclient,
+		idpclient:                    idpclient,
+		connectedappclient:           connectedappclient,
+		amqclient:                    amqclient,
+		ameclient:                    ameclient,
+		amebindingclient:             amebindingclient,
+		apimclient:                   apimclient,
+		apimpolicyclient:             apimpolicyclient,
+		apimupstreamclient:           apimupstreamclient,
+		flexgatewayclient:            flexgatewayclient,
+		secretgroupclient:            secretgroupclient,
+		sgkeystoreclient:             sgkeystoreclient,
+		sgtruststoreclient:           sgtruststoreclient,
+		sgcertificateclient:          sgcertificateclient,
+		sgtlscontextclient:           sgtlscontextclient,
+		sgcrldistribcfgsclient:       sgcrldistribcfgsclient,
+		rtfclient:                    rtfclient,
+		appmanagerclient:             appmanagerclient,
+		privatespaceclient:           privatespaceclient,
+		privatespacetlscontextclient: privatespacetlscontextclient,
 	}
 }

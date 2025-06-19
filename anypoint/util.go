@@ -228,3 +228,31 @@ func JoinStringInterfaceSlice(slice []any, sep string) string {
 	}
 	return strings.Join(dump, sep)
 }
+
+// cloneSchema creates a deep copy of the given schema map.
+// It iterates over each key-value pair in the source map, creates a new schema instance by shallow copying the original,
+// and stores a pointer to the new instance in the clone map.
+// The function ensures that modifications to the cloned map do not affect the original map.
+//
+// Parameters:
+// - src: A map where keys are strings and values are pointers to schema.Schema instances to be cloned.
+//
+// Returns:
+// - A new map with the same keys as the source, each associated with a new schema.Schema pointer.
+func cloneSchema(src map[string]*schema.Schema) map[string]*schema.Schema {
+	clone := make(map[string]*schema.Schema)
+	for k, v := range src {
+		// Create a new schema instance and copy values
+		newSchema := *v       // shallow copy of schema.Schema
+		clone[k] = &newSchema // store pointer to the new copy
+	}
+	return clone
+}
+
+func getSchemaKeys(m map[string]*schema.Schema) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}

@@ -723,16 +723,19 @@ func validateJwtValidationCfg(d *schema.ResourceDiff) error {
 	}
 	jwt_key_origin := cfg["jwt_key_origin"].(string)
 	jwks_attributes := []string{"jwks_url", "jwks_service_time_to_live", "jwks_service_connection_timeout"}
-	if jwt_key_origin == "jwks" {
+	switch jwt_key_origin {
+	case "jwks":
 		for _, attr := range jwks_attributes {
 			if _, ok := cfg[attr]; !ok {
 				return fmt.Errorf("attribute %s is required in \"jwks\" mode", attr)
 			}
 		}
-	} else if jwt_key_origin == "text" {
+	case "text":
 		if _, ok := cfg["text_key"]; !ok {
 			return fmt.Errorf("attribute text_key is required in \"text\" mode")
 		}
+	default:
+		return fmt.Errorf("attribute jwt_key_origin must be \"jwks\" or \"text\", got: %s", jwt_key_origin)
 	}
 	skip_client_id_validation := cfg["skip_client_id_validation"].(bool)
 	if _, ok := cfg["client_id_expression"]; !ok && !skip_client_id_validation {
