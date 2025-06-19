@@ -360,7 +360,6 @@ func newApimMule4PostBody(d *schema.ResourceData) *apim.ApimInstancePostBody {
 	}
 	body.SetTechnology(APIM_MULE4_TECHNOLOGY)
 	body.SetEndpoint(*endpoint)
-	body.SetDeploymentNil()
 	body.SetSpec(*spec)
 
 	return body
