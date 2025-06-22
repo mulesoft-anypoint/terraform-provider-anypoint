@@ -368,7 +368,14 @@ func flattenPrivateSpaceTlsContextData(data *private_space_tlscontext.TlsContext
 		result["trust_store_type"] = truststore.GetType()
 		if dnList, ok := truststore.GetDnListOk(); ok {
 			result["trust_store_dn_list"] = flattenPrivateSpaceTlsContextDnList(dnList)
+		} else {
+			result["trust_store_dn_list"] = []any{}
 		}
+	} else {
+		result["trust_store_dn_list"] = []any{}
+		result["trust_store_file_name"] = ""
+		result["trust_store_expiration_date"] = ""
+		result["trust_store_type"] = ""
 	}
 	if keystore, ok := data.GetKeyStoreOk(); ok {
 		result["key_store_type"] = keystore.GetType()
@@ -403,11 +410,8 @@ func flattenPrivateSpaceTlsContextData(data *private_space_tlscontext.TlsContext
 }
 
 func flattenPrivateSpaceTlsContextDnList(dnList []private_space_tlscontext.TrustStoreDnListInner) []map[string]any {
-	if len(dnList) == 0 {
-		return nil
-	}
-	var result []map[string]any
-	for _, dn := range dnList {
+	result := make([]map[string]any, len(dnList))
+	for i, dn := range dnList {
 		m := make(map[string]any)
 		if issuer, ok := dn.GetIssuerOk(); ok {
 			m["issuer_common_name"] = issuer.GetCommonName()
@@ -438,7 +442,7 @@ func flattenPrivateSpaceTlsContextDnList(dnList []private_space_tlscontext.Trust
 		}
 		m["key_usage"] = dn.GetKeyUsage()
 		m["certificate_type"] = dn.GetCertificateType()
-		result = append(result, m)
+		result[i] = m
 	}
 	return result
 }

@@ -42,11 +42,13 @@ func preparePrivateSpaceTlsContextJKSResourceSchema() map[string]*schema.Schema 
 	pstc_schema["key_passphrase"] = &schema.Schema{
 		Type:        schema.TypeString,
 		Optional:    true,
+		Default:     "",
 		Description: "The private key passphrase.",
 	}
 	pstc_schema["alias"] = &schema.Schema{
 		Type:        schema.TypeString,
 		Optional:    true,
+		Default:     "",
 		Description: "The alias of the certificate.",
 	}
 	pstc_schema["keystore_file_name"] = &schema.Schema{
@@ -372,12 +374,8 @@ func createPrivateSpaceTlsContextJksKeystore(d *schema.ResourceData) *private_sp
 	keystore := private_space_tlscontext.NewTlsContextPostBodyKeyStoreJKSWithDefaults()
 	keystore.SetKeystoreBase64(d.Get("keystore").(string))
 	keystore.SetStorePassphrase(d.Get("keystore_passphrase").(string))
-	if val := d.Get("key_passphrase"); val != nil && val.(string) != "" {
-		keystore.SetKeyPassphrase(val.(string))
-	}
-	if val := d.Get("alias"); val != nil && val.(string) != "" {
-		keystore.SetAlias(val.(string))
-	}
+	keystore.SetKeyPassphrase(d.Get("key_passphrase").(string))
+	keystore.SetAlias(d.Get("alias").(string))
 	if val := d.Get("keystore_file_name"); val != nil && val.(string) != "" {
 		keystore.SetKeystoreFileName(val.(string))
 	}
