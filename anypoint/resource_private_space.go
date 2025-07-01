@@ -43,6 +43,13 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 		)),
 		Description: "The network region of the private space.",
 	}
+	ps_schema["network_cidr_block"] = &schema.Schema{
+		Type:             schema.TypeString,
+		Required:         true,
+		ForceNew:         true,
+		ValidateDiagFunc: validation.ToDiagFunc(validation.IsCIDR),
+		Description:      "The CIDR block of the network.",
+	}
 	ps_schema["environments_type"] = &schema.Schema{
 		Type:     schema.TypeString,
 		Optional: true,
@@ -58,12 +65,6 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
 		},
-	}
-	ps_schema["network_cidr_block"] = &schema.Schema{
-		Type:             schema.TypeString,
-		Optional:         true,
-		ValidateDiagFunc: validation.ToDiagFunc(validation.IsCIDR),
-		Description:      "The CIDR block of the network.",
 	}
 	ps_schema["network_internal_dns_servers"] = &schema.Schema{
 		Type:        schema.TypeList,
@@ -442,7 +443,6 @@ func updatablePrivateSpaceAttributes() []string {
 	return []string{
 		"environments_type",
 		"environments_business_groups",
-		"network_cidr_block",
 		"network_internal_dns_servers",
 		"network_internal_dns_special_domains",
 		"network_reserved_cidrs",
