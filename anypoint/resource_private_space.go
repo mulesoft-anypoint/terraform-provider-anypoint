@@ -77,7 +77,7 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 	ps_schema["network_internal_dns_special_domains"] = &schema.Schema{
 		Type:        schema.TypeList,
 		Optional:    true,
-		Description: "Special DNS domains.",
+		Description: "List of domains to be used for internal DNS resolution.",
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
 		},

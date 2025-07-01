@@ -82,7 +82,7 @@ resource "anypoint_private_space" "my_ps" {
 - `firewall_rules` (Block List) Firewall rules for the private space. (see [below for nested schema](#nestedblock--firewall_rules))
 - `network_cidr_block` (String) The CIDR block of the network.
 - `network_internal_dns_servers` (List of String) List of DNS servers. Values should be valid IP addresses (v4 or v6)
-- `network_internal_dns_special_domains` (List of String) Special DNS domains.
+- `network_internal_dns_special_domains` (List of String) List of domains to be used for internal DNS resolution.
 - `network_reserved_cidrs` (List of String) Reserved CIDR blocks.
 
 ### Read-Only
