@@ -61,19 +61,17 @@ resource "time_sleep" "private_space_ready" {
 }
 
 ################################################################################
-# TLS Context – PEM
+# TLS Context – JKS
 ################################################################################
-resource "anypoint_private_space_tlscontext_pem" "my_tlscontext" {
+resource "anypoint_private_space_tlscontext_jks" "my_tlscontext_jks" {
   depends_on            = [time_sleep.private_space_ready]
 
   org_id                = var.root_org
-  name                  = "my-tlscontext"
+  name                  = "my-tlscontext-jks"
   private_space_id      = anypoint_private_space.my_ps.id
 
-  certificate           = file("${path.module}/keys/myserver.local.crt")
-  key                   = file("${path.module}/keys/myserver.local.key")
-  key_passphrase        = ""
-
-  certificate_file_name = "myserver.local.crt"
-  key_file_name         = "myserver.local.key"
+  keystore              = filebase64("${path.module}/keys/apiwalker.example.keystore")
+  keystore_passphrase   = "123456"
+  key_passphrase        = "123456"
+  alias                 = "apiwalker.anypoint.com"
 }

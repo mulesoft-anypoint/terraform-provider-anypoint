@@ -48,8 +48,6 @@ data "anypoint_private_space_tlscontext" "ps_tlscontext" {
 - `cipher_tls_aes128_gcm_sha256` (Boolean) The ciphers used by the tls context.
 - `cipher_tls_aes256_gcm_sha384` (Boolean) The ciphers used by the tls context.
 - `cipher_tls_chacha20_poly1305_sha256` (Boolean) The ciphers used by the tls context.
-- `created_at` (String)
-- `description` (String)
 - `key_store_capath_file_name` (String) The keystore capath file name.
 - `key_store_cn` (String) The common name of the keystore.
 - `key_store_expiration_date` (String) The keystore expiration date.
@@ -58,13 +56,11 @@ data "anypoint_private_space_tlscontext" "ps_tlscontext" {
 - `key_store_san` (List of String) The subject alternative names of the keystore.
 - `key_store_type` (String) The type of the keystore.
 - `name` (String)
-- `status` (String)
 - `trust_store_dn_list` (List of Object) The list of DNs of the trust store. (see [below for nested schema](#nestedatt--trust_store_dn_list))
 - `trust_store_expiration_date` (String)
 - `trust_store_file_name` (String)
 - `trust_store_type` (String) The type of the trust store.
 - `type` (String) The type of the tls context.
-- `updated_at` (String)
 
 <a id="nestedatt--trust_store_dn_list"></a>
 ### Nested Schema for `trust_store_dn_list`

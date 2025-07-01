@@ -54,8 +54,6 @@ Read-Only:
 - `cipher_tls_aes128_gcm_sha256` (Boolean)
 - `cipher_tls_aes256_gcm_sha384` (Boolean)
 - `cipher_tls_chacha20_poly1305_sha256` (Boolean)
-- `created_at` (String)
-- `description` (String)
 - `id` (String)
 - `key_store_capath_file_name` (String)
 - `key_store_cn` (String)
@@ -67,13 +65,11 @@ Read-Only:
 - `name` (String)
 - `org_id` (String)
 - `private_space_id` (String)
-- `status` (String)
 - `trust_store_dn_list` (List of Object) (see [below for nested schema](#nestedobjatt--tls_contexts--trust_store_dn_list))
 - `trust_store_expiration_date` (String)
 - `trust_store_file_name` (String)
 - `trust_store_type` (String)
 - `type` (String)
-- `updated_at` (String)
 
 <a id="nestedobjatt--tls_contexts--trust_store_dn_list"></a>
 ### Nested Schema for `tls_contexts.trust_store_dn_list`
