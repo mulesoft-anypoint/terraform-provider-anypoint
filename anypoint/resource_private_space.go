@@ -53,15 +53,17 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 	ps_schema["environments_type"] = &schema.Schema{
 		Type:     schema.TypeString,
 		Optional: true,
+		Default:  "sandbox",
 		ValidateDiagFunc: validation.ToDiagFunc(
 			validation.StringInSlice([]string{"all", "sandbox", "production"}, false),
 		),
-		Description: "The type of associated environments. Valid values are 'all', 'sandbox', 'production'",
+		Description: "The type of associated environments. Valid values are 'all', 'sandbox', 'production'. Default is 'sandbox'",
 	}
 	ps_schema["environments_business_groups"] = &schema.Schema{
 		Type:        schema.TypeList,
 		Optional:    true,
-		Description: "Business groups associated with the associated environments. Valid values are 'all' or business units uuids",
+		Default:     []string{"all"},
+		Description: "Business groups associated with the associated environments. Valid values are 'all' or business units uuids. Default is 'all'",
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
 		},

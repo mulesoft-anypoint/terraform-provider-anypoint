@@ -78,8 +78,8 @@ resource "anypoint_private_space" "my_ps" {
 - `enable_egress` (Boolean) Indicates whether egress is enabled for the private space. Default is false.
 - `enable_iam_role` (Boolean) Indicates whether IAM roles are enabled for the private space. Default is false.
 - `enable_network_isolation` (Boolean) Indicates whether network isolation is enabled for the private space. Default is true.
-- `environments_business_groups` (List of String) Business groups associated with the associated environments. Valid values are 'all' or business units uuids
-- `environments_type` (String) The type of associated environments. Valid values are 'all', 'sandbox', 'production'
+- `environments_business_groups` (List of String) Business groups associated with the associated environments. Valid values are 'all' or business units uuids. Default is 'all'
+- `environments_type` (String) The type of associated environments. Valid values are 'all', 'sandbox', 'production'. Default is 'sandbox'
 - `firewall_rules` (Block List) Firewall rules for the private space. (see [below for nested schema](#nestedblock--firewall_rules))
 - `network_internal_dns_servers` (List of String) List of DNS servers. Values should be valid IP addresses (v4 or v6)
 - `network_internal_dns_special_domains` (List of String) List of domains to be used for internal DNS resolution.
