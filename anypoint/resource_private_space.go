@@ -30,7 +30,7 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 		ForceNew:    true,
 		Description: "The ID of the organization to which the private space belongs.",
 	}
-	ps_schema["region"] = &schema.Schema{
+	ps_schema["network_region"] = &schema.Schema{
 		Type:     schema.TypeString,
 		Required: true,
 		ForceNew: true,
@@ -41,7 +41,7 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 			},
 			false,
 		)),
-		Description: "The region of the private space.",
+		Description: "The network region of the private space.",
 	}
 	ps_schema["environments_type"] = &schema.Schema{
 		Type:     schema.TypeString,
@@ -58,11 +58,6 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
 		},
-	}
-	ps_schema["network_region"] = &schema.Schema{
-		Type:        schema.TypeString,
-		Optional:    true,
-		Description: "The network region of the private space.",
 	}
 	ps_schema["network_cidr_block"] = &schema.Schema{
 		Type:             schema.TypeString,
@@ -154,7 +149,7 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 	ps_schema["enable_network_isolation"] = &schema.Schema{
 		Type:        schema.TypeBool,
 		Optional:    true,
-		Default:     true,
+		Default:     false,
 		Description: "Indicates whether network isolation is enabled for the private space. Default is true.",
 	}
 	return ps_schema
@@ -195,23 +190,12 @@ func resourcePrivateSpaceCreate(ctx context.Context, d *schema.ResourceData, m a
 		}
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to Create Private Space for org " + orgid,
+			Summary:  "Unable to Create Private Space " + res.GetId() + " for org " + orgid,
 			Detail:   details,
 		})
 		return diags
 	}
 	defer httpr.Body.Close()
-	//process data
-	private_space := flattenPrivateSpaceData(res)
-	//save in resource schema
-	if err := d.Set("private_space", private_space); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Unable to set Private Space for org " + orgid,
-			Detail:   err.Error(),
-		})
-		return diags
-	}
 	d.SetId(res.GetId())
 	return resourcePrivateSpaceRead(ctx, d, m)
 }
@@ -262,32 +246,37 @@ func resourcePrivateSpaceRead(ctx context.Context, d *schema.ResourceData, m any
 
 func resourcePrivateSpaceUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
-	pco := m.(ProviderConfOutput)
-	orgid := d.Get("org_id").(string)
-	id := d.Id()
-	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
-	body := newPrivateSpacePatchBody(d)
-	//request
-	_, httpr, err := pco.privatespaceclient.DefaultApi.UpdatePrivateSpace(authctx, orgid, id).PrivateSpacePatchBody(*body).Execute()
-	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+	//check if there are changes
+	if d.HasChanges(updatablePrivateSpaceAttributes()...) {
+		pco := m.(ProviderConfOutput)
+		orgid := d.Get("org_id").(string)
+		id := d.Id()
+		authctx := getPrivateSpaceAuthCtx(ctx, &pco)
+		body := newPrivateSpacePatchBody(d)
+		//request
+		_, httpr, err := pco.privatespaceclient.DefaultApi.UpdatePrivateSpace(authctx, orgid, id).PrivateSpacePatchBody(*body).Execute()
+		if err != nil {
+			var details string
+			if httpr != nil && httpr.StatusCode >= 400 {
+				defer httpr.Body.Close()
+				b, _ := io.ReadAll(httpr.Body)
+				details = string(b)
+			} else {
+				details = err.Error()
+			}
+			diags := append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Unable to Update Private Space " + id + " for org " + orgid,
+				Detail:   details,
+			})
+			return diags
 		}
-		diags := append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Unable to Update Private Space " + id + " for org " + orgid,
-			Detail:   details,
-		})
-		return diags
+		defer httpr.Body.Close()
+		d.Set("last_updated", time.Now().Format(time.RFC850))
+		return resourcePrivateSpaceRead(ctx, d, m)
 	}
-	defer httpr.Body.Close()
-	d.Set("last_updated", time.Now().Format(time.RFC850))
-	return resourcePrivateSpaceRead(ctx, d, m)
+
+	return diags
 }
 
 func resourcePrivateSpaceDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
@@ -447,6 +436,21 @@ func newPrivateSpacePatchBody(d *schema.ResourceData) *private_space.PrivateSpac
 	body.SetEnvironments(*environments)
 	body.SetNetwork(*network)
 	return body
+}
+
+func updatablePrivateSpaceAttributes() []string {
+	return []string{
+		"environments_type",
+		"environments_business_groups",
+		"network_cidr_block",
+		"network_internal_dns_servers",
+		"network_internal_dns_special_domains",
+		"network_reserved_cidrs",
+		"firewall_rules",
+		"enable_iam_role",
+		"enable_egress",
+		"enable_network_isolation",
+	}
 }
 
 func getPrivateSpaceAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Context {

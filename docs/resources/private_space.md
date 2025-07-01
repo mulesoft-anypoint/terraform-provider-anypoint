@@ -69,8 +69,8 @@ resource "anypoint_private_space" "my_ps" {
 ### Required
 
 - `name` (String) The name of the private space.
+- `network_region` (String) The network region of the private space.
 - `org_id` (String) The ID of the organization to which the private space belongs.
-- `region` (String) The region of the private space.
 
 ### Optional
 
@@ -83,7 +83,6 @@ resource "anypoint_private_space" "my_ps" {
 - `network_cidr_block` (String) The CIDR block of the network.
 - `network_internal_dns_servers` (List of String) List of DNS servers. Values should be valid IP addresses (v4 or v6)
 - `network_internal_dns_special_domains` (List of String) Special DNS domains.
-- `network_region` (String) The network region of the private space.
 - `network_reserved_cidrs` (List of String) Reserved CIDR blocks.
 
 ### Read-Only
@@ -98,6 +97,7 @@ resource "anypoint_private_space" "my_ps" {
 - `network_outbound_static_ips` (List of String) Outbound static IPs.
 - `provisioning_message` (String) Provisioning message.
 - `provisioning_status` (String) Provisioning status.
+- `region` (String) The region of the private space.
 - `root_org_id` (String) The ID of the root organization to which the private space belongs.
 - `status` (String) The current status of the private space.
 - `status_message` (String) The status message of the private space.
