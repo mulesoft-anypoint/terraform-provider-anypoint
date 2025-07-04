@@ -4,11 +4,13 @@ page_title: "anypoint_private_space_tlscontext_pem Resource - terraform-provider
 subcategory: ""
 description: |-
   Manages a `private space tls context (of type PEM)` in your private space.
+      **NOTE**: This resource when applied on creation of the private space, becomes the default tls context until the private space is properly provisioned (about 30minutes). Meanwhile the resource cannot be deleted.
 ---
 
 # anypoint_private_space_tlscontext_pem (Resource)
 
 Manages a `private space tls context (of type PEM)` in your private space.
+		**NOTE**: This resource when applied on creation of the private space, becomes the default tls context until the private space is properly provisioned (about 30minutes). Meanwhile the resource cannot be deleted.
 
 ## Example Usage
 

@@ -204,6 +204,7 @@ func resourcePrivateSpaceTlsContextJKS() *schema.Resource {
 		},
 		Description: `
 		Manages a ` + "`" + `private space tls context (of type JKS)` + "`" + ` in your private space.
+		**NOTE**: This resource when applied on creation of the private space, becomes the default tls context until the private space is properly provisioned (about 30minutes). Meanwhile the resource cannot be deleted.
 		`,
 		Schema: preparePrivateSpaceTlsContextJKSResourceSchema(),
 	}
