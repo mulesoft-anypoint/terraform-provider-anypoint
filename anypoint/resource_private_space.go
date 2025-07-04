@@ -3,6 +3,7 @@ package anypoint
 import (
 	"context"
 	"io"
+	"log"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -53,17 +54,15 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 	ps_schema["environments_type"] = &schema.Schema{
 		Type:     schema.TypeString,
 		Optional: true,
-		Default:  "sandbox",
 		ValidateDiagFunc: validation.ToDiagFunc(
 			validation.StringInSlice([]string{"all", "sandbox", "production"}, false),
 		),
-		Description: "The type of associated environments. Valid values are 'all', 'sandbox', 'production'. Default is 'sandbox'",
+		Description: "The type of associated environments. Valid values are 'all', 'sandbox', 'production'.",
 	}
 	ps_schema["environments_business_groups"] = &schema.Schema{
 		Type:        schema.TypeList,
 		Optional:    true,
-		Default:     []string{"all"},
-		Description: "Business groups associated with the associated environments. Valid values are 'all' or business units uuids. Default is 'all'",
+		Description: "Business groups associated with the associated environments. Valid values are 'all' or business units uuids.",
 		Elem: &schema.Schema{
 			Type: schema.TypeString,
 		},
@@ -144,16 +143,22 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 		Description: "Indicates whether IAM roles are enabled for the private space. Default is false.",
 	}
 	ps_schema["enable_egress"] = &schema.Schema{
-		Type:        schema.TypeBool,
-		Optional:    true,
-		Default:     false,
-		Description: "Indicates whether egress is enabled for the private space. Default is false.",
+		Type:     schema.TypeBool,
+		Optional: true,
+		Default:  false,
+		Description: `
+		Indicates whether egress is enabled for the private space. Default is false.
+		This argument takes some time to be applied.
+		`,
 	}
 	ps_schema["enable_network_isolation"] = &schema.Schema{
-		Type:        schema.TypeBool,
-		Optional:    true,
-		Default:     false,
-		Description: "Indicates whether network isolation is enabled for the private space. Default is true.",
+		Type:     schema.TypeBool,
+		Optional: true,
+		Default:  true,
+		Description: `
+		Indicates whether network isolation is enabled for the private space. Default is true.
+		This argument takes some time to be applied.
+		`,
 	}
 	return ps_schema
 }
@@ -200,7 +205,12 @@ func resourcePrivateSpaceCreate(ctx context.Context, d *schema.ResourceData, m a
 	}
 	defer httpr.Body.Close()
 	d.SetId(res.GetId())
-	return resourcePrivateSpaceRead(ctx, d, m)
+	diags = append(diags, resourcePrivateSpaceRead(ctx, d, m)...)
+	if diags.HasError() {
+		return diags
+	}
+	//NOTE: update the resource for arguments that cannot be set at creation time
+	return resourcePrivateSpaceUpdate(ctx, d, m)
 }
 
 func resourcePrivateSpaceRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
@@ -256,6 +266,12 @@ func resourcePrivateSpaceUpdate(ctx context.Context, d *schema.ResourceData, m a
 		id := d.Id()
 		authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 		body := newPrivateSpacePatchBody(d)
+		bodyMap, err := body.MarshalJSON()
+		if err != nil {
+			log.Printf("[ERROR] Failed to convert Private Space Patch Body to map: %v", err)
+		} else {
+			log.Printf("[DEBUG] Private Space Patch Body: %s \n", bodyMap)
+		}
 		//request
 		_, httpr, err := pco.privatespaceclient.DefaultApi.UpdatePrivateSpace(authctx, orgid, id).PrivateSpacePatchBody(*body).Execute()
 		if err != nil {
@@ -314,8 +330,8 @@ func newPrivateSpaceBody(d *schema.ResourceData) *private_space.PrivateSpacePost
 	body := private_space.NewPrivateSpacePostBody()
 	body.SetName(d.Get("name").(string))
 	environments := private_space.NewPrivateSpaceAssociatedEnvironments()
-	network := private_space.NewPrivateSpaceNetworkEditable()
-	networkDnsServers := private_space.NewPrivateSpaceNetworkEditableInternalDns()
+	network := private_space.NewPrivateSpaceNetworkCreate()
+	networkDnsServers := private_space.NewPrivateSpaceNetworkCreateInternalDns()
 	if envType := d.Get("environments_type").(string); envType != "" {
 		environments.SetType(envType)
 	}
@@ -379,10 +395,13 @@ func newPrivateSpaceBody(d *schema.ResourceData) *private_space.PrivateSpacePost
 func newPrivateSpacePatchBody(d *schema.ResourceData) *private_space.PrivateSpacePatchBody {
 	body := private_space.NewPrivateSpacePatchBody()
 	environments := private_space.NewPrivateSpaceAssociatedEnvironments()
+	environmentsUpdated := false
 	network := private_space.NewPrivateSpaceNetworkEditable()
-	networkDnsServers := private_space.NewPrivateSpaceNetworkEditableInternalDns()
+	networkUpdated := false
+	networkDnsServers := private_space.NewPrivateSpaceNetworkCreateInternalDns()
 	if environments_type := d.Get("environments_type").(string); environments_type != "" {
 		environments.SetType(environments_type)
+		environmentsUpdated = true
 	}
 	if environments_business_groups := d.Get("environments_business_groups").([]any); len(environments_business_groups) > 0 {
 		var businessGroups []string
@@ -390,12 +409,7 @@ func newPrivateSpacePatchBody(d *schema.ResourceData) *private_space.PrivateSpac
 			businessGroups = append(businessGroups, group.(string))
 		}
 		environments.SetBusinessGroups(businessGroups)
-	}
-	if network_region := d.Get("network_region").(string); network_region != "" {
-		network.SetRegion(network_region)
-	}
-	if network_cidr_block := d.Get("network_cidr_block").(string); network_cidr_block != "" {
-		network.SetCidrBlock(network_cidr_block)
+		environmentsUpdated = true
 	}
 	if network_internal_dns_servers := d.Get("network_internal_dns_servers").([]any); len(network_internal_dns_servers) > 0 {
 		var dnsServers []string
@@ -404,6 +418,7 @@ func newPrivateSpacePatchBody(d *schema.ResourceData) *private_space.PrivateSpac
 		}
 		networkDnsServers.SetDnsServers(dnsServers)
 		network.SetInternalDns(*networkDnsServers)
+		networkUpdated = true
 	}
 	if network_internal_dns_special_domains := d.Get("network_internal_dns_special_domains").([]any); len(network_internal_dns_special_domains) > 0 {
 		var specialDomains []string
@@ -412,6 +427,7 @@ func newPrivateSpacePatchBody(d *schema.ResourceData) *private_space.PrivateSpac
 		}
 		networkDnsServers.SetSpecialDomains(specialDomains)
 		network.SetInternalDns(*networkDnsServers)
+		networkUpdated = true
 	}
 	if network_reserved_cidrs := d.Get("network_reserved_cidrs").([]any); len(network_reserved_cidrs) > 0 {
 		var reservedCIDRs []string
@@ -419,6 +435,7 @@ func newPrivateSpacePatchBody(d *schema.ResourceData) *private_space.PrivateSpac
 			reservedCIDRs = append(reservedCIDRs, cidr.(string))
 		}
 		network.SetReservedCidrs(reservedCIDRs)
+		networkUpdated = true
 	}
 	if firewall := d.Get("firewall_rules").([]any); len(firewall) > 0 {
 		var rules []private_space.FirewallRule
@@ -436,8 +453,21 @@ func newPrivateSpacePatchBody(d *schema.ResourceData) *private_space.PrivateSpac
 			body.SetFirewallRules(rules)
 		}
 	}
-	body.SetEnvironments(*environments)
-	body.SetNetwork(*network)
+	if enable_iam_role := d.Get("enable_iam_role").(bool); enable_iam_role {
+		body.SetEnableIAMRole(enable_iam_role)
+	}
+	if enable_egress := d.Get("enable_egress").(bool); enable_egress {
+		body.SetEnableEgress(enable_egress)
+	}
+	if enable_network_isolation := d.Get("enable_network_isolation").(bool); enable_network_isolation {
+		body.SetEnableNetworkIsolation(enable_network_isolation)
+	}
+	if environmentsUpdated {
+		body.SetEnvironments(*environments)
+	}
+	if networkUpdated {
+		body.SetNetwork(*network)
+	}
 	return body
 }
 

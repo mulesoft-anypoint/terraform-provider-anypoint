@@ -223,8 +223,10 @@ github.com/mulesoft-anypoint/anypoint-client-go/idp v1.0.0 h1:DOF515Dh3XgOXnxk/6
 github.com/mulesoft-anypoint/anypoint-client-go/idp v1.0.0/go.mod h1:GGCVuorW8c7mTWOFmLDC8nTn2nXgmGuJbDP/LNNPjug=
 github.com/mulesoft-anypoint/anypoint-client-go/org v0.4.0 h1:TOaHNJbX/aFMhFB8Y12TnHO+XSVr/mWv9ASU0QsdGf8=
 github.com/mulesoft-anypoint/anypoint-client-go/org v0.4.0/go.mod h1:6QFWuAYmlAtDYglheyxntcMEDxZSUV0jGbVKuXOElW8=
-github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.0.0 h1:VMr1FzOBWBlQt7BEqJN0/wkL8WbXyRBGMu5ZijG3y0o=
-github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.0.0/go.mod h1:/HvCjbc2zxtr1Fgbanf5Uc/4a9JVdYg6OzQwVymDC9Q=
+github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.1.0 h1:sSMATLQjNRnvulEoRXcA/l6TfDGbLB3RJd0+kcdscfU=
+github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.1.0/go.mod h1:/HvCjbc2zxtr1Fgbanf5Uc/4a9JVdYg6OzQwVymDC9Q=
+github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.1.1 h1:7Sq/668TQ2Cr6Fxkup1vWBNl3rJDarJz2/nDD/iLhX0=
+github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.1.1/go.mod h1:/HvCjbc2zxtr1Fgbanf5Uc/4a9JVdYg6OzQwVymDC9Q=
 github.com/mulesoft-anypoint/anypoint-client-go/private_space_tlscontext v1.0.0 h1:S+yNQCmO1hfAsQQMrL+7r5/v5ugOsNmWiE1pjBGEOZY=
 github.com/mulesoft-anypoint/anypoint-client-go/private_space_tlscontext v1.0.0/go.mod h1:5eifsO7/jvnrMKGEJ2FG4MeIYG/dlTenCgGrCm+hGLw=
 github.com/mulesoft-anypoint/anypoint-client-go/role v0.2.0 h1:q5TddUXaFrY7Vs/7AP93zNpCiWM5yLI/ZwDr/EYN/ag=
