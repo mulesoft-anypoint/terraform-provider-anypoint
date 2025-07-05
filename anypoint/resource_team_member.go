@@ -132,9 +132,12 @@ func resourceTeamMemberRead(ctx context.Context, d *schema.ResourceData, m any) 
 	userid := d.Get("user_id").(string)
 	id := d.Id()
 	if isComposedResourceId(id) {
-		orgid, teamid, userid = decomposeTeamMemberId(d)
+		orgid, teamid, userid, diags = decomposeTeamMemberId(d)
 	} else if isComposedResourceId(id, "_") { // retro-compatibility with versions < 1.6.x
-		orgid, teamid, userid = decomposeTeamMemberId(d, "_")
+		orgid, teamid, userid, diags = decomposeTeamMemberId(d, "_")
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getTeamMembersAuthCtx(ctx, &pco)
 	//request members
@@ -264,7 +267,16 @@ func getTeamMembersAuthCtx(ctx context.Context, pco *ProviderConfOutput) context
 	return context.WithValue(tmp, team_members.ContextServerIndex, pco.server_index)
 }
 
-func decomposeTeamMemberId(d *schema.ResourceData, separator ...string) (string, string, string) {
+func decomposeTeamMemberId(d *schema.ResourceData, separator ...string) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Team Member ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/TEAM_ID/USER_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }

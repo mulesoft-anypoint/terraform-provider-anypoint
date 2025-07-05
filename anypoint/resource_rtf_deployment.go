@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"regexp"
 
@@ -615,7 +616,10 @@ func resourceRTFDeploymentRead(ctx context.Context, d *schema.ResourceData, m an
 	orgid := d.Get("org_id").(string)
 	envid := d.Get("env_id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, id = decomposeRTFDeploymentId(d)
+		orgid, envid, id, diags = decomposeRTFDeploymentId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
 	//perform request
@@ -922,9 +926,18 @@ func newRTFDeploymentResources(deployment_settings_d map[string]any) *applicatio
 	return resources
 }
 
-func decomposeRTFDeploymentId(d *schema.ResourceData) (string, string, string) {
+func decomposeRTFDeploymentId(d *schema.ResourceData) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid RTF Deployment ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/RTF_ID/DEPLOYMENT_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }
 
 func getRTFDeploymentUpdatableAttributes() []string {

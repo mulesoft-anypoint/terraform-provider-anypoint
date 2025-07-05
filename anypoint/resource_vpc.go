@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sort"
 	"time"
@@ -202,7 +203,10 @@ func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	vpcid := d.Id()
 	orgid := d.Get("org_id").(string)
 	if isComposedResourceId(vpcid) {
-		orgid, vpcid = decomposeVPCId(d)
+		orgid, vpcid, diags = decomposeVPCId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getVPCAuthCtx(ctx, &pco)
 	//perform request
@@ -460,7 +464,16 @@ func sortFirewallRules(list []any) {
 	})
 }
 
-func decomposeVPCId(d *schema.ResourceData, separator ...string) (string, string) {
+func decomposeVPCId(d *schema.ResourceData, separator ...string) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid VPC ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/VPC_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

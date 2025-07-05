@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -338,7 +339,10 @@ func resourceAMEBindingRead(ctx context.Context, d *schema.ResourceData, m any) 
 	queueid := d.Get("queue_id").(string)
 	id := d.Id()
 	if isComposedResourceId(id) {
-		orgid, envid, regionid, exchangeid, queueid = decomposeAMEBindingId(d)
+		orgid, envid, regionid, exchangeid, queueid, diags = decomposeAMEBindingId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getAMEBindingAuthCtx(ctx, &pco)
 	//request resource
@@ -429,9 +433,18 @@ func resourceAMEBindingDelete(ctx context.Context, d *schema.ResourceData, m any
 	return diags
 }
 
-func decomposeAMEBindingId(d *schema.ResourceData, separator ...string) (string, string, string, string, string) {
+func decomposeAMEBindingId(d *schema.ResourceData, separator ...string) (string, string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1], s[2], s[3], s[4]
+	if len(s) != 5 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid AME Binding ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/REGION_ID/EXCHANGE_ID/QUEUE_ID, got %s", d.Id()),
+		})
+		return "", "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], s[4], diags
 }
 
 func resourceAMEBindingRulesCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {

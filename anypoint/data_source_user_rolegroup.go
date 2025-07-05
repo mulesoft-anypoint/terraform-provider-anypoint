@@ -120,9 +120,12 @@ func searchUserRolegroup(ctx context.Context, d *schema.ResourceData, m any) (*u
 	orgid := d.Get("org_id").(string)
 	rolegroupid := d.Id()
 	if isComposedResourceId(rolegroupid) {
-		orgid, userid, rolegroupid = decomposeUserRolegroupId(d)
+		orgid, userid, rolegroupid, diags = decomposeUserRolegroupId(d)
 	} else if isComposedResourceId(rolegroupid, "_") { // retro-compatibility with versions < 1.6.x
-		orgid, userid, rolegroupid = decomposeUserRolegroupId(d, "_")
+		orgid, userid, rolegroupid, diags = decomposeUserRolegroupId(d, "_")
+	}
+	if diags.HasError() {
+		return nil, diags
 	}
 	authctx := getUserRolegroupsAuthCtx(ctx, &pco)
 	// params
@@ -195,7 +198,16 @@ func getUserRolegroupAttributes() []string {
 	return attributes[:]
 }
 
-func decomposeUserRolegroupId(d *schema.ResourceData, separator ...string) (string, string, string) {
+func decomposeUserRolegroupId(d *schema.ResourceData, separator ...string) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid User Rolegroup ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/USER_ID/ROLEGROUP_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }

@@ -250,7 +250,10 @@ func resourcePrivateSpaceTlsContextJKSRead(ctx context.Context, d *schema.Resour
 	authctx := getPrivateSpaceTlsContextAuthCtx(ctx, &pco)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, private_space_id, id = decomposePrivateSpaceTlsContextId(d)
+		orgid, private_space_id, id, diags = decomposePrivateSpaceTlsContextId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	//request
 	tlscontext, httpr, err := pco.privatespacetlscontextclient.DefaultApi.GetTlsContext(authctx, orgid, private_space_id, id).Execute()
@@ -331,9 +334,6 @@ func resourcePrivateSpaceTlsContextJKSDelete(ctx context.Context, d *schema.Reso
 	private_space_id := d.Get("private_space_id").(string)
 	authctx := getPrivateSpaceTlsContextAuthCtx(ctx, &pco)
 	id := d.Get("id").(string)
-	if isComposedResourceId(id) {
-		orgid, private_space_id, id = decomposePrivateSpaceTlsContextId(d)
-	}
 	//request
 	httpr, err := pco.privatespacetlscontextclient.DefaultApi.DeleteTlsContext(authctx, orgid, private_space_id, id).Execute()
 	if err != nil {

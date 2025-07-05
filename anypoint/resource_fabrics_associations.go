@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -119,7 +120,10 @@ func resourceFabricsAssociationsRead(ctx context.Context, d *schema.ResourceData
 	orgid := d.Get("org_id").(string)
 	authctx := getFabricsAuthCtx(ctx, &pco)
 	if isComposedResourceId(d.Id()) {
-		orgid, fabricsid = decomposeFabricsAssociationsId(d)
+		orgid, fabricsid, diags = decomposeFabricsAssociationsId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	//perform request
 	res, httpr, err := pco.rtfclient.DefaultApi.GetFabricsAssociations(authctx, orgid, fabricsid).Execute()
@@ -225,9 +229,18 @@ func prepareFabricsAssociationsDeleteBody(_ *schema.ResourceData) *rtf.FabricsAs
 	return body
 }
 
-func decomposeFabricsAssociationsId(d *schema.ResourceData) (string, string) {
+func decomposeFabricsAssociationsId(d *schema.ResourceData) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Fabrics Associations ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/FABRICS_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }
 
 func equalFabricsAssociations(old, new any) bool {

@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -17,7 +18,7 @@ func resourceUser() *schema.Resource {
 		UpdateContext: resourceUserUpdate,
 		DeleteContext: resourceUserDelete,
 		Description: `
-		Creates a ` + "`" + `user` + "`" + ` for your org. 
+		Creates a ` + "`" + `user` + "`" + ` for your org.
 
 **N.B:** you can use a username only once even after it's deleted.
 		`,
@@ -204,7 +205,10 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	userid := d.Id()
 	orgid := d.Get("org_id").(string)
 	if isComposedResourceId(userid) {
-		orgid, userid = decomposeUserId(d)
+		orgid, userid, diags = decomposeUserId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getUserAuthCtx(ctx, &pco)
 	//perform request
@@ -376,7 +380,16 @@ func getUserAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Contex
 	return context.WithValue(tmp, user.ContextServerIndex, pco.server_index)
 }
 
-func decomposeUserId(d *schema.ResourceData, separator ...string) (string, string) {
+func decomposeUserId(d *schema.ResourceData, separator ...string) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid User ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/USER_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

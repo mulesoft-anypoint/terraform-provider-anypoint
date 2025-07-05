@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -478,7 +479,10 @@ func resourceSecretGroupTlsContextSFRead(ctx context.Context, d *schema.Resource
 	sgid := d.Get("sg_id").(string)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, sgid, id = decomposeSgTlsContextSFId(d)
+		orgid, envid, sgid, id, diags = decomposeSgTlsContextSFId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getSgTlsContextAuthCtx(ctx, &pco)
 	//perform request
@@ -797,7 +801,16 @@ func getSgTlsContextSFUpdatableAttributes() []string {
 }
 
 // returns the composed of the secret
-func decomposeSgTlsContextSFId(d *schema.ResourceData) (string, string, string, string) {
+func decomposeSgTlsContextSFId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2], s[3]
+	if len(s) != 4 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Secret Group TLS Context SecurityFabric ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/SG_ID/ID, got %s", d.Id()),
+		})
+		return "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], diags
 }

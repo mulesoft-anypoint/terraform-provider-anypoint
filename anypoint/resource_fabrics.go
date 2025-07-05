@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -212,7 +213,10 @@ func resourceFabricsRead(ctx context.Context, d *schema.ResourceData, m any) dia
 	orgid := d.Get("org_id").(string)
 	authctx := getFabricsAuthCtx(ctx, &pco)
 	if isComposedResourceId(fabricsid) {
-		orgid, fabricsid = decomposeFabricsId(d)
+		orgid, fabricsid, diags = decomposeFabricsId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	//perform request
 	res, httpr, err := pco.rtfclient.DefaultApi.GetFabrics(authctx, orgid, fabricsid).Execute()
@@ -293,9 +297,18 @@ func prepareFabricsPostBody(d *schema.ResourceData) *rtf.FabricsPostBody {
 	return body
 }
 
-func decomposeFabricsId(d *schema.ResourceData) (string, string) {
+func decomposeFabricsId(d *schema.ResourceData) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Fabrics ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/FABRICS_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }
 
 /*

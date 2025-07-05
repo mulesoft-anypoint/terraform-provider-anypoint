@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -126,7 +127,10 @@ func resourceTeamRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	teamid := d.Id()
 	orgid := d.Get("org_id").(string)
 	if isComposedResourceId(teamid) {
-		orgid, teamid = decomposeTeamId(d)
+		orgid, teamid, diags = decomposeTeamId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getTeamAuthCtx(ctx, &pco)
 	//request roles
@@ -322,7 +326,16 @@ func getTeamAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Contex
 	return context.WithValue(tmp, team.ContextServerIndex, pco.server_index)
 }
 
-func decomposeTeamId(d *schema.ResourceData, separator ...string) (string, string) {
+func decomposeTeamId(d *schema.ResourceData, separator ...string) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Team ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/TEAM_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

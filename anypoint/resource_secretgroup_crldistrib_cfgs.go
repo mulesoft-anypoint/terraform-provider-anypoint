@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -146,7 +147,10 @@ func resourceSecretGroupCrlDistribCfgsRead(ctx context.Context, d *schema.Resour
 	id := d.Get("id").(string)
 	authctx := getSgCrlDistribCfgsAuthCtx(ctx, &pco)
 	if isComposedResourceId(id) {
-		orgid, envid, sgid, id = decomposeSgCrlDistribCfgsId(d)
+		orgid, envid, sgid, id, diags = decomposeSgCrlDistribCfgsId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	//perform request
 	res, httpr, err := pco.sgcrldistribcfgsclient.DefaultApi.GetSecretGroupCrlDistribCfgsDetails(authctx, orgid, envid, sgid, id).Execute()
@@ -275,7 +279,16 @@ func getSgCrlDistribCfgsAuthCtx(ctx context.Context, pco *ProviderConfOutput) co
 }
 
 // returns the composed of the secret
-func decomposeSgCrlDistribCfgsId(d *schema.ResourceData) (string, string, string, string) {
+func decomposeSgCrlDistribCfgsId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2], s[3]
+	if len(s) != 4 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Secret Group CRL Distributor Configs ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/SG_ID/ID, got %s", d.Id()),
+		})
+		return "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], diags
 }

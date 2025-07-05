@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sort"
 
@@ -127,9 +128,12 @@ func resourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m any) d
 	teamid := d.Get("team_id").(string)
 	id := d.Id()
 	if isComposedResourceId(id) {
-		orgid, teamid = decomposeTeamRolesId(d)
+		orgid, teamid, diags = decomposeTeamRolesId(d)
 	} else if isComposedResourceId(id, "_") { // retro-compatibility with versions < 1.6.x
-		orgid, teamid = decomposeTeamRolesId(d, "_")
+		orgid, teamid, diags = decomposeTeamRolesId(d, "_")
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getTeamRolesAuthCtx(ctx, &pco)
 	//perform request
@@ -371,7 +375,16 @@ func getTeamRolesAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.C
 	return context.WithValue(tmp, team_roles.ContextServerIndex, pco.server_index)
 }
 
-func decomposeTeamRolesId(d *schema.ResourceData, separator ...string) (string, string) {
+func decomposeTeamRolesId(d *schema.ResourceData, separator ...string) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Team Roles ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/TEAM_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

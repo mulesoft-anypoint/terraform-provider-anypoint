@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -186,9 +187,12 @@ func resourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData, 
 	teamid := d.Get("team_id").(string)
 	id := d.Id()
 	if isComposedResourceId(id) {
-		orgid, teamid = decomposeTeamGroupMappingId(d)
+		orgid, teamid, diags = decomposeTeamGroupMappingId(d)
 	} else if isComposedResourceId(id, "_") { // retro-compatibility with versions < 1.6.x
-		orgid, teamid = decomposeTeamGroupMappingId(d, "_")
+		orgid, teamid, diags = decomposeTeamGroupMappingId(d, "_")
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getTeamGroupMappingsAuthCtx(ctx, &pco)
 	//request get
@@ -304,7 +308,16 @@ func getTeamGroupMappingsAuthCtx(ctx context.Context, pco *ProviderConfOutput) c
 	return context.WithValue(tmp, team_group_mappings.ContextServerIndex, pco.server_index)
 }
 
-func decomposeTeamGroupMappingId(d *schema.ResourceData, separator ...string) (string, string) {
+func decomposeTeamGroupMappingId(d *schema.ResourceData, separator ...string) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Team Group Mapping ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/TEAM_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

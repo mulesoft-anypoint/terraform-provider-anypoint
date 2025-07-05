@@ -577,7 +577,10 @@ func resourceApimFlexGatewayRead(ctx context.Context, d *schema.ResourceData, m 
 	id := d.Get("id").(string)
 	authctx := getApimAuthCtx(ctx, &pco)
 	if isComposedResourceId(id) {
-		orgid, envid, id = decomposeApimFlexGatewayId(d)
+		orgid, envid, id, diags = decomposeApimFlexGatewayId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 
 	res, httpr, err := pco.apimclient.DefaultApi.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
@@ -1143,9 +1146,18 @@ func newApimFlexGatewayUpstreamPatchBody(upstreams []any) []*apim_upstream.Upstr
 	return bodies
 }
 
-func decomposeApimFlexGatewayId(d *schema.ResourceData) (string, string, string) {
+func decomposeApimFlexGatewayId(d *schema.ResourceData) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid APIM Flex Gateway ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/INSTANCE_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }
 
 func setApimFlexGatewayAttributesToResourceData(d *schema.ResourceData, data map[string]any) error {

@@ -143,9 +143,12 @@ func resourceUserRolegroupRead(ctx context.Context, d *schema.ResourceData, m an
 	rolegroupid := d.Get("rolegroup_id").(string)
 	id := d.Id()
 	if isComposedResourceId(id) {
-		orgid, userid, rolegroupid = decomposeUserRolegroupId(d)
+		orgid, userid, rolegroupid, diags = decomposeUserRolegroupId(d)
 	} else if isComposedResourceId(id, "_") { // retro-compatibility with versions < 1.6.x
-		orgid, userid, rolegroupid = decomposeUserRolegroupId(d, "_")
+		orgid, userid, rolegroupid, diags = decomposeUserRolegroupId(d, "_")
+	}
+	if diags.HasError() {
+		return diags
 	}
 	rg, errDiags := searchUserRolegroup(ctx, d, m)
 	if errDiags.HasError() {

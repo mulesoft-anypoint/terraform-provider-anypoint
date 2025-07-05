@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -190,7 +191,10 @@ func resourceSAMLRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	idpid := d.Id()
 	orgid := d.Get("org_id").(string)
 	if isComposedResourceId(idpid) {
-		orgid, idpid = decomposeSAMLId(d)
+		orgid, idpid, diags = decomposeSAMLId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getIDPAuthCtx(ctx, &pco)
 	//perform request
@@ -454,7 +458,16 @@ func newSAMLPatchBody(d *schema.ResourceData) (*idp.IdpPatchBody, diag.Diagnosti
 	return &idp.IdpPatchBody{SamlProviderPatch: body}, diags
 }
 
-func decomposeSAMLId(d *schema.ResourceData) (string, string) {
+func decomposeSAMLId(d *schema.ResourceData) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid SAML ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/SAML_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

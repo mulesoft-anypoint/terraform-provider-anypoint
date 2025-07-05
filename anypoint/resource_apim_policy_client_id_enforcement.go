@@ -224,7 +224,10 @@ func resourceApimInstancePolicyClientIdEnfRead(ctx context.Context, d *schema.Re
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, apimid, id = decomposeApimPolicyClientIdEnfId(d)
+		orgid, envid, apimid, id, diags = decomposeApimPolicyClientIdEnfId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	//perform request
@@ -499,7 +502,16 @@ func validateClientIdEnfCfg(d *schema.ResourceDiff) error {
 	return nil
 }
 
-func decomposeApimPolicyClientIdEnfId(d *schema.ResourceData) (string, string, string, string) {
+func decomposeApimPolicyClientIdEnfId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2], s[3]
+	if len(s) != 4 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid APIM Policy Client ID Enforcement ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/APIM_ID/INSTANCE_ID, got %s", d.Id()),
+		})
+		return "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], diags
 }

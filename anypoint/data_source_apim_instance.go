@@ -457,7 +457,10 @@ func readApimInstanceUpstreamsOnly(ctx context.Context, d *schema.ResourceData, 
 	envid := d.Get("env_id").(string)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, id = decomposeApimFlexGatewayId(d)
+		orgid, envid, id, diags = decomposeApimFlexGatewayId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getApimUpstreamAuthCtx(ctx, &pco)
 	//perform request
