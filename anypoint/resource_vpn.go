@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -225,7 +226,10 @@ func resourceVPNRead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	vpcid := d.Get("vpc_id").(string)
 	vpnid := d.Id()
 	if isComposedResourceId(vpnid) {
-		orgid, vpcid, vpnid = decomposeVPNId(d)
+		orgid, vpcid, vpnid, diags = decomposeVPNId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getVPNAuthCtx(ctx, &pco)
 	//perform request
@@ -343,7 +347,16 @@ func getVPNAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Context
 	return context.WithValue(tmp, vpn.ContextServerIndex, pco.server_index)
 }
 
-func decomposeVPNId(d *schema.ResourceData, separator ...string) (string, string, string) {
+func decomposeVPNId(d *schema.ResourceData, separator ...string) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid VPN ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/VPC_ID/VPN_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }

@@ -3,6 +3,7 @@ package anypoint
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"strings"
@@ -399,7 +400,10 @@ func resourceDLBRead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	vpcid := d.Get("vpc_id").(string)
 	authctx := getDLBAuthCtx(ctx, &pco)
 	if isComposedResourceId(dlbid) {
-		orgid, vpcid, dlbid = decomposeDlbId(d)
+		orgid, vpcid, dlbid, diags = decomposeDlbId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	//request roles
 	res, httpr, err := pco.dlbclient.DefaultApi.OrganizationsOrgIdVpcsVpcIdLoadbalancersDlbIdGet(authctx, orgid, vpcid, dlbid).Execute()
@@ -857,7 +861,16 @@ func isDLBChanged(_ context.Context, d *schema.ResourceData, _ any) bool {
 	return false
 }
 
-func decomposeDlbId(d *schema.ResourceData) (string, string, string) {
+func decomposeDlbId(d *schema.ResourceData) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid DLB ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/VPC_ID/DLB_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }

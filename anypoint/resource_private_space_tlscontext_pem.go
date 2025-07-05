@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -248,7 +249,10 @@ func resourcePrivateSpaceTlsContextPemRead(ctx context.Context, d *schema.Resour
 	private_space_id := d.Get("private_space_id").(string)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, private_space_id, id = decomposePrivateSpaceTlsContextId(d)
+		orgid, private_space_id, id, diags = decomposePrivateSpaceTlsContextId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getPrivateSpaceTlsContextAuthCtx(ctx, &pco)
 	//request
@@ -462,9 +466,18 @@ func getPrivateSpaceTlsContextAuthCtx(ctx context.Context, pco *ProviderConfOutp
 	return context.WithValue(tmp, private_space_tlscontext.ContextServerIndex, pco.server_index)
 }
 
-func decomposePrivateSpaceTlsContextId(d *schema.ResourceData) (string, string, string) {
+func decomposePrivateSpaceTlsContextId(d *schema.ResourceData) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Private Space TLS Context ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/PRIVATE_SPACE_ID/TLS_CONTEXT_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }
 
 func updatablePrivateSpaceTlsContextPemAttributes() []string {

@@ -140,9 +140,12 @@ func resourceRoleGroupRolesRead(ctx context.Context, d *schema.ResourceData, m a
 	rolegroup_id := d.Get("role_group_id").(string)
 	id := d.Id()
 	if isComposedResourceId(id) {
-		org_id, rolegroup_id = decomposeRolegroupRolesId(d)
+		org_id, rolegroup_id, diags = decomposeRolegroupRolesId(d)
 	} else if isComposedResourceId(id, "_") {
-		org_id, rolegroup_id = decomposeRolegroupRolesId(d, "_")
+		org_id, rolegroup_id, diags = decomposeRolegroupRolesId(d, "_")
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getRoleAuthCtx(ctx, &pco)
 	//perform request
@@ -349,7 +352,16 @@ func getRoleAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Contex
 	return context.WithValue(tmp, role.ContextServerIndex, pco.server_index)
 }
 
-func decomposeRolegroupRolesId(d *schema.ResourceData, separator ...string) (string, string) {
+func decomposeRolegroupRolesId(d *schema.ResourceData, separator ...string) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Rolegroup Roles ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ROLEGROUP_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

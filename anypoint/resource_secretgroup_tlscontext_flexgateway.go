@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -236,7 +237,10 @@ func resourceSecretGroupTlsContextFGRead(ctx context.Context, d *schema.Resource
 	id := d.Get("id").(string)
 	authctx := getSgTlsContextAuthCtx(ctx, &pco)
 	if isComposedResourceId(id) {
-		orgid, envid, sgid, id = decomposeSgTlsContextFGId(d)
+		orgid, envid, sgid, id, diags = decomposeSgTlsContextFGId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	//perform request
 	res, httpr, err := pco.sgtlscontextclient.DefaultApi.GetSecretGroupTlsContextDetails(authctx, orgid, envid, sgid, id).Execute()
@@ -402,7 +406,16 @@ func getSgTlsContextFGUpdatableAttributes() []string {
 }
 
 // returns the composed of the secret
-func decomposeSgTlsContextFGId(d *schema.ResourceData) (string, string, string, string) {
+func decomposeSgTlsContextFGId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2], s[3]
+	if len(s) != 4 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Secret Group TLS Context FlexGateway ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/SG_ID/ID, got %s", d.Id()),
+		})
+		return "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], diags
 }

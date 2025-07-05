@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -184,7 +185,10 @@ func resourceOIDCRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	idpid := d.Id()
 	orgid := d.Get("org_id").(string)
 	if isComposedResourceId(idpid) {
-		orgid, idpid = decomposeOIDCId(d)
+		orgid, idpid, diags = decomposeOIDCId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getIDPAuthCtx(ctx, &pco)
 	//perform request
@@ -485,7 +489,16 @@ func getIDPAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Context
 	return context.WithValue(tmp, idp.ContextServerIndex, pco.server_index)
 }
 
-func decomposeOIDCId(d *schema.ResourceData) (string, string) {
+func decomposeOIDCId(d *schema.ResourceData) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid OIDC ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/OIDC_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

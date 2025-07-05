@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -136,7 +137,10 @@ func resourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m any)
 	envid := d.Get("env_id").(string)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, id = decomposeSecretGroupId(d)
+		orgid, envid, id, diags = decomposeSecretGroupId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getSecretGroupAuthCtx(ctx, &pco)
 	res, httpr, err := pco.secretgroupclient.DefaultApi.GetSecretGroup(authctx, orgid, envid, id).Execute()
@@ -260,9 +264,18 @@ func newSecretGroupPatchBody(d *schema.ResourceData) *secretgroup.SecretGroupPat
 }
 
 // returns the composed of the secret group
-func decomposeSecretGroupId(d *schema.ResourceData) (string, string, string) {
+func decomposeSecretGroupId(d *schema.ResourceData) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Secret Group ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/SG_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }
 
 /*

@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"time"
@@ -219,7 +220,10 @@ func resourcePrivateSpaceRead(ctx context.Context, d *schema.ResourceData, m any
 	orgid := d.Get("org_id").(string)
 	id := d.Id()
 	if isComposedResourceId(id) {
-		orgid, id = decomposePrivateSpaceId(d)
+		orgid, id, diags = decomposePrivateSpaceId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	//request
@@ -490,7 +494,16 @@ func getPrivateSpaceAuthCtx(ctx context.Context, pco *ProviderConfOutput) contex
 	return context.WithValue(tmp, private_space.ContextServerIndex, pco.server_index)
 }
 
-func decomposePrivateSpaceId(d *schema.ResourceData) (string, string) {
+func decomposePrivateSpaceId(d *schema.ResourceData) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Private Space ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/PRIVATE_SPACE_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

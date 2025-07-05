@@ -242,7 +242,10 @@ func resourceApimMule4Read(ctx context.Context, d *schema.ResourceData, m any) d
 	id := d.Get("id").(string)
 	authctx := getApimAuthCtx(ctx, &pco)
 	if isComposedResourceId(id) {
-		orgid, envid, id = decomposeApimMule4Id(d)
+		orgid, envid, id, diags = decomposeApimMule4Id(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	//perform request
 	res, httpr, err := pco.apimclient.DefaultApi.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
@@ -394,9 +397,18 @@ func setApimMule4AttributesToResourceData(d *schema.ResourceData, data map[strin
 	return nil
 }
 
-func decomposeApimMule4Id(d *schema.ResourceData) (string, string, string) {
+func decomposeApimMule4Id(d *schema.ResourceData) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid APIM Mule4 ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/INSTANCE_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }
 
 func getApimMule4DetailsAttributes() []string {

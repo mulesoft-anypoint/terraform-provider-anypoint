@@ -3,6 +3,7 @@ package anypoint
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"sort"
@@ -231,7 +232,10 @@ func resourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m any
 	orgid := d.Get("org_id").(string)
 	connappid := d.Id()
 	if isComposedResourceId(connappid) {
-		orgid, connappid = decomposeConnectedAppId(d)
+		orgid, connappid, diags = decomposeConnectedAppId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	//execute request
@@ -622,7 +626,16 @@ func getConnectedAppAuthCtx(ctx context.Context, pco *ProviderConfOutput) contex
 	return context.WithValue(tmp, connected_app.ContextServerIndex, pco.server_index)
 }
 
-func decomposeConnectedAppId(d *schema.ResourceData) (string, string) {
+func decomposeConnectedAppId(d *schema.ResourceData) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Connected App ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/CONNECTED_APP_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -198,7 +199,10 @@ func resourceSecretGroupTlsContextMuleRead(ctx context.Context, d *schema.Resour
 	id := d.Get("id").(string)
 	authctx := getSgTlsContextAuthCtx(ctx, &pco)
 	if isComposedResourceId(id) {
-		orgid, envid, sgid, id = decomposeSgTlsContextMuleId(d)
+		orgid, envid, sgid, id, diags = decomposeSgTlsContextMuleId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	//perform request
 	res, httpr, err := pco.sgtlscontextclient.DefaultApi.GetSecretGroupTlsContextDetails(authctx, orgid, envid, sgid, id).Execute()
@@ -349,7 +353,16 @@ func getSgTlsContextMuleUpdatableAttributes() []string {
 }
 
 // returns the composed of the secret
-func decomposeSgTlsContextMuleId(d *schema.ResourceData) (string, string, string, string) {
+func decomposeSgTlsContextMuleId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2], s[3]
+	if len(s) != 4 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Secret Group TLS Context Mule ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/SG_ID/ID, got %s", d.Id()),
+		})
+		return "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], diags
 }

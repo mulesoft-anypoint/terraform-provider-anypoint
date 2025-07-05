@@ -192,7 +192,10 @@ func resourceSecretGroupTruststoreRead(ctx context.Context, d *schema.ResourceDa
 	sgid := d.Get("sg_id").(string)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, sgid, id = decomposeSgTruststoreId(d)
+		orgid, envid, sgid, id, diags = decomposeSgTruststoreId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getSgTruststoreAuthCtx(ctx, &pco)
 	res, httpr, err := pco.sgtruststoreclient.DefaultApi.GetSecretGroupTruststoreDetails(authctx, orgid, envid, sgid, id).Execute()
@@ -406,9 +409,18 @@ func validateTruststoreInput(d *schema.ResourceDiff) error {
 }
 
 // returns the composed of the secret
-func decomposeSgTruststoreId(d *schema.ResourceData) (string, string, string, string) {
+func decomposeSgTruststoreId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2], s[3]
+	if len(s) != 4 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Secret Group Truststore ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/SG_ID/ID, got %s", d.Id()),
+		})
+		return "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], diags
 }
 
 func getSgTruststorePEMUpdatableAttributes() []string {

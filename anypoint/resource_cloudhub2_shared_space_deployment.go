@@ -565,7 +565,10 @@ func resourceCloudhub2SharedSpaceDeploymentRead(ctx context.Context, d *schema.R
 	orgid := d.Get("org_id").(string)
 	envid := d.Get("env_id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, id = decomposeCloudhub2SharedSpaceDeploymentId(d)
+		orgid, envid, id, diags = decomposeCloudhub2SharedSpaceDeploymentId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
 	//perform request
@@ -863,9 +866,18 @@ func VCoresValidatorDiag(v any, p cty.Path) diag.Diagnostics {
 	return diags
 }
 
-func decomposeCloudhub2SharedSpaceDeploymentId(d *schema.ResourceData) (string, string, string) {
+func decomposeCloudhub2SharedSpaceDeploymentId(d *schema.ResourceData) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Cloudhub 2.0 Shared Space Deployment ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/APPLICATION_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }
 
 func getCloudhub2SharedSpaceDeploymentUpdatableAttributes() []string {

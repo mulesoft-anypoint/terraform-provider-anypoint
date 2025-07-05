@@ -235,7 +235,10 @@ func resourceSecretGroupKeystoreRead(ctx context.Context, d *schema.ResourceData
 	sgid := d.Get("sg_id").(string)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, sgid, id = decomposeSgKeystoreId(d)
+		orgid, envid, sgid, id, diags = decomposeSgKeystoreId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getSgKeystoreAuthCtx(ctx, &pco)
 	res, httpr, err := pco.sgkeystoreclient.DefaultApi.GetSecretGroupKeystoreDetails(authctx, orgid, envid, sgid, id).Execute()
@@ -497,9 +500,18 @@ func loadSgKeystoreOthersPutBody(req secretgroup_keystore.DefaultApiPutSecretGro
 }
 
 // returns the composed of the secret
-func decomposeSgKeystoreId(d *schema.ResourceData) (string, string, string, string) {
+func decomposeSgKeystoreId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2], s[3]
+	if len(s) != 4 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Secret Group Keystore ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/SG_ID/ID, got %s", d.Id()),
+		})
+		return "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], diags
 }
 
 // depending on the type of the keystore, checks if required properties are checked

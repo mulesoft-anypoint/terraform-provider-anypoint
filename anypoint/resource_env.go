@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -104,7 +105,10 @@ func resourceENVRead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	orgid := d.Get("org_id").(string)
 	authctx := getENVAuthCtx(ctx, &pco)
 	if isComposedResourceId(envid) {
-		orgid, envid = decomposeEnvId(d)
+		orgid, envid, diags = decomposeEnvId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	//perform request
 	res, httpr, err := pco.envclient.DefaultApi.OrganizationsOrgIdEnvironmentsEnvironmentIdGet(authctx, orgid, envid).Execute()
@@ -237,7 +241,16 @@ func getENVAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Context
 	return context.WithValue(tmp, env.ContextServerIndex, pco.server_index)
 }
 
-func decomposeEnvId(d *schema.ResourceData) (string, string) {
+func decomposeEnvId(d *schema.ResourceData) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Environment ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }
