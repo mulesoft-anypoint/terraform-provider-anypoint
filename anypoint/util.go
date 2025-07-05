@@ -15,32 +15,32 @@ import (
 
 const COMPOSITE_ID_SEPARATOR = "/"
 
-func IsString(v interface{}) bool {
+func IsString(v any) bool {
 	return reflect.TypeOf(v) == reflect.TypeOf("")
 }
 
-func IsInt32(v interface{}) bool {
+func IsInt32(v any) bool {
 	return reflect.TypeOf(v) == reflect.TypeOf(int32(1))
 }
 
-func IsInt64(v interface{}) bool {
+func IsInt64(v any) bool {
 	return reflect.TypeOf(v) == reflect.TypeOf(int64(1))
 }
 
-func IsFloat32(v interface{}) bool {
+func IsFloat32(v any) bool {
 	return reflect.TypeOf(v) == reflect.TypeOf(float32(0.1))
 }
 
-func IsFloat64(v interface{}) bool {
+func IsFloat64(v any) bool {
 	return reflect.TypeOf(v) == reflect.TypeOf(float64(0.1))
 }
 
-func IsBool(v interface{}) bool {
+func IsBool(v any) bool {
 	return reflect.TypeOf(v) == reflect.TypeOf(true)
 }
 
-// converts a primitive value in a interface{} format to a string
-func ConvPrimtiveInterface2String(p interface{}) string {
+// converts a primitive value in a any format to a string
+func ConvPrimtiveInterface2String(p any) string {
 	if IsInt32(p) {
 		return strconv.Itoa(int(p.(int32)))
 	}
@@ -59,7 +59,7 @@ func ConvPrimtiveInterface2String(p interface{}) string {
 	return p.(string)
 }
 
-func ListInterface2ListStrings(array []interface{}) []string {
+func ListInterface2ListStrings(array []any) []string {
 	list := make([]string, len(array))
 	for i, v := range array {
 		list[i] = v.(string)
@@ -115,7 +115,7 @@ func CalcSha1Digest(source string) string {
 }
 
 // sorts list of strings alphabetically
-func SortStrListAl(list []interface{}) {
+func SortStrListAl(list []any) {
 	sort.SliceStable(list, func(i, j int) bool {
 		i_elem := list[i].(string)
 		j_elem := list[j].(string)
@@ -124,10 +124,10 @@ func SortStrListAl(list []interface{}) {
 }
 
 // sorts list of maps alphabetically using the given sort attributes (by order)
-func SortMapListAl(list []interface{}, sortAttrs []string) {
+func SortMapListAl(list []any, sortAttrs []string) {
 	sort.SliceStable(list, func(i, j int) bool {
-		i_elem := list[i].(map[string]interface{})
-		j_elem := list[j].(map[string]interface{})
+		i_elem := list[i].(map[string]any)
+		j_elem := list[j].(map[string]any)
 
 		for _, k := range sortAttrs {
 			if i_elem[k] != nil && j_elem[k] != nil && i_elem[k].(string) != j_elem[k].(string) {
@@ -140,10 +140,10 @@ func SortMapListAl(list []interface{}, sortAttrs []string) {
 
 // func filters list of map depending on the given filter function
 // returns list of elements satisfying the filter
-func FilterMapList(list []interface{}, filter func(map[string]interface{}) bool) []interface{} {
-	result := make([]interface{}, 0)
+func FilterMapList(list []any, filter func(map[string]any) bool) []any {
+	result := make([]any, 0)
 	for _, item := range list {
-		m := item.(map[string]interface{})
+		m := item.(map[string]any)
 		if filter(m) {
 			result = append(result, m)
 		}
@@ -175,9 +175,9 @@ func DiffSuppressFunc4OptionalPrimitives(k, old, new string, d *schema.ResourceD
 
 // Compares string lists
 // returns true if they are the same, false otherwise
-func equalStrList(old, new interface{}) bool {
-	old_list := old.([]interface{})
-	new_list := new.([]interface{})
+func equalStrList(old, new any) bool {
+	old_list := old.([]any)
+	new_list := new.([]any)
 
 	if len(new_list) != len(old_list) {
 		return false
@@ -220,11 +220,39 @@ func DecomposeResourceId(id string, separator ...string) []string {
 	return strings.Split(id, s)
 }
 
-// same as strings.Join but for a slice of interface{} that are in reality strings
-func JoinStringInterfaceSlice(slice []interface{}, sep string) string {
+// same as strings.Join but for a slice of any that are in reality strings
+func JoinStringInterfaceSlice(slice []any, sep string) string {
 	dump := make([]string, len(slice))
 	for i, val := range slice {
 		dump[i] = fmt.Sprint(val)
 	}
 	return strings.Join(dump, sep)
+}
+
+// cloneSchema creates a deep copy of the given schema map.
+// It iterates over each key-value pair in the source map, creates a new schema instance by shallow copying the original,
+// and stores a pointer to the new instance in the clone map.
+// The function ensures that modifications to the cloned map do not affect the original map.
+//
+// Parameters:
+// - src: A map where keys are strings and values are pointers to schema.Schema instances to be cloned.
+//
+// Returns:
+// - A new map with the same keys as the source, each associated with a new schema.Schema pointer.
+func cloneSchema(src map[string]*schema.Schema) map[string]*schema.Schema {
+	clone := make(map[string]*schema.Schema)
+	for k, v := range src {
+		// Create a new schema instance and copy values
+		newSchema := *v       // shallow copy of schema.Schema
+		clone[k] = &newSchema // store pointer to the new copy
+	}
+	return clone
+}
+
+func getSchemaKeys(m map[string]*schema.Schema) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

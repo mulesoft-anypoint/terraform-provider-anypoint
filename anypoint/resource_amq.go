@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -117,7 +118,7 @@ func resourceAMQ() *schema.Resource {
 	}
 }
 
-func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -151,7 +152,7 @@ func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m interface{
 	return resourceAMQRead(ctx, d, m)
 }
 
-func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -160,7 +161,10 @@ func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	queueid := d.Get("queue_id").(string)
 	id := d.Id()
 	if isComposedResourceId(id) {
-		orgid, envid, regionid, queueid = decomposeAMQId(d)
+		orgid, envid, regionid, queueid, diags = decomposeAMQId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getAMQAuthCtx(ctx, &pco)
 	//request resource
@@ -204,7 +208,7 @@ func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m interface{})
 	return diags
 }
 
-func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -241,7 +245,7 @@ func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m interface{
 	return diags
 }
 
-func resourceAMQDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceAMQDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -316,9 +320,18 @@ func newAMQCreateBody(d *schema.ResourceData) *amq.QueueBody {
 	return body
 }
 
-func decomposeAMQId(d *schema.ResourceData, separator ...string) (string, string, string, string) {
+func decomposeAMQId(d *schema.ResourceData, separator ...string) (string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
-	return s[0], s[1], s[2], s[3]
+	if len(s) != 4 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid AMQ ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/REGION_ID/QUEUE_ID, got %s", d.Id()),
+		})
+		return "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], diags
 }
 
 /*

@@ -121,7 +121,7 @@ func dataSourceApimInstancePolicies() *schema.Resource {
 	}
 }
 
-func dataSourceApimInstancePoliciesRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceApimInstancePoliciesRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -161,8 +161,8 @@ func dataSourceApimInstancePoliciesRead(ctx context.Context, d *schema.ResourceD
 	return diags
 }
 
-func flattenApimInstancePolicies(collection []apim_policy.ApimPolicy) []interface{} {
-	slice := make([]interface{}, len(collection))
+func flattenApimInstancePolicies(collection []apim_policy.ApimPolicy) []any {
+	slice := make([]any, len(collection))
 	for i, policy := range collection {
 		slice[i] = flattenApimInstancePolicy(&policy)
 	}

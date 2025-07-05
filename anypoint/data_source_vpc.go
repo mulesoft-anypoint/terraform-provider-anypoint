@@ -133,7 +133,7 @@ func dataSourceVPC() *schema.Resource {
 	}
 }
 
-func dataSourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceVPCRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -179,9 +179,9 @@ func dataSourceVPCRead(ctx context.Context, d *schema.ResourceData, m interface{
 /*
 * Copies the given vpc instance into the given resource data
 * @param d *schema.ResourceData the resource data schema
-* @param vpcitem map[string]interface{} the vpc instance
+* @param vpcitem map[string]any the vpc instance
  */
-func setVPCCoreAttributesToResourceData(d *schema.ResourceData, vpcitem map[string]interface{}) error {
+func setVPCCoreAttributesToResourceData(d *schema.ResourceData, vpcitem map[string]any) error {
 	attributes := getVPCCoreAttributes()
 	if vpcitem != nil {
 		for _, attr := range attributes {
@@ -198,9 +198,9 @@ func setVPCCoreAttributesToResourceData(d *schema.ResourceData, vpcitem map[stri
 * @param vpcitem *vpc.Vpc the vpc struct
 * @return the vpc mapped struct
  */
-func flattenVPCData(vpcitem *vpc.Vpc) map[string]interface{} {
+func flattenVPCData(vpcitem *vpc.Vpc) map[string]any {
 	if vpcitem != nil {
-		item := make(map[string]interface{})
+		item := make(map[string]any)
 
 		item["id"] = vpcitem.GetId()
 		item["name"] = vpcitem.GetName()
@@ -213,9 +213,9 @@ func flattenVPCData(vpcitem *vpc.Vpc) map[string]interface{} {
 		item["owner_id"] = vpcitem.GetOwnerId()
 		item["shared_with"] = vpcitem.GetSharedWith()
 
-		frules := make([]interface{}, len(vpcitem.GetFirewallRules()))
+		frules := make([]any, len(vpcitem.GetFirewallRules()))
 		for j, frule := range vpcitem.GetFirewallRules() {
-			r := make(map[string]interface{})
+			r := make(map[string]any)
 			r["cidr_block"] = frule.GetCidrBlock()
 			r["protocol"] = frule.GetProtocol()
 			r["from_port"] = frule.GetFromPort()
@@ -224,9 +224,9 @@ func flattenVPCData(vpcitem *vpc.Vpc) map[string]interface{} {
 		}
 		item["firewall_rules"] = frules
 
-		vpcroutes := make([]interface{}, len(vpcitem.GetVpcRoutes()))
+		vpcroutes := make([]any, len(vpcitem.GetVpcRoutes()))
 		for j, vpcroute := range vpcitem.GetVpcRoutes() {
-			r := make(map[string]interface{})
+			r := make(map[string]any)
 			r["next_hop"] = vpcroute.GetNextHop()
 			r["cidr"] = vpcroute.GetCIDR()
 			vpcroutes[j] = r

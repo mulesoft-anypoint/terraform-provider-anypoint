@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strconv"
 
@@ -154,7 +155,7 @@ func resourceApimInstancePolicyBasicAuth() *schema.Resource {
 	}
 }
 
-func resourceApimInstancePolicyBasicAuthCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimInstancePolicyBasicAuthCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -195,7 +196,7 @@ func resourceApimInstancePolicyBasicAuthCreate(ctx context.Context, d *schema.Re
 	return diags
 }
 
-func resourceApimInstancePolicyBasicAuthRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimInstancePolicyBasicAuthRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -203,7 +204,10 @@ func resourceApimInstancePolicyBasicAuthRead(ctx context.Context, d *schema.Reso
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, apimid, id = decomposeApimPolicyBasicAuthId(d)
+		orgid, envid, apimid, id, diags = decomposeApimPolicyBasicAuthId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	//perform request
@@ -242,7 +246,7 @@ func resourceApimInstancePolicyBasicAuthRead(ctx context.Context, d *schema.Reso
 	return diags
 }
 
-func resourceApimInstancePolicyBasicAuthUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimInstancePolicyBasicAuthUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	//detect change
 	if d.HasChanges("configuration_data", "pointcut_data") {
@@ -288,7 +292,7 @@ func resourceApimInstancePolicyBasicAuthUpdate(ctx context.Context, d *schema.Re
 	return diags
 }
 
-func resourceApimInstancePolicyBasicAuthDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceApimInstancePolicyBasicAuthDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -320,7 +324,7 @@ func resourceApimInstancePolicyBasicAuthDelete(ctx context.Context, d *schema.Re
 	return diags
 }
 
-func enableApimInstancePolicyBasicAuth(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func enableApimInstancePolicyBasicAuth(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -349,7 +353,7 @@ func enableApimInstancePolicyBasicAuth(ctx context.Context, d *schema.ResourceDa
 	return diags
 }
 
-func disableApimInstancePolicyBasicAuth(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func disableApimInstancePolicyBasicAuth(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -381,12 +385,12 @@ func disableApimInstancePolicyBasicAuth(ctx context.Context, d *schema.ResourceD
 func newApimPolicyBasicAuthBody(d *schema.ResourceData) *apim_policy.ApimPolicyBody {
 	body := apim_policy.NewApimPolicyBodyWithDefaults()
 	if val, ok := d.GetOk("configuration_data"); ok {
-		l := val.([]interface{})
-		cfg := l[0].(map[string]interface{})
+		l := val.([]any)
+		cfg := l[0].(map[string]any)
 		body.SetConfigurationData(cfg)
 	}
 	if val, ok := d.GetOk("pointcut_data"); ok {
-		body.SetPointcutData(newApimPolicyBasicAuthPointcutDataBody(val.([]interface{})))
+		body.SetPointcutData(newApimPolicyBasicAuthPointcutDataBody(val.([]any)))
 	}
 	if val, ok := d.GetOk("asset_group_id"); ok {
 		body.SetGroupId(val.(string))
@@ -400,16 +404,16 @@ func newApimPolicyBasicAuthBody(d *schema.ResourceData) *apim_policy.ApimPolicyB
 	return body
 }
 
-func newApimPolicyBasicAuthPatchBody(d *schema.ResourceData) map[string]interface{} {
-	body := make(map[string]interface{})
+func newApimPolicyBasicAuthPatchBody(d *schema.ResourceData) map[string]any {
+	body := make(map[string]any)
 	if val, ok := d.GetOk("configuration_data"); ok {
-		l := val.([]interface{})
-		cfg := l[0].(map[string]interface{})
+		l := val.([]any)
+		cfg := l[0].(map[string]any)
 		body["configurationData"] = cfg
 	}
 	if val, ok := d.GetOk("pointcut_data"); ok {
-		collection := newApimPolicyBasicAuthPointcutDataBody(val.([]interface{}))
-		slice := make([]map[string]interface{}, len(collection))
+		collection := newApimPolicyBasicAuthPointcutDataBody(val.([]any))
+		slice := make([]map[string]any, len(collection))
 		for i, item := range collection {
 			m, _ := item.ToMap()
 			slice[i] = m
@@ -430,10 +434,10 @@ func newApimPolicyBasicAuthPatchBody(d *schema.ResourceData) map[string]interfac
 	return body
 }
 
-func newApimPolicyBasicAuthPointcutDataBody(collection []interface{}) []apim_policy.PointcutDataItem {
+func newApimPolicyBasicAuthPointcutDataBody(collection []any) []apim_policy.PointcutDataItem {
 	slice := make([]apim_policy.PointcutDataItem, len(collection))
 	for i, item := range collection {
-		data := item.(map[string]interface{})
+		data := item.(map[string]any)
 		body := apim_policy.NewPointcutDataItem()
 		if val, ok := data["method_regex"]; ok && val != nil {
 			set := val.(*schema.Set)
@@ -447,7 +451,16 @@ func newApimPolicyBasicAuthPointcutDataBody(collection []interface{}) []apim_pol
 	return slice
 }
 
-func decomposeApimPolicyBasicAuthId(d *schema.ResourceData) (string, string, string, string) {
+func decomposeApimPolicyBasicAuthId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2], s[3]
+	if len(s) != 4 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid APIM Policy Basic Auth ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/APIM_ID/INSTANCE_ID, got %s", d.Id()),
+		})
+		return "", "", "", "", diags
+	}
+	return s[0], s[1], s[2], s[3], diags
 }

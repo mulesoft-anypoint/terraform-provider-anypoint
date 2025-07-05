@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -96,7 +97,7 @@ func resourceSecretGroup() *schema.Resource {
 	}
 }
 
-func resourceSecretGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -129,14 +130,17 @@ func resourceSecretGroupCreate(ctx context.Context, d *schema.ResourceData, m in
 	return resourceSecretGroupRead(ctx, d, m)
 }
 
-func resourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
 	envid := d.Get("env_id").(string)
 	id := d.Get("id").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, id = decomposeSecretGroupId(d)
+		orgid, envid, id, diags = decomposeSecretGroupId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getSecretGroupAuthCtx(ctx, &pco)
 	res, httpr, err := pco.secretgroupclient.DefaultApi.GetSecretGroup(authctx, orgid, envid, id).Execute()
@@ -175,7 +179,7 @@ func resourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m inte
 	return diags
 }
 
-func resourceSecretGroupUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	if d.HasChange("name") {
@@ -209,7 +213,7 @@ func resourceSecretGroupUpdate(ctx context.Context, d *schema.ResourceData, m in
 	return diags
 }
 
-func resourceSecretGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceSecretGroupDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -260,9 +264,18 @@ func newSecretGroupPatchBody(d *schema.ResourceData) *secretgroup.SecretGroupPat
 }
 
 // returns the composed of the secret group
-func decomposeSecretGroupId(d *schema.ResourceData) (string, string, string) {
+func decomposeSecretGroupId(d *schema.ResourceData) (string, string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1], s[2]
+	if len(s) != 3 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Secret Group ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/SG_ID, got %s", d.Id()),
+		})
+		return "", "", "", diags
+	}
+	return s[0], s[1], s[2], diags
 }
 
 /*

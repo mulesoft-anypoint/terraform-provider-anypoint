@@ -782,7 +782,7 @@ func resourceBG() *schema.Resource {
 	}
 }
 
-func resourceBGCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceBGCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	authctx := getBGAuthCtx(ctx, &pco)
@@ -811,7 +811,7 @@ func resourceBGCreate(ctx context.Context, d *schema.ResourceData, m interface{}
 	return resourceBGRead(ctx, d, m)
 }
 
-func resourceBGRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceBGRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Id()
@@ -849,7 +849,7 @@ func resourceBGRead(ctx context.Context, d *schema.ResourceData, m interface{}) 
 	return diags
 }
 
-func resourceBGUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceBGUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Id()
@@ -881,7 +881,7 @@ func resourceBGUpdate(ctx context.Context, d *schema.ResourceData, m interface{}
 	return diags
 }
 
-func resourceBGDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceBGDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Id()

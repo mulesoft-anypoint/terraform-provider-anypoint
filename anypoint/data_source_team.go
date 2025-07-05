@@ -73,7 +73,7 @@ func dataSourceTeam() *schema.Resource {
 	}
 }
 
-func dataSourceTeamRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceTeamRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -115,8 +115,8 @@ func dataSourceTeamRead(ctx context.Context, d *schema.ResourceData, m interface
 	return diags
 }
 
-func flattenTeamData(team *team.Team) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenTeamData(team *team.Team) map[string]any {
+	item := make(map[string]any)
 	if team == nil {
 		return item
 	}
@@ -147,7 +147,7 @@ func flattenTeamData(team *team.Team) map[string]interface{} {
 /*
 Copies the given team instance into the given Source data
 */
-func setTeamAttributesToResourceData(d *schema.ResourceData, team map[string]interface{}) error {
+func setTeamAttributesToResourceData(d *schema.ResourceData, team map[string]any) error {
 	attributes := getTeamAttributes()
 	if team != nil {
 		for _, attr := range attributes {

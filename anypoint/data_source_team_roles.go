@@ -98,7 +98,7 @@ func dataSourceTeamRoles() *schema.Resource {
 	}
 }
 
-func dataSourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	searchOpts := d.Get("params").(*schema.Set)
@@ -177,7 +177,7 @@ func parseTeamRolesSearchOpts(req team_roles.DefaultApiApiOrganizationsOrgIdTeam
 
 	opts := params.List()[0]
 
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "role_id" {
 			req = req.RoleId(v.(string))
 			continue
@@ -199,20 +199,20 @@ func parseTeamRolesSearchOpts(req team_roles.DefaultApiApiOrganizationsOrgIdTeam
 	return req, diags
 }
 
-func flattenTeamRolesData(roles *[]team_roles.TeamRole) []interface{} {
+func flattenTeamRolesData(roles *[]team_roles.TeamRole) []any {
 	if roles != nil && len(*roles) > 0 {
-		res := make([]interface{}, len(*roles))
+		res := make([]any, len(*roles))
 		for i, role := range *roles {
 			res[i] = flattenTeamRoleData(&role)
 		}
 		return res
 	}
 
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
 
-func flattenTeamRoleData(role *team_roles.TeamRole) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenTeamRoleData(role *team_roles.TeamRole) map[string]any {
+	item := make(map[string]any)
 	if role == nil {
 		return item
 	}
@@ -224,12 +224,12 @@ func flattenTeamRoleData(role *team_roles.TeamRole) map[string]interface{} {
 	}
 	if val, ok := role.GetContextParamsOk(); ok {
 		if env, ok := val.GetEnvIdOk(); ok {
-			item["context_params"] = map[string]interface{}{
+			item["context_params"] = map[string]any{
 				"org":   val.GetOrg(),
 				"envId": *env,
 			}
 		} else {
-			item["context_params"] = map[string]interface{}{
+			item["context_params"] = map[string]any{
 				"org": val.GetOrg(),
 			}
 		}

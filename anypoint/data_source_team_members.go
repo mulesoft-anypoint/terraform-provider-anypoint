@@ -135,7 +135,7 @@ func dataSourceTeamMembers() *schema.Resource {
 	}
 }
 
-func dataSourceTeamMembersRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceTeamMembersRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	searchOpts := d.Get("params").(*schema.Set)
@@ -205,7 +205,7 @@ func parseTeamMembersSearchOpts(req team_members.DefaultApiApiOrganizationsOrgId
 
 	opts := params.List()[0]
 
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "membership_type" {
 			req = req.MembershipType(v.(string))
 			continue
@@ -243,19 +243,19 @@ func parseTeamMembersSearchOpts(req team_members.DefaultApiApiOrganizationsOrgId
 	return req, diags
 }
 
-func flattenTeamMembersData(teammembers *[]team_members.TeamMember) []interface{} {
+func flattenTeamMembersData(teammembers *[]team_members.TeamMember) []any {
 	if teammembers != nil && len(*teammembers) > 0 {
-		res := make([]interface{}, len(*teammembers))
+		res := make([]any, len(*teammembers))
 		for i, teammember := range *teammembers {
 			res[i] = flattenTeamMemberData(&teammember)
 		}
 		return res
 	}
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
 
-func flattenTeamMemberData(teammember *team_members.TeamMember) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenTeamMemberData(teammember *team_members.TeamMember) map[string]any {
+	item := make(map[string]any)
 	if teammember == nil {
 		//log.Printf("tm nil")
 		return item

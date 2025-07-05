@@ -164,7 +164,7 @@ func dataSourceFabricsCollection() *schema.Resource {
 	}
 }
 
-func dataSourceAllFabricsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceAllFabricsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -219,12 +219,12 @@ func dataSourceAllFabricsRead(ctx context.Context, d *schema.ResourceData, m int
 * @param fabricsCollection *[]rtf.Fabrics the list of fabrics
 * @return list of generic items
  */
-func flattenFabricsCollectionData(fabricsCollection []rtf.Fabrics) []interface{} {
+func flattenFabricsCollectionData(fabricsCollection []rtf.Fabrics) []any {
 	if len(fabricsCollection) == 0 {
-		return []interface{}{}
+		return []any{}
 	}
 
-	data := make([]interface{}, len(fabricsCollection))
+	data := make([]any, len(fabricsCollection))
 	for i, fabrics := range fabricsCollection {
 		data[i] = flattenFabricsData(&fabrics)
 	}

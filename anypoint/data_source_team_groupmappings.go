@@ -82,7 +82,7 @@ func dataSourceTeamGroupMappings() *schema.Resource {
 	}
 }
 
-func dataSourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	searchOpts := d.Get("params").(*schema.Set)
@@ -153,7 +153,7 @@ func parseTeamGroupMappingsSearchOpts(req team_group_mappings.DefaultApiApiOrgan
 
 	opts := params.List()[0]
 
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "offset" {
 			req = req.Offset(int32(v.(int)))
 			continue
@@ -167,19 +167,19 @@ func parseTeamGroupMappingsSearchOpts(req team_group_mappings.DefaultApiApiOrgan
 	return req, diags
 }
 
-func flattenTeamGroupMappingsData(teamgroupmappings *[]team_group_mappings.TeamGroupMapping) []interface{} {
+func flattenTeamGroupMappingsData(teamgroupmappings *[]team_group_mappings.TeamGroupMapping) []any {
 	if teamgroupmappings != nil && len(*teamgroupmappings) > 0 {
-		res := make([]interface{}, len(*teamgroupmappings))
+		res := make([]any, len(*teamgroupmappings))
 		for i, teamgroupmapping := range *teamgroupmappings {
 			res[i] = flattenTeamGroupMappingData(&teamgroupmapping)
 		}
 		return res
 	}
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
 
-func flattenTeamGroupMappingData(teamgroupmapping *team_group_mappings.TeamGroupMapping) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenTeamGroupMappingData(teamgroupmapping *team_group_mappings.TeamGroupMapping) map[string]any {
+	item := make(map[string]any)
 	if teamgroupmapping == nil {
 		//log.Printf("tm nil")
 		return item

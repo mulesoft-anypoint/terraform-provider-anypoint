@@ -392,7 +392,7 @@ func dataSourceApim() *schema.Resource {
 	}
 }
 
-func dataSourceApimRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceApimRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	//init vars
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -459,7 +459,7 @@ func parseApimSearchOpts(req apim.DefaultApiGetEnvApimInstancesRequest, params *
 		return req, diags
 	}
 	opts := params.List()[0]
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "query" {
 			req = req.Query(v.(string))
 			continue
@@ -518,19 +518,19 @@ func parseApimSearchOpts(req apim.DefaultApiGetEnvApimInstancesRequest, params *
 	return req, diags
 }
 
-func flattenApimAssetsResult(assets []apim.ApimInstanceCollectionAssetsInner) []interface{} {
+func flattenApimAssetsResult(assets []apim.ApimInstanceCollectionAssetsInner) []any {
 	if len(assets) > 0 {
-		res := make([]interface{}, len(assets))
+		res := make([]any, len(assets))
 		for i, asset := range assets {
 			res[i] = flattenApimAssetResult(&asset)
 		}
 		return res
 	}
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
 
-func flattenApimAssetResult(asset *apim.ApimInstanceCollectionAssetsInner) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenApimAssetResult(asset *apim.ApimInstanceCollectionAssetsInner) map[string]any {
+	item := make(map[string]any)
 	if asset == nil {
 		return item
 	}
@@ -564,13 +564,13 @@ func flattenApimAssetResult(asset *apim.ApimInstanceCollectionAssetsInner) map[s
 	return item
 }
 
-func flattenApimAssetApisResult(apis []apim.ApimInstanceCollectionAssetsInnerApisInner) []map[string]interface{} {
+func flattenApimAssetApisResult(apis []apim.ApimInstanceCollectionAssetsInnerApisInner) []map[string]any {
 	if len(apis) == 0 {
-		return []map[string]interface{}{}
+		return []map[string]any{}
 	}
-	result := make([]map[string]interface{}, len(apis))
+	result := make([]map[string]any, len(apis))
 	for i, api := range apis {
-		item := make(map[string]interface{})
+		item := make(map[string]any)
 		if val, ok := api.GetAuditOk(); ok {
 			item["audit"] = flattenApimAudit(val)
 		}

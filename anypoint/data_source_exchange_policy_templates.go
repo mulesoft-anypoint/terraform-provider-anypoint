@@ -235,7 +235,7 @@ func dataSourceExchangePolicyTemplates() *schema.Resource {
 	}
 }
 
-func dataSourceExchangePolicyTemplatesRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceExchangePolicyTemplatesRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	searchOpts := d.Get("params").(*schema.Set)
@@ -286,7 +286,7 @@ func parseExchangePolicyTemplatesSearchOpts(req apim_policy.DefaultApiGetOrgExch
 		return req, diags
 	}
 	opts := params.List()[0]
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "env_id" {
 			req = req.EnvironmentId(v.(string))
 			continue
@@ -315,8 +315,8 @@ func parseExchangePolicyTemplatesSearchOpts(req apim_policy.DefaultApiGetOrgExch
 	return req, diags
 }
 
-func flattenExchangePolicyTemplatesResult(collection []apim_policy.ExchangePolicyTemplate) []interface{} {
-	slice := make([]interface{}, len(collection))
+func flattenExchangePolicyTemplatesResult(collection []apim_policy.ExchangePolicyTemplate) []any {
+	slice := make([]any, len(collection))
 	for i, template := range collection {
 		slice[i] = flattenExchangePolicyTemplate(&template)
 	}

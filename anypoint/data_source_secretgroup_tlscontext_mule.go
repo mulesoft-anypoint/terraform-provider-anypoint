@@ -109,7 +109,7 @@ func dataSourceSecretGroupTlsContextMule() *schema.Resource {
 	}
 }
 
-func dataSourceSecretGroupTlsContextMuleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceSecretGroupTlsContextMuleRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -159,8 +159,8 @@ func dataSourceSecretGroupTlsContextMuleRead(ctx context.Context, d *schema.Reso
 	return diags
 }
 
-func flattenSgTlsContextMule(mule *secretgroup_tlscontext.TlsContextDetails) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextMule(mule *secretgroup_tlscontext.TlsContextDetails) map[string]any {
+	item := make(map[string]any)
 	if meta, ok := mule.GetMetaOk(); ok {
 		maps.Copy(item, flattenSgTlsContextMeta(meta))
 	}
@@ -180,7 +180,7 @@ func flattenSgTlsContextMule(mule *secretgroup_tlscontext.TlsContextDetails) map
 		item["truststore_path"] = val.GetPath()
 	}
 	if val, ok := mule.GetAcceptableTlsVersionsOk(); ok {
-		item["acceptable_tls_versions"] = []interface{}{flattenSgTlsContextMuleAcceptableTlsVersions(val)}
+		item["acceptable_tls_versions"] = []any{flattenSgTlsContextMuleAcceptableTlsVersions(val)}
 	}
 	if val, ok := mule.GetCipherSuitesOk(); ok {
 		item["cipher_suites"] = val
@@ -191,8 +191,8 @@ func flattenSgTlsContextMule(mule *secretgroup_tlscontext.TlsContextDetails) map
 	return item
 }
 
-func flattenSgTlsContextMuleAcceptableTlsVersions(atv *secretgroup_tlscontext.AcceptableTlsVersions) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgTlsContextMuleAcceptableTlsVersions(atv *secretgroup_tlscontext.AcceptableTlsVersions) map[string]any {
+	item := make(map[string]any)
 	if val, ok := atv.GetTlsV1Dot1Ok(); ok {
 		item["tls_v1_dot1"] = *val
 	}
@@ -205,7 +205,7 @@ func flattenSgTlsContextMuleAcceptableTlsVersions(atv *secretgroup_tlscontext.Ac
 	return item
 }
 
-func setSgTlsContextMuleAttributesToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setSgTlsContextMuleAttributesToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getSgTlsContextMuleAttributes()
 	if data != nil {
 		for _, attr := range attributes {

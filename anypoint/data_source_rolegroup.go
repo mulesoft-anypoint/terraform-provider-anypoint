@@ -66,7 +66,7 @@ func dataSourceRoleGroup() *schema.Resource {
 	}
 }
 
-func dataSourceRoleGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceRoleGroupRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -124,8 +124,8 @@ func getRolegroupAttributes() []string {
 * @param rolegroup rolegroup.Rolegroup the rolegroup
 * @return generic items
  */
-func flattenRoleGroupData(rolegroup *rolegroup.Rolegroup) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenRoleGroupData(rolegroup *rolegroup.Rolegroup) map[string]any {
+	item := make(map[string]any)
 
 	item["role_group_id"] = rolegroup.GetRoleGroupId()
 	item["name"] = rolegroup.GetName()

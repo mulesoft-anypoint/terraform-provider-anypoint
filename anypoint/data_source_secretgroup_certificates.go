@@ -72,7 +72,7 @@ func dataSourceSecretGroupCertificates() *schema.Resource {
 	}
 }
 
-func dataSourceSecretGroupCertificatesRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceSecretGroupCertificatesRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -113,20 +113,20 @@ func dataSourceSecretGroupCertificatesRead(ctx context.Context, d *schema.Resour
 	return diags
 }
 
-func flattenSgCertificateSummaryCollection(collection []secretgroup_certificate.CertificateSummary) []interface{} {
+func flattenSgCertificateSummaryCollection(collection []secretgroup_certificate.CertificateSummary) []any {
 	length := len(collection)
 	if length > 0 {
-		res := make([]interface{}, length)
+		res := make([]any, length)
 		for i, cert := range collection {
 			res[i] = flattenSgCertificateSummary(&cert)
 		}
 		return res
 	}
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
 
-func flattenSgCertificateSummary(cert *secretgroup_certificate.CertificateSummary) map[string]interface{} {
-	item := make(map[string]interface{})
+func flattenSgCertificateSummary(cert *secretgroup_certificate.CertificateSummary) map[string]any {
+	item := make(map[string]any)
 	if val, ok := cert.GetNameOk(); ok {
 		item["name"] = *val
 	}

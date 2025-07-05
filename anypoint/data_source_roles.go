@@ -128,7 +128,7 @@ func dataSourceRoles() *schema.Resource {
 	}
 }
 
-func dataSourceRolesRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceRolesRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	searchOpts := d.Get("params").(*schema.Set)
@@ -206,7 +206,7 @@ func parseRoleSearchOpts(req role.DefaultApiApiRolesGetRequest, params *schema.S
 	}
 	opts := params.List()[0]
 
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "name" && len(v.(string)) > 0 {
 			req = req.Name(v.(string))
 			continue
@@ -245,12 +245,12 @@ func parseRoleSearchOpts(req role.DefaultApiApiRolesGetRequest, params *schema.S
 * @param roles *[]role.Role the list of roles
 * @return list of generic items
  */
-func flattenRolesData(roles *[]role.Role) []interface{} {
+func flattenRolesData(roles *[]role.Role) []any {
 	if roles != nil && len(*roles) > 0 {
-		res := make([]interface{}, len(*roles))
+		res := make([]any, len(*roles))
 
 		for i, role := range *roles {
-			item := make(map[string]interface{})
+			item := make(map[string]any)
 
 			item["role_id"] = role.GetRoleId()
 			item["name"] = role.GetName()
@@ -265,5 +265,5 @@ func flattenRolesData(roles *[]role.Role) []interface{} {
 		return res
 	}
 
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }

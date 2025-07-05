@@ -90,7 +90,7 @@ func resourceRoleGroup() *schema.Resource {
 	}
 }
 
-func resourceRoleGroupCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceRoleGroupCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -125,13 +125,16 @@ func resourceRoleGroupCreate(ctx context.Context, d *schema.ResourceData, m inte
 	return resourceRoleGroupRead(ctx, d, m)
 }
 
-func resourceRoleGroupRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceRoleGroupRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
 	rolegroupid := d.Id()
 	if isComposedResourceId(rolegroupid) {
-		orgid, rolegroupid = decomposeRolegroupId(d)
+		orgid, rolegroupid, diags = decomposeRolegroupId(d)
+	}
+	if diags.HasError() {
+		return diags
 	}
 	authctx := getRoleGroupAuthCtx(ctx, &pco)
 	//perform request
@@ -171,7 +174,7 @@ func resourceRoleGroupRead(ctx context.Context, d *schema.ResourceData, m interf
 	return diags
 }
 
-func resourceRoleGroupUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceRoleGroupUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -210,7 +213,7 @@ func resourceRoleGroupUpdate(ctx context.Context, d *schema.ResourceData, m inte
 	return diags
 }
 
-func resourceRoleGroupDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func resourceRoleGroupDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -256,7 +259,7 @@ func newRolegroupPostBody(d *schema.ResourceData) (*rolegroup.RolegroupPostBody,
 
 	body.SetName(name)
 	if external_names != nil {
-		list := external_names.([]interface{})
+		list := external_names.([]any)
 		ext_names := make([]string, 0)
 		for _, val := range list {
 			if val != nil {
@@ -286,7 +289,7 @@ func newRolegroupPutBody(d *schema.ResourceData) (*rolegroup.RolegroupPutBody, d
 
 	body.SetName(name)
 	if external_names != nil {
-		list := external_names.([]interface{})
+		list := external_names.([]any)
 		ext_names := make([]string, 0)
 		for _, val := range list {
 			if val != nil {
@@ -305,9 +308,9 @@ func newRolegroupPutBody(d *schema.ResourceData) (*rolegroup.RolegroupPutBody, d
 /*
 * Copies the given rolegroup into the given resource data
 * @param d *schema.ResourceData the resource data schema
-* @param rolegroup map[string]interface{} the rolegroup
+* @param rolegroup map[string]any the rolegroup
  */
-func setRolegroupAttributesToResourceData(d *schema.ResourceData, rolegroup map[string]interface{}) error {
+func setRolegroupAttributesToResourceData(d *schema.ResourceData, rolegroup map[string]any) error {
 	attributes := getRolegroupAttributes()
 	for _, attr := range attributes {
 		if val, ok := rolegroup[attr]; ok {
@@ -336,7 +339,16 @@ func getRoleGroupAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.C
 	return context.WithValue(tmp, rolegroup.ContextServerIndex, pco.server_index)
 }
 
-func decomposeRolegroupId(d *schema.ResourceData) (string, string) {
+func decomposeRolegroupId(d *schema.ResourceData) (string, string, diag.Diagnostics) {
+	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	return s[0], s[1]
+	if len(s) != 2 {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Invalid Rolegroup ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ROLEGROUP_ID, got %s", d.Id()),
+		})
+		return "", "", diags
+	}
+	return s[0], s[1], diags
 }

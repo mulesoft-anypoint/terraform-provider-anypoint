@@ -17,8 +17,10 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/dlb v0.5.0
 	github.com/mulesoft-anypoint/anypoint-client-go/env v0.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/flexgateway v0.1.1
-	github.com/mulesoft-anypoint/anypoint-client-go/idp v0.2.0
+	github.com/mulesoft-anypoint/anypoint-client-go/idp v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/org v0.4.0
+	github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.1.1
+	github.com/mulesoft-anypoint/anypoint-client-go/private_space_tlscontext v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/role v0.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/rolegroup v0.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/rtf v0.1.0

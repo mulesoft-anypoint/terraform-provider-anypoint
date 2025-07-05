@@ -115,7 +115,7 @@ func dataSourceApimInstancePolicy() *schema.Resource {
 	}
 }
 
-func dataSourceApimInstancePolicyRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceApimInstancePolicyRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -156,8 +156,8 @@ func dataSourceApimInstancePolicyRead(ctx context.Context, d *schema.ResourceDat
 	return diags
 }
 
-func flattenApimInstancePolicy(policy *apim_policy.ApimPolicy) map[string]interface{} {
-	result := make(map[string]interface{})
+func flattenApimInstancePolicy(policy *apim_policy.ApimPolicy) map[string]any {
+	result := make(map[string]any)
 	if val, ok := policy.GetIdOk(); ok {
 		result["id"] = strconv.Itoa(int(*val))
 	}
@@ -189,13 +189,13 @@ func flattenApimInstancePolicy(policy *apim_policy.ApimPolicy) map[string]interf
 		result["policy_template_id"] = *val
 	}
 	if val, ok := policy.GetConfigurationDataOk(); ok {
-		result["configuration_data"] = []interface{}{flattenApimInstancePolicyConfData(val)}
+		result["configuration_data"] = []any{flattenApimInstancePolicyConfData(val)}
 	}
 	return result
 }
 
-func flattenApimInstancePolicyAudit(audit *apim_policy.Audit) map[string]interface{} {
-	result := make(map[string]interface{})
+func flattenApimInstancePolicyAudit(audit *apim_policy.Audit) map[string]any {
+	result := make(map[string]any)
 	if audit == nil {
 		return result
 	}
@@ -212,16 +212,16 @@ func flattenApimInstancePolicyAudit(audit *apim_policy.Audit) map[string]interfa
 	return result
 }
 
-func flattenApimInstancePolicyConfData(conf map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
+func flattenApimInstancePolicyConfData(conf map[string]any) map[string]any {
+	result := make(map[string]any)
 	for k, v := range conf {
-		m, ok := v.(map[string]interface{})
+		m, ok := v.(map[string]any)
 		if ok {
 			b, _ := json.Marshal(m)
 			result[strcase.ToSnake(k)] = string(b)
 			continue
 		}
-		t, ok := v.([]interface{})
+		t, ok := v.([]any)
 		if ok {
 			b, _ := json.Marshal(t)
 			result[strcase.ToSnake(k)] = string(b)
@@ -232,7 +232,7 @@ func flattenApimInstancePolicyConfData(conf map[string]interface{}) map[string]i
 	return result
 }
 
-func setApimInstancePolicyAttributesToResourceData(d *schema.ResourceData, data map[string]interface{}) error {
+func setApimInstancePolicyAttributesToResourceData(d *schema.ResourceData, data map[string]any) error {
 	attributes := getApimInstancePolicyAttributes()
 	if data != nil {
 		for _, attr := range attributes {
@@ -255,10 +255,10 @@ func getApimInstancePolicyAttributes() []string {
 	return attributes[:]
 }
 
-func flattenApimInstancePolicyPointcutData(collection []apim_policy.PointcutDataItem) []interface{} {
-	slice := make([]interface{}, len(collection))
+func flattenApimInstancePolicyPointcutData(collection []apim_policy.PointcutDataItem) []any {
+	slice := make([]any, len(collection))
 	for i, item := range collection {
-		data := make(map[string]interface{})
+		data := make(map[string]any)
 		if val, ok := item.GetMethodRegexOk(); ok {
 			data["method_regex"] = strings.Split(*val, "|")
 		}

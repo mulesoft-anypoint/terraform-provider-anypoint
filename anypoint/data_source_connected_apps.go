@@ -179,7 +179,7 @@ func dataSourceConnectedApps() *schema.Resource {
 	}
 }
 
-func dataSourceConnectedAppsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceConnectedAppsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -244,7 +244,7 @@ func parseConnectedAppSearchOpts(req connected_app.DefaultApiGetAllConnectedApps
 		return req, diags
 	}
 	opts := params.List()[0]
-	for k, v := range opts.(map[string]interface{}) {
+	for k, v := range opts.(map[string]any) {
 		if k == "search" {
 			req = req.Search(v.(string))
 			continue
@@ -261,13 +261,13 @@ func parseConnectedAppSearchOpts(req connected_app.DefaultApiGetAllConnectedApps
 	return req, diags
 }
 
-func flattenConnectedAppsResult(collection []connected_app.ConnectedAppRespExt) []interface{} {
+func flattenConnectedAppsResult(collection []connected_app.ConnectedAppRespExt) []any {
 	if len(collection) > 0 {
-		res := make([]interface{}, len(collection))
+		res := make([]any, len(collection))
 		for i, connapp := range collection {
 			res[i] = flattenConnectedAppData(&connapp)
 		}
 		return res
 	}
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }

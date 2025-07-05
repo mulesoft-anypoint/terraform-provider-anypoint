@@ -141,7 +141,7 @@ func dataSourceVPCs() *schema.Resource {
 	}
 }
 
-func dataSourceVPCsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+func dataSourceVPCsRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -185,12 +185,12 @@ func dataSourceVPCsRead(ctx context.Context, d *schema.ResourceData, m interface
 	return diags
 }
 
-func flattenVPCsData(vpcs *[]vpc.Vpc) []interface{} {
+func flattenVPCsData(vpcs *[]vpc.Vpc) []any {
 	if vpcs != nil && len(*vpcs) > 0 {
-		res := make([]interface{}, len(*vpcs))
+		res := make([]any, len(*vpcs))
 
 		for i, vpcitem := range *vpcs {
-			item := make(map[string]interface{})
+			item := make(map[string]any)
 
 			item["id"] = vpcitem.GetId()
 			item["name"] = vpcitem.GetName()
@@ -203,9 +203,9 @@ func flattenVPCsData(vpcs *[]vpc.Vpc) []interface{} {
 			item["owner_id"] = vpcitem.GetOwnerId()
 			item["shared_with"] = vpcitem.GetSharedWith()
 
-			frules := make([]interface{}, len(vpcitem.GetFirewallRules()))
+			frules := make([]any, len(vpcitem.GetFirewallRules()))
 			for j, frule := range vpcitem.GetFirewallRules() {
-				r := make(map[string]interface{})
+				r := make(map[string]any)
 				r["cidr_block"] = frule.GetCidrBlock()
 				r["protocol"] = frule.GetProtocol()
 				r["from_port"] = frule.GetFromPort()
@@ -214,9 +214,9 @@ func flattenVPCsData(vpcs *[]vpc.Vpc) []interface{} {
 			}
 			item["firewall_rules"] = frules
 
-			vpcroutes := make([]interface{}, len(vpcitem.GetVpcRoutes()))
+			vpcroutes := make([]any, len(vpcitem.GetVpcRoutes()))
 			for j, vpcroute := range vpcitem.GetVpcRoutes() {
-				r := make(map[string]interface{})
+				r := make(map[string]any)
 				r["next_hop"] = vpcroute.GetNextHop()
 				r["cidr"] = vpcroute.GetCIDR()
 				vpcroutes[j] = r
@@ -228,5 +228,5 @@ func flattenVPCsData(vpcs *[]vpc.Vpc) []interface{} {
 		return res
 	}
 
-	return make([]interface{}, 0)
+	return make([]any, 0)
 }
