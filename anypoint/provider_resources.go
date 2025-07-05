@@ -42,4 +42,7 @@ var RESOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_fabrics_associations":                  resourceFabricsAssociations(),
 	"anypoint_cloudhub2_shared_space_deployment":     resourceCloudhub2SharedSpaceDeployment(),
 	"anypoint_rtf_deployment":                        resourceRTFDeployment(),
+	"anypoint_private_space":                         resourcePrivateSpace(),
+	"anypoint_private_space_tlscontext_pem":          resourcePrivateSpaceTlsContextPem(),
+	"anypoint_private_space_tlscontext_jks":          resourcePrivateSpaceTlsContextJKS(),
 }

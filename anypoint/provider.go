@@ -179,11 +179,12 @@ returns the server index depending on the control plane name
 if the control plane is not recognized, returns -1
 */
 func cplane2serverindex(cplane string) int {
-	if cplane == "eu" {
+	switch cplane {
+	case "eu":
 		return 1
-	} else if cplane == "us" {
+	case "us":
 		return 0
-	} else if cplane == "gov" {
+	case "gov":
 		return 2
 	}
 	return -1
