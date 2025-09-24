@@ -306,12 +306,11 @@ func newOIDCPostBody(d *schema.ResourceData) (*idp.IdpPostBody, diag.Diagnostics
 	oidc_provider_data := oidc_provider_input[0].(map[string]any)
 
 	// in case we have dynamic registration
-	if _, ok := oidc_provider_data["client_registration_url"]; ok {
+	if val, ok := oidc_provider_data["client_registration_url"]; ok && val != nil && len(val.(string)) > 0 {
 		body := newDynamicOIDCPostBody(name, oidc_provider_data)
 		return &idp.IdpPostBody{
 			OpenIDProviderDynamicPostBody: body,
 		}, diags
-
 	} else {
 		body := newManualOIDCPostBody(name, oidc_provider_data)
 		return &idp.IdpPostBody{
@@ -430,7 +429,7 @@ func newOIDCPatchBody(d *schema.ResourceData) (*idp.IdpPatchBody, diag.Diagnosti
 	oidc_provider := idp.NewOpenIDProviderPatchOidcProvider()
 	client := idp.NewOpenIDProviderPatchOidcProviderClient()
 	// in case we have dynamic registration
-	if client_registration_url, ok := oidc_provider_data["client_registration_url"]; ok {
+	if client_registration_url, ok := oidc_provider_data["client_registration_url"]; ok && client_registration_url != nil && len(client_registration_url.(string)) > 0 {
 		register_url := idp.NewOpenIDProviderPatchOidcProviderClientUrls()
 		register_url.SetRegister(client_registration_url.(string))
 		client.SetUrls(*register_url)
