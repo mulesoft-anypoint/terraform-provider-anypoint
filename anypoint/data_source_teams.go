@@ -231,11 +231,21 @@ func parseTeamSearchOpts(req team.DefaultApiApiOrganizationsOrgIdTeamsGetRequest
 
 	for k, v := range opts.(map[string]any) {
 		if k == "ancestor_team_id" {
-			req = req.AncestorTeamId(v.([]string))
+			ati := v.([]any)
+			ati2 := make([]string, len(ati))
+			for i, v := range ati {
+				ati2[i] = v.(string)
+			}
+			req = req.AncestorTeamId(ati2)
 			continue
 		}
 		if k == "parent_team_id" {
-			req = req.ParentTeamId(v.([]string))
+			pati := v.([]any)
+			pati2 := make([]string, len(pati))
+			for i, v := range pati {
+				pati2[i] = v.(string)
+			}
+			req = req.ParentTeamId(pati2)
 			continue
 		}
 		if k == "team_id" {
