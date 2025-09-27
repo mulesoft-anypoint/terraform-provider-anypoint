@@ -247,6 +247,8 @@ github.com/mulesoft-anypoint/anypoint-client-go/secretgroup_truststore v0.1.0 h1
 github.com/mulesoft-anypoint/anypoint-client-go/secretgroup_truststore v0.1.0/go.mod h1:4tiFW/jYax2MpOuMcV+MT3q6B+aczj8P3lB0bKVLpeU=
 github.com/mulesoft-anypoint/anypoint-client-go/team v0.3.0 h1:+PnR8Pr/Kd9c2DTjPyhlksgM0cFgEq2meTQRIwlglPk=
 github.com/mulesoft-anypoint/anypoint-client-go/team v0.3.0/go.mod h1:2GR3QKqPcDm8Yzpr1AChNV235zs9fr2UVF/QIAqvIkc=
+github.com/mulesoft-anypoint/anypoint-client-go/team v1.0.1 h1:fnZ4z/RAoTJPJOFCUz5lZsBZ6loXfCf3wRkPH5enfHk=
+github.com/mulesoft-anypoint/anypoint-client-go/team v1.0.1/go.mod h1:WAfTSUTkVIDob1abw4SgHmo5DjiO3y+VuEsIKBV5tqE=
 github.com/mulesoft-anypoint/anypoint-client-go/team_group_mappings v0.2.1 h1:mfgqU2y6UPvabqRSyPRJk/Uo6mgH8olCcvX0p4Ex47w=
 github.com/mulesoft-anypoint/anypoint-client-go/team_group_mappings v0.2.1/go.mod h1:kpWfKYIuN6sz3T0s3HgknJDabtRCD5YC23dCq+l8u0g=
 github.com/mulesoft-anypoint/anypoint-client-go/team_members v0.2.0 h1:LCuaM/+1KB8bzBaC+Td9a1dcH/sHpST9n64SXD0uGto=
