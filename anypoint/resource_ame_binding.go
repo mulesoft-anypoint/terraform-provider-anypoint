@@ -288,6 +288,7 @@ func resourceAMEBinding() *schema.Resource {
 	}
 }
 
+// resourceAMEBindingCreate creates the AME Binding
 func resourceAMEBindingCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
@@ -329,6 +330,7 @@ func resourceAMEBindingCreate(ctx context.Context, d *schema.ResourceData, m any
 	return resourceAMEBindingRead(ctx, d, m)
 }
 
+// resourceAMEBindingRead reads the AME Binding
 func resourceAMEBindingRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -372,7 +374,7 @@ func resourceAMEBindingRead(ctx context.Context, d *schema.ResourceData, m any) 
 	d.Set("queue_id", queueid)
 	d.SetId(ComposeResourceId([]string{orgid, envid, regionid, exchangeid, queueid}))
 	//setting rules
-	rules := parseAMERBindingRules(res)
+	rules := parseAMEBindingRules(res)
 	setAMEBindingRulesAttributesToResourceData(d, rules)
 	return diags
 }
@@ -398,6 +400,7 @@ func resourceAMEBindingUpdate(ctx context.Context, d *schema.ResourceData, m any
 	return diags
 }
 
+// resourceAMEBindingDelete deletes the AME Binding
 func resourceAMEBindingDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
@@ -433,6 +436,7 @@ func resourceAMEBindingDelete(ctx context.Context, d *schema.ResourceData, m any
 	return diags
 }
 
+// decomposeAMEBindingId decomposes the AME Binding ID into its components
 func decomposeAMEBindingId(d *schema.ResourceData, separator ...string) (string, string, string, string, string, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id(), separator...)
@@ -447,6 +451,7 @@ func decomposeAMEBindingId(d *schema.ResourceData, separator ...string) (string,
 	return s[0], s[1], s[2], s[3], s[4], diags
 }
 
+// resourceAMEBindingRulesCreate creates the AME Binding rules
 func resourceAMEBindingRulesCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
@@ -483,6 +488,7 @@ func resourceAMEBindingRulesCreate(ctx context.Context, d *schema.ResourceData, 
 	return diags
 }
 
+// resourceAMEBindingRulesDelete deletes the AME Binding rules
 func resourceAMEBindingRulesDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	// Warning or errors can be collected in a slice type
 	var diags diag.Diagnostics
@@ -516,6 +522,7 @@ func resourceAMEBindingRulesDelete(ctx context.Context, d *schema.ResourceData, 
 	return diags
 }
 
+// newAMEBindingRuleBody creates a new AMEBindingRuleBody from the resource data
 func newAMEBindingRuleBody(d *schema.ResourceData) *ame_binding.AMEBindingRuleBody {
 	rules := extractAMEBindingRules(d)
 
@@ -540,6 +547,7 @@ func newAMEBindingRuleBody(d *schema.ResourceData) *ame_binding.AMEBindingRuleBo
 	return body
 }
 
+// extractAMEBindingRules extracts the rules from the resource data
 func extractAMEBindingRules(d *schema.ResourceData) []any {
 	var rules []any
 
@@ -561,7 +569,7 @@ func extractAMEBindingRules(d *schema.ResourceData) []any {
 	return rules
 }
 
-// sets the binding rules to the correct type
+// setAMEBindingRulesAttributesToResourceData sets the binding rules to the correct type
 func setAMEBindingRulesAttributesToResourceData(d *schema.ResourceData, rules []map[string]any) {
 	if isRuleStrCompare(rules) {
 		d.Set("rule_str_compare", rules)
@@ -578,54 +586,76 @@ func setAMEBindingRulesAttributesToResourceData(d *schema.ResourceData, rules []
 	}
 }
 
+// isRuleStrCompare checks if the rules are of type STRING and the matcher type is EQ or PREFIX
 func isRuleStrCompare(rules []map[string]any) bool {
 	if len(rules) > 0 {
 		rule := rules[0]
-		return rule["propertyType"] == "STRING" && (rule["matcherType"] == "EQ" || rule["matcherType"] == "PREFIX")
-	}
-	return false
-}
-func isRuleStrState(rules []map[string]any) bool {
-	if len(rules) > 0 {
-		rule := rules[0]
-		return rule["propertyType"] == "STRING" && rule["matcherType"] == "EXISTS"
-	}
-	return false
-}
-func isRuleStrSet(rules []map[string]any) bool {
-	if len(rules) > 0 {
-		rule := rules[0]
-		return rule["propertyType"] == "STRING" && (rule["matcherType"] == "ANY_OF" || rule["matcherType"] == "NONE_OF")
-	}
-	return false
-}
-func isRuleNumCompare(rules []map[string]any) bool {
-	if len(rules) > 0 {
-		rule := rules[0]
-		return rule["propertyType"] == "NUMERIC" &&
-			(rule["matcherType"] == "EQ" || rule["matcherType"] == "LT" || rule["matcherType"] == "LE" || rule["matcherType"] == "GT" || rule["matcherType"] == "GE")
-	}
-	return false
-}
-func isRuleNumState(rules []map[string]any) bool {
-	if len(rules) > 0 {
-		rule := rules[0]
-		return rule["propertyType"] == "NUMERIC" && rule["matcherType"] == "EXISTS"
-	}
-	return false
-}
-func isRuleNumSet(rules []map[string]any) bool {
-	if len(rules) > 0 {
-		rule := rules[0]
-		return rule["propertyType"] == "NUMERIC" && (rule["matcherType"] == "RANGE" || rule["matcherType"] == "NONE_OF")
+		return rule["property_type"].(string) == "STRING" && (rule["matcher_type"].(string) == "EQ" || rule["matcher_type"].(string) == "PREFIX")
 	}
 	return false
 }
 
-func parseAMERBindingRules(data ame_binding.ExchangeBindingWithRules) []map[string]any {
+// isRuleStrState checks if the rules are of type STRING and the matcher type is EXISTS
+func isRuleStrState(rules []map[string]any) bool {
+	if len(rules) > 0 {
+		rule := rules[0]
+		return rule["property_type"].(string) == "STRING" && rule["matcher_type"].(string) == "EXISTS"
+	}
+	return false
+}
+
+// isRuleStrSet checks if the rules are of type STRING and the matcher type is ANY_OF or NONE_OF
+func isRuleStrSet(rules []map[string]any) bool {
+	if len(rules) > 0 {
+		rule := rules[0]
+		return rule["property_type"].(string) == "STRING" && (rule["matcher_type"].(string) == "ANY_OF" || rule["matcher_type"].(string) == "NONE_OF")
+	}
+	return false
+}
+
+// isRuleNumCompare checks if the rules are of type NUMERIC and the matcher type is EQ, LT, LE, GT, or GE
+func isRuleNumCompare(rules []map[string]any) bool {
+	if len(rules) > 0 {
+		rule := rules[0]
+		return rule["property_type"].(string) == "NUMERIC" &&
+			(rule["matcher_type"].(string) == "EQ" || rule["matcher_type"].(string) == "LT" || rule["matcher_type"].(string) == "LE" || rule["matcher_type"].(string) == "GT" || rule["matcher_type"].(string) == "GE")
+	}
+	return false
+}
+
+// isRuleNumState checks if the rules are of type NUMERIC and the matcher type is EXISTS
+func isRuleNumState(rules []map[string]any) bool {
+	if len(rules) > 0 {
+		rule := rules[0]
+		return rule["property_type"].(string) == "NUMERIC" && rule["matcher_type"].(string) == "EXISTS"
+	}
+	return false
+}
+
+// isRuleNumSet checks if the rules are of type NUMERIC and the matcher type is RANGE or NONE_OF
+func isRuleNumSet(rules []map[string]any) bool {
+	if len(rules) > 0 {
+		rule := rules[0]
+		return rule["property_type"].(string) == "NUMERIC" && (rule["matcher_type"].(string) == "RANGE" || rule["matcher_type"].(string) == "NONE_OF")
+	}
+	return false
+}
+
+// parseAMEBindingRules parses the rules from the ExchangeBindingWithRules and returns a slice of maps
+// with the following keys:
+// - propertyName: string
+// - propertyType: string
+// - matcherType: string
+// - value: string
+//
+// This function is used for parsing the rules attribute returned by the API.
+func parseAMEBindingRules(data *ame_binding.ExchangeBindingWithRules) []map[string]any {
 	var rules []map[string]any
-	if val, ok := data.GetRulesOk(); ok {
-		rules = *val
+	if data == nil {
+		return rules
+	}
+	if val, ok := data.GetRoutingRulesOk(); ok {
+		rules = val
 	} else {
 		return rules
 	}
@@ -644,6 +674,7 @@ func parseAMERBindingRules(data ame_binding.ExchangeBindingWithRules) []map[stri
 	return result
 }
 
+// getAMEBindingRulesWatchAttributes returns the list of attributes to watch for changes
 func getAMEBindingRulesWatchAttributes() []string {
 	attributes := [...]string{
 		"rule_str_compare", "rule_str_state", "rule_str_set", "rule_num_compare", "rule_num_state", "rule_num_set",

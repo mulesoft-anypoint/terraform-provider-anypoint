@@ -6,7 +6,7 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.24.0
 	github.com/iancoleman/strcase v0.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/ame v1.0.0
-	github.com/mulesoft-anypoint/anypoint-client-go/ame_binding v1.0.0
+	github.com/mulesoft-anypoint/anypoint-client-go/ame_binding v1.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/amq v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.0.1
