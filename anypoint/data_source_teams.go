@@ -36,7 +36,7 @@ func dataSourceTeams() *schema.Resource {
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							Description: "team_id that must appear in the team's ancestor_team_ids.",
+							Description: "List of team_ids that must appear in the team's ancestor_team_ids",
 						},
 						"parent_team_id": {
 							Type:     schema.TypeList,
@@ -44,7 +44,7 @@ func dataSourceTeams() *schema.Resource {
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
-							Description: "team_id of the immediate parent of the team to return.",
+							Description: "List of team_ids of the immediate parent of the team to return.",
 						},
 						"team_id": {
 							Type:        schema.TypeString,
