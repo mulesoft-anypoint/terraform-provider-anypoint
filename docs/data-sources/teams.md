@@ -53,11 +53,11 @@ resource "anypoint_team" "team" {
 
 Optional:
 
-- `ancestor_team_id` (List of String) team_id that must appear in the team's ancestor_team_ids.
+- `ancestor_team_id` (List of String) List of team_ids that must appear in the team's ancestor_team_ids
 - `ascending` (Boolean) Whether to sort ascending or descending.
 - `limit` (Number) Maximum records to retrieve per request.
 - `offset` (Number) The number of records to omit from the response.
-- `parent_team_id` (List of String) team_id of the immediate parent of the team to return.
+- `parent_team_id` (List of String) List of team_ids of the immediate parent of the team to return.
 - `search` (String) A search string to use for case-insensitive partial matches on team name
 - `sort` (String) The field to sort on.
 - `team_id` (String) id of the team to return.

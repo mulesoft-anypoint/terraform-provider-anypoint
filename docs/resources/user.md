@@ -3,14 +3,14 @@
 page_title: "anypoint_user Resource - terraform-provider-anypoint"
 subcategory: ""
 description: |-
-  Creates a `user` for your org. 
+  Creates a `user` for your org.
   
   N.B: you can use a username only once even after it's deleted.
 ---
 
 # anypoint_user (Resource)
 
-Creates a `user` for your org. 
+Creates a `user` for your org.
 
 **N.B:** you can use a username only once even after it's deleted.
 
