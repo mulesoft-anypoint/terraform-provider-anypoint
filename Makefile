@@ -4,7 +4,7 @@ NAMESPACE=automation
 NAME=anypoint
 BINARY=terraform-provider-${NAME}
 VERSION=1.8.1-SNAPSHOT
-OS_ARCH=darwin_amd64
+OS_ARCH=darwin_arm64
 
 default: install
 
@@ -36,3 +36,6 @@ test:
 
 testacc:
 	TF_ACC=1 go test $(TEST) -v $(TESTARGS) -timeout 120m
+
+debug: build
+	dlv exec --headless ./${BINARY} -- --debug
