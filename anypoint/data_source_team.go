@@ -80,7 +80,7 @@ func dataSourceTeamRead(ctx context.Context, d *schema.ResourceData, m any) diag
 	teamid := d.Get("id").(string)
 	authctx := getTeamAuthCtx(ctx, &pco)
 	//request roles
-	res, httpr, err := pco.teamclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdGet(authctx, orgid, teamid).Execute()
+	res, httpr, err := pco.teamclient.DefaultApi.GetTeam(authctx, orgid, teamid).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
@@ -99,7 +99,7 @@ func dataSourceTeamRead(ctx context.Context, d *schema.ResourceData, m any) diag
 	}
 	defer httpr.Body.Close()
 	//process data
-	team := flattenTeamData(&res)
+	team := flattenTeamData(res)
 	//save in data source schema
 	if err := setTeamAttributesToResourceData(d, team); err != nil {
 		diags = append(diags, diag.Diagnostic{
@@ -133,7 +133,7 @@ func flattenTeamData(team *team.Team) map[string]any {
 		item["team_type"] = *val
 	}
 	if val, ok := team.GetAncestorTeamIdsOk(); ok {
-		item["ancestor_team_ids"] = *val
+		item["ancestor_team_ids"] = val
 	}
 	if val, ok := team.GetCreatedAtOk(); ok {
 		item["created_at"] = *val

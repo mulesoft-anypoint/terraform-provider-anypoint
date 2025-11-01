@@ -54,7 +54,7 @@ func dataSourceTeams() *schema.Resource {
 						"team_type": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Description: "return only teams that are of this type",
+							Description: "return only teams that are of the given type. Enum values are: internal, shared, private, external.",
 						},
 						"search": {
 							Type:        schema.TypeString,
@@ -76,7 +76,7 @@ func dataSourceTeams() *schema.Resource {
 						"sort": {
 							Type:        schema.TypeString,
 							Optional:    true,
-							Description: "The field to sort on.",
+							Description: "The field to sort on. Default is team_name.",
 						},
 						"ascending": {
 							Type:        schema.TypeBool,
@@ -121,7 +121,7 @@ func dataSourceTeams() *schema.Resource {
 						},
 						"ancestor_team_ids": {
 							Type:     schema.TypeList,
-							Optional: true,
+							Computed: true,
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 							},
@@ -161,7 +161,7 @@ func dataSourceTeamsRead(ctx context.Context, d *schema.ResourceData, m any) dia
 	orgid := d.Get("org_id").(string)
 	authctx := getTeamAuthCtx(ctx, &pco)
 	//prepare request
-	req := pco.teamclient.DefaultApi.OrganizationsOrgIdTeamsGet(authctx, orgid)
+	req := pco.teamclient.DefaultApi.GetTeams(authctx, orgid)
 	req, errDiags := parseTeamSearchOpts(req, searchOpts)
 	if errDiags.HasError() {
 		diags = append(diags, errDiags...)
@@ -221,7 +221,7 @@ func dataSourceTeamsRead(ctx context.Context, d *schema.ResourceData, m any) dia
 	return diags
 }
 
-func parseTeamSearchOpts(req team.DefaultApiApiOrganizationsOrgIdTeamsGetRequest, params *schema.Set) (team.DefaultApiApiOrganizationsOrgIdTeamsGetRequest, diag.Diagnostics) {
+func parseTeamSearchOpts(req team.DefaultApiGetTeamsRequest, params *schema.Set) (team.DefaultApiGetTeamsRequest, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if params.Len() == 0 {
 		return req, diags
@@ -230,23 +230,33 @@ func parseTeamSearchOpts(req team.DefaultApiApiOrganizationsOrgIdTeamsGetRequest
 	opts := params.List()[0]
 
 	for k, v := range opts.(map[string]any) {
-		if k == "ancestor_team_id" {
-			req = req.AncestorTeamId(v.([]string))
+		if k == "ancestor_team_id" && len(v.([]any)) > 0 {
+			ati := v.([]any)
+			ati2 := make([]string, len(ati))
+			for i, v := range ati {
+				ati2[i] = v.(string)
+			}
+			req = req.AncestorTeamId(ati2)
 			continue
 		}
-		if k == "parent_team_id" {
-			req = req.ParentTeamId(v.([]string))
+		if k == "parent_team_id" && len(v.([]any)) > 0 {
+			pati := v.([]any)
+			pati2 := make([]string, len(pati))
+			for i, v := range pati {
+				pati2[i] = v.(string)
+			}
+			req = req.ParentTeamId(pati2)
 			continue
 		}
-		if k == "team_id" {
+		if k == "team_id" && v.(string) != "" {
 			req = req.TeamId(v.(string))
 			continue
 		}
-		if k == "team_type" {
+		if k == "team_type" && v.(string) != "" {
 			req = req.TeamType(v.(string))
 			continue
 		}
-		if k == "search" {
+		if k == "search" && v.(string) != "" {
 			req = req.Search(v.(string))
 			continue
 		}
@@ -258,7 +268,7 @@ func parseTeamSearchOpts(req team.DefaultApiApiOrganizationsOrgIdTeamsGetRequest
 			req = req.Limit(int32(v.(int)))
 			continue
 		}
-		if k == "sort" {
+		if k == "sort" && v.(string) != "" {
 			req = req.Sort(v.(string))
 			continue
 		}
