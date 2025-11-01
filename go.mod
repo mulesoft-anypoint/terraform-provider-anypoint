@@ -6,7 +6,7 @@ require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.24.0
 	github.com/iancoleman/strcase v0.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/ame v1.0.0
-	github.com/mulesoft-anypoint/anypoint-client-go/ame_binding v1.0.0
+	github.com/mulesoft-anypoint/anypoint-client-go/ame_binding v1.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/amq v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.0.1
@@ -30,7 +30,7 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/secretgroup_keystore v0.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/secretgroup_tlscontext v0.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/secretgroup_truststore v0.1.0
-	github.com/mulesoft-anypoint/anypoint-client-go/team v0.3.0
+	github.com/mulesoft-anypoint/anypoint-client-go/team v1.0.1
 	github.com/mulesoft-anypoint/anypoint-client-go/team_group_mappings v0.2.1
 	github.com/mulesoft-anypoint/anypoint-client-go/team_members v0.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/team_roles v0.2.0

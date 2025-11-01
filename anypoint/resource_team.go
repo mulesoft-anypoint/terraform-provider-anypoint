@@ -99,7 +99,7 @@ func resourceTeamCreate(ctx context.Context, d *schema.ResourceData, m any) diag
 	authctx := getTeamAuthCtx(ctx, &pco)
 	body := newTeamPostBody(d)
 	//request user creation
-	res, httpr, err := pco.teamclient.DefaultApi.OrganizationsOrgIdTeamsPost(authctx, orgid).TeamPostBody(*body).Execute()
+	res, httpr, err := pco.teamclient.DefaultApi.CreateTeam(authctx, orgid).TeamPostBody(*body).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
@@ -134,7 +134,7 @@ func resourceTeamRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	}
 	authctx := getTeamAuthCtx(ctx, &pco)
 	//request roles
-	res, httpr, err := pco.teamclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdGet(authctx, orgid, teamid).Execute()
+	res, httpr, err := pco.teamclient.DefaultApi.GetTeam(authctx, orgid, teamid).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
@@ -153,7 +153,7 @@ func resourceTeamRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	}
 	defer httpr.Body.Close()
 	//process data
-	team := flattenTeamData(&res)
+	team := flattenTeamData(res)
 	//save in data source schema
 	if err := setTeamAttributesToResourceData(d, team); err != nil {
 		diags = append(diags, diag.Diagnostic{
@@ -180,7 +180,7 @@ func resourceTeamUpdate(ctx context.Context, d *schema.ResourceData, m any) diag
 	if d.HasChanges(getTeamPatchWatchAttributes()...) {
 		body := newTeamPatchBody(d)
 		//request user creation
-		_, httpr, err := pco.teamclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdPatch(authctx, orgid, teamid).TeamPatchBody(*body).Execute()
+		_, httpr, err := pco.teamclient.DefaultApi.UpdateTeam(authctx, orgid, teamid).TeamPatchBody(*body).Execute()
 		if err != nil {
 			var details string
 			if httpr != nil && httpr.StatusCode >= 400 {
@@ -204,7 +204,7 @@ func resourceTeamUpdate(ctx context.Context, d *schema.ResourceData, m any) diag
 	if d.HasChanges(getTeamPutWatchAttributes()...) {
 		body := newTeamPutBody(d)
 		//request user creation
-		_, httpr, err := pco.teamclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdParentPut(authctx, orgid, teamid).TeamPutBody(*body).Execute()
+		_, httpr, err := pco.teamclient.DefaultApi.MoveTeam(authctx, orgid, teamid).TeamPutBody(*body).Execute()
 		if err != nil {
 			var details string
 			if httpr != nil && httpr.StatusCode >= 400 {
@@ -235,7 +235,7 @@ func resourceTeamDelete(ctx context.Context, d *schema.ResourceData, m any) diag
 	orgid := d.Get("org_id").(string)
 	authctx := getTeamAuthCtx(ctx, &pco)
 	//perform request
-	httpr, err := pco.teamclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdDelete(authctx, orgid, teamid).Execute()
+	httpr, err := pco.teamclient.DefaultApi.DeleteTeam(authctx, orgid, teamid).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
