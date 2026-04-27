@@ -11,7 +11,7 @@ import (
 	team_roles "github.com/mulesoft-anypoint/anypoint-client-go/team_roles"
 )
 
-const BG_VIEWER_ROLE = "833ab9ca-0c72-45ba-9764-1df83240db57"
+const BG_VIEWER_ROLE_ID = "833ab9ca-0c72-45ba-9764-1df83240db57"
 
 func resourceTeamRoles() *schema.Resource {
 	return &schema.Resource{
@@ -98,7 +98,7 @@ func resourceTeamRolesCreate(ctx context.Context, d *schema.ResourceData, m any)
 	authctx := getTeamRolesAuthCtx(ctx, &pco)
 	body := newTeamRolesPostBody(d)
 	//request user creation
-	httpr, err := pco.teamrolesclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdRolesPost(authctx, orgid, teamid).RequestBody(body).Execute()
+	httpr, err := pco.teamrolesclient.DefaultAPI.AssignTeamRoles(authctx, orgid, teamid).TeamRolePostBody(body).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
@@ -137,7 +137,7 @@ func resourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m any) d
 	}
 	authctx := getTeamRolesAuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.teamrolesclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdRolesGet(authctx, orgid, teamid).Limit(500).Execute()
+	res, httpr, err := pco.teamrolesclient.DefaultAPI.GetTeamRoles(authctx, orgid, teamid).Limit(500).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
@@ -192,7 +192,7 @@ func resourceTeamRolesDelete(ctx context.Context, d *schema.ResourceData, m any)
 	//prepare request body
 	body := newTeamRolesDeleteBody(d)
 	//perform requeset
-	httpr, err := pco.teamrolesclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdRolesDelete(authctx, orgid, teamid).RequestBody(body).Execute()
+	httpr, err := pco.teamrolesclient.DefaultAPI.DeleteTeamRoles(authctx, orgid, teamid).TeamRoleDeleteBody(body).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
@@ -216,43 +216,63 @@ func resourceTeamRolesDelete(ctx context.Context, d *schema.ResourceData, m any)
 	return diags
 }
 
-func newTeamRolesPostBody(d *schema.ResourceData) []map[string]any {
+func newTeamRolesPostBody(d *schema.ResourceData) []team_roles.TeamRolePostBody {
 	roles := d.Get("roles").([]any)
 
 	if len(roles) <= 0 {
-		return make([]map[string]any, 0)
+		return make([]team_roles.TeamRolePostBody, 0)
 	}
 
-	body := make([]map[string]any, len(roles))
+	body := make([]team_roles.TeamRolePostBody, len(roles))
 
 	for i, role := range roles {
 		content := role.(map[string]any)
-		item := make(map[string]any)
-		item["role_id"] = content["role_id"]
-		item["context_params"] = content["context_params"]
+		item := team_roles.TeamRolePostBody{}
+		item.SetRoleId(content["role_id"].(string))
+		contextParam := team_roles.ContextParams{}
+		if inputContextParams, ok := content["context_params"].(map[string]any); ok && inputContextParams != nil {
+			org := inputContextParams["org"].(string)
+			contextParam = team_roles.ContextParams{
+				Org: &org,
+			}
+			if envId, ok := inputContextParams["envId"].(string); ok && envId != "" {
+				contextParam.EnvId = &envId
+			}
+		}
+		item.SetContextParams(contextParam)
 		body[i] = item
 	}
 
 	return body
 }
 
-func newTeamRolesDeleteBody(d *schema.ResourceData) []map[string]any {
+func newTeamRolesDeleteBody(d *schema.ResourceData) []team_roles.TeamRoleDeleteBody {
 	roles := d.Get("roles").([]any)
+	body := make([]team_roles.TeamRoleDeleteBody, 0)
 
 	if len(roles) <= 0 {
-		return make([]map[string]any, 0)
+		return body
 	}
 
-	body := make([]map[string]any, 0) // It is forbidden to remove the Business Group Viewer role
-
+	// It is forbidden to remove the Business Group Viewer role
 	for _, role := range roles {
 		content := role.(map[string]any)
-		if content["role_id"] == BG_VIEWER_ROLE { // It is forbidden to remove the Business Group Viewer role
+		if content["role_id"] == BG_VIEWER_ROLE_ID { // It is forbidden to remove the Business Group Viewer role
 			continue
 		}
-		item := make(map[string]any)
-		item["role_id"] = content["role_id"]
-		item["context_params"] = content["context_params"]
+		item := team_roles.TeamRoleDeleteBody{}
+		item.SetRoleId(content["role_id"].(string))
+		contextParam := team_roles.ContextParams{}
+		if inputContextParams, ok := content["context_params"].(map[string]any); ok && inputContextParams != nil {
+			org := inputContextParams["org"].(string)
+			contextParam = team_roles.ContextParams{
+				Org: &org,
+			}
+			if envId, ok := inputContextParams["envId"].(string); ok && envId != "" {
+				contextParam.EnvId = &envId
+			}
+		}
+		item.SetContextParams(contextParam)
 		body = append(body, item)
 	}
 
@@ -335,7 +355,7 @@ func equalTeamRoleContextParams(old, new any) bool {
 // filter for roles to skip when attempting to calculate the diffin
 // the role ids in this function are automatically added when a team is created. Therefore should be skipped
 func rolesSkipFilter(item map[string]any) bool {
-	skip := []string{BG_VIEWER_ROLE}
+	skip := []string{BG_VIEWER_ROLE_ID}
 	ridkey := "role_id"
 	return !StringInSlice(skip, item[ridkey].(string), false)
 }
