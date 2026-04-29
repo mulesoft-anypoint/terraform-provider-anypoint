@@ -230,22 +230,12 @@ func parseTeamSearchOpts(req team.DefaultApiGetTeamsRequest, params *schema.Set)
 	opts := params.List()[0]
 
 	for k, v := range opts.(map[string]any) {
-		if k == "ancestor_team_id" && len(v.([]any)) > 0 {
-			ati := v.([]any)
-			ati2 := make([]string, len(ati))
-			for i, v := range ati {
-				ati2[i] = v.(string)
-			}
-			req = req.AncestorTeamId(ati2)
+		if k == "ancestor_team_id" {
+			req = req.AncestorTeamId(ListInterface2ListStrings(v.([]any)))
 			continue
 		}
-		if k == "parent_team_id" && len(v.([]any)) > 0 {
-			pati := v.([]any)
-			pati2 := make([]string, len(pati))
-			for i, v := range pati {
-				pati2[i] = v.(string)
-			}
-			req = req.ParentTeamId(pati2)
+		if k == "parent_team_id" {
+			req = req.ParentTeamId(ListInterface2ListStrings(v.([]any)))
 			continue
 		}
 		if k == "team_id" && v.(string) != "" {

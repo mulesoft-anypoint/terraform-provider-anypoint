@@ -215,7 +215,7 @@ func parseTeamMembersSearchOpts(req team_members.DefaultApiApiOrganizationsOrgId
 			continue
 		}
 		if k == "member_ids" {
-			req = req.MemberIds(v.([]string))
+			req = req.MemberIds(ListInterface2ListStrings(v.([]any)))
 			continue
 		}
 		if k == "search" {

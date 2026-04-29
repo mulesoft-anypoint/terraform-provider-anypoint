@@ -215,7 +215,7 @@ func parseAMQSearchOpts(req amq.DefaultApiApiGetAMQListRequest, params *schema.S
 			continue
 		}
 		if k == "destination_ids" {
-			req = req.DestinationIds(v.([]string))
+			req = req.DestinationIds(ListInterface2ListStrings(v.([]any)))
 			continue
 		}
 	}
