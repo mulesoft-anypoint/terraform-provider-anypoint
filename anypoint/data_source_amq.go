@@ -72,7 +72,9 @@ func dataSourceAMQ() *schema.Resource {
 							Type:        schema.TypeList,
 							Optional:    true,
 							Description: "Includes only results with the given Ids.",
-							Elem:        schema.TypeString,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
 						},
 					},
 				},
