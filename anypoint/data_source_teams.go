@@ -231,11 +231,11 @@ func parseTeamSearchOpts(req team.DefaultApiApiOrganizationsOrgIdTeamsGetRequest
 
 	for k, v := range opts.(map[string]any) {
 		if k == "ancestor_team_id" {
-			req = req.AncestorTeamId(v.([]string))
+			req = req.AncestorTeamId(ListInterface2ListStrings(v.([]any)))
 			continue
 		}
 		if k == "parent_team_id" {
-			req = req.ParentTeamId(v.([]string))
+			req = req.ParentTeamId(ListInterface2ListStrings(v.([]any)))
 			continue
 		}
 		if k == "team_id" {
