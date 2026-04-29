@@ -127,7 +127,9 @@ var FabricsIngressDomainsDefinition = &schema.Resource{
 			Type:        schema.TypeList,
 			Computed:    true,
 			Description: "The list of domains.",
-			Elem:        schema.TypeString,
+			Elem: &schema.Schema{
+				Type: schema.TypeString,
+			},
 		},
 	},
 }
