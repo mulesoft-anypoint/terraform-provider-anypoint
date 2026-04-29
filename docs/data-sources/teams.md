@@ -59,9 +59,9 @@ Optional:
 - `offset` (Number) The number of records to omit from the response.
 - `parent_team_id` (List of String) List of team_ids of the immediate parent of the team to return.
 - `search` (String) A search string to use for case-insensitive partial matches on team name
-- `sort` (String) The field to sort on.
+- `sort` (String) The field to sort on. Default is team_name.
 - `team_id` (String) id of the team to return.
-- `team_type` (String) return only teams that are of this type
+- `team_type` (String) return only teams that are of the given type. Enum values are: internal, shared, private, external.
 
 
 <a id="nestedatt--teams"></a>
