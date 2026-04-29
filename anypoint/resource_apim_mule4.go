@@ -137,7 +137,7 @@ func resourceApimMule4() *schema.Resource {
 			},
 			"endpoint_uri": {
 				Type:             schema.TypeString,
-				Required:         true,
+				Optional:         true,
 				Description:      "The endpoint URI of this instance API",
 				ValidateDiagFunc: validation.ToDiagFunc(validation.IsURLWithHTTPorHTTPS),
 			},

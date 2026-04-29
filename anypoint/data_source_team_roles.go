@@ -106,7 +106,7 @@ func dataSourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m any)
 	teamid := d.Get("team_id").(string)
 	authctx := getTeamRolesAuthCtx(ctx, &pco)
 	//prepare request
-	req := pco.teamrolesclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdRolesGet(authctx, orgid, teamid)
+	req := pco.teamrolesclient.DefaultAPI.GetTeamRoles(authctx, orgid, teamid)
 	req, errDiags := parseTeamRolesSearchOpts(req, searchOpts)
 	if errDiags.HasError() {
 		diags = append(diags, errDiags...)
@@ -132,7 +132,7 @@ func dataSourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m any)
 	}
 	defer httpr.Body.Close()
 	//process data
-	roles := flattenTeamRolesData(res.Data)
+	roles := flattenTeamRolesData(res.GetData())
 	//save in data source schema
 	if err := d.Set("roles", roles); err != nil {
 		diags = append(diags, diag.Diagnostic{
@@ -169,7 +169,7 @@ func dataSourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m any)
 Parses the team roles search options in order to check if the required search parameters are set correctly.
 Appends the parameters to the given request
 */
-func parseTeamRolesSearchOpts(req team_roles.DefaultApiApiOrganizationsOrgIdTeamsTeamIdRolesGetRequest, params *schema.Set) (team_roles.DefaultApiApiOrganizationsOrgIdTeamsTeamIdRolesGetRequest, diag.Diagnostics) {
+func parseTeamRolesSearchOpts(req team_roles.DefaultAPIGetTeamRolesRequest, params *schema.Set) (team_roles.DefaultAPIGetTeamRolesRequest, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if params.Len() == 0 {
 		return req, diags
@@ -178,11 +178,11 @@ func parseTeamRolesSearchOpts(req team_roles.DefaultApiApiOrganizationsOrgIdTeam
 	opts := params.List()[0]
 
 	for k, v := range opts.(map[string]any) {
-		if k == "role_id" {
+		if k == "role_id" && v.(string) != "" {
 			req = req.RoleId(v.(string))
 			continue
 		}
-		if k == "search" {
+		if k == "search" && v.(string) != "" {
 			req = req.Search(v.(string))
 			continue
 		}
@@ -199,16 +199,15 @@ func parseTeamRolesSearchOpts(req team_roles.DefaultApiApiOrganizationsOrgIdTeam
 	return req, diags
 }
 
-func flattenTeamRolesData(roles *[]team_roles.TeamRole) []any {
-	if roles != nil && len(*roles) > 0 {
-		res := make([]any, len(*roles))
-		for i, role := range *roles {
-			res[i] = flattenTeamRoleData(&role)
-		}
-		return res
+func flattenTeamRolesData(roles []team_roles.TeamRole) []any {
+	if len(roles) == 0 {
+		return make([]any, 0)
 	}
-
-	return make([]any, 0)
+	res := make([]any, len(roles))
+	for i, role := range roles {
+		res[i] = flattenTeamRoleData(&role)
+	}
+	return res
 }
 
 func flattenTeamRoleData(role *team_roles.TeamRole) map[string]any {
