@@ -161,7 +161,7 @@ func dataSourceTeamsRead(ctx context.Context, d *schema.ResourceData, m any) dia
 	orgid := d.Get("org_id").(string)
 	authctx := getTeamAuthCtx(ctx, &pco)
 	//prepare request
-	req := pco.teamclient.DefaultApi.GetTeams(authctx, orgid)
+	req := pco.teamclient.DefaultAPI.GetTeams(authctx, orgid)
 	req, errDiags := parseTeamSearchOpts(req, searchOpts)
 	if errDiags.HasError() {
 		diags = append(diags, errDiags...)
@@ -221,7 +221,7 @@ func dataSourceTeamsRead(ctx context.Context, d *schema.ResourceData, m any) dia
 	return diags
 }
 
-func parseTeamSearchOpts(req team.DefaultApiGetTeamsRequest, params *schema.Set) (team.DefaultApiGetTeamsRequest, diag.Diagnostics) {
+func parseTeamSearchOpts(req team.DefaultAPIGetTeamsRequest, params *schema.Set) (team.DefaultAPIGetTeamsRequest, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if params.Len() == 0 {
 		return req, diags

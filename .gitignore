@@ -78,4 +78,4 @@ terraform-provider-anypoint
 **/dist
 
 #Windsurf rules
-.windsurf
+.windsurf/rules
