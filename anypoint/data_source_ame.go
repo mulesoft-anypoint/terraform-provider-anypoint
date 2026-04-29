@@ -73,7 +73,9 @@ func dataSourceAME() *schema.Resource {
 							Type:        schema.TypeList,
 							Optional:    true,
 							Description: "Includes only results with the given Ids.",
-							Elem:        schema.TypeString,
+							Elem: &schema.Schema{
+								Type: schema.TypeString,
+							},
 						},
 					},
 				},
@@ -187,7 +189,7 @@ func parseAMESearchOpts(req amq.DefaultApiApiGetAMQListRequest, params *schema.S
 			continue
 		}
 		if k == "destination_ids" {
-			req = req.DestinationIds(v.([]string))
+			req = req.DestinationIds(ListInterface2ListStrings(v.([]any)))
 			continue
 		}
 	}

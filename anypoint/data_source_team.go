@@ -80,7 +80,7 @@ func dataSourceTeamRead(ctx context.Context, d *schema.ResourceData, m any) diag
 	teamid := d.Get("id").(string)
 	authctx := getTeamAuthCtx(ctx, &pco)
 	//request roles
-	res, httpr, err := pco.teamclient.DefaultApi.GetTeam(authctx, orgid, teamid).Execute()
+	res, httpr, err := pco.teamclient.DefaultAPI.GetTeam(authctx, orgid, teamid).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {

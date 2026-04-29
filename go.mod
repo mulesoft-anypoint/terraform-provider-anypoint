@@ -30,10 +30,10 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/secretgroup_keystore v0.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/secretgroup_tlscontext v0.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/secretgroup_truststore v0.1.0
-	github.com/mulesoft-anypoint/anypoint-client-go/team v1.0.1
+	github.com/mulesoft-anypoint/anypoint-client-go/team v1.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/team_group_mappings v0.2.1
 	github.com/mulesoft-anypoint/anypoint-client-go/team_members v0.2.0
-	github.com/mulesoft-anypoint/anypoint-client-go/team_roles v0.2.0
+	github.com/mulesoft-anypoint/anypoint-client-go/team_roles v1.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/user v0.3.0
 	github.com/mulesoft-anypoint/anypoint-client-go/user_rolegroups v0.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/vpc v0.6.0
