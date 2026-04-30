@@ -506,7 +506,7 @@ func parseApimSearchOpts(req apim.DefaultApiGetEnvApimInstancesRequest, params *
 			req = req.Limit(int32(v.(int)))
 			continue
 		}
-		if k == "sort" {
+		if k == "sort" && v.(string) != "" {
 			req = req.Sort(v.(string))
 			continue
 		}

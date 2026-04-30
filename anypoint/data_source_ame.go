@@ -184,7 +184,7 @@ func parseAMESearchOpts(req amq.DefaultApiApiGetAMQListRequest, params *schema.S
 			req = req.Limit(v.(int32))
 			continue
 		}
-		if k == "starts_with" {
+		if k == "starts_with" && v.(string) != "" {
 			req = req.StartsWith(v.(string))
 			continue
 		}
