@@ -179,7 +179,7 @@ func dataSourceTeamMembersRead(ctx context.Context, d *schema.ResourceData, m an
 		})
 		return diags
 	}
-	if err := d.Set("total", res.GetTotal); err != nil {
+	if err := d.Set("total", res.GetTotal()); err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to set total number of team " + teamid + " roles",
@@ -206,19 +206,19 @@ func parseTeamMembersSearchOpts(req team_members.DefaultApiApiOrganizationsOrgId
 	opts := params.List()[0]
 
 	for k, v := range opts.(map[string]any) {
-		if k == "membership_type" {
+		if k == "membership_type" && v.(string) != "" {
 			req = req.MembershipType(v.(string))
 			continue
 		}
-		if k == "identity_type" {
+		if k == "identity_type" && v.(string) != "" {
 			req = req.IdentityType(v.(string))
 			continue
 		}
-		if k == "member_ids" {
+		if k == "member_ids" && len(v.([]any)) > 0 {
 			req = req.MemberIds(ListInterface2ListStrings(v.([]any)))
 			continue
 		}
-		if k == "search" {
+		if k == "search" && v.(string) != "" {
 			req = req.Search(v.(string))
 			continue
 		}
@@ -230,7 +230,7 @@ func parseTeamMembersSearchOpts(req team_members.DefaultApiApiOrganizationsOrgId
 			req = req.Limit(int32(v.(int)))
 			continue
 		}
-		if k == "sort" {
+		if k == "sort" && v.(string) != "" {
 			req = req.Sort(v.(string))
 			continue
 		}
