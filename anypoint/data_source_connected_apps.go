@@ -245,7 +245,7 @@ func parseConnectedAppSearchOpts(req connected_app.DefaultApiGetAllConnectedApps
 	}
 	opts := params.List()[0]
 	for k, v := range opts.(map[string]any) {
-		if k == "search" {
+		if k == "search" && v.(string) != "" {
 			req = req.Search(v.(string))
 			continue
 		}
