@@ -127,7 +127,7 @@ func dataSourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData
 		return diags
 	}
 
-	if err := d.Set("total", res.GetTotal); err != nil {
+	if err := d.Set("total", res.GetTotal()); err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to set total number of team " + teamid + " gropumappings",
