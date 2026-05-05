@@ -205,11 +205,11 @@ func parseAMQSearchOpts(req amq.DefaultApiApiGetAMQListRequest, params *schema.S
 
 	for k, v := range opts.(map[string]any) {
 		if k == "offset" {
-			req = req.Offset(int32(v.(int)))
+			req = req.Offset(v.(int32))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(int32(v.(int)))
+			req = req.Limit(v.(int32))
 			continue
 		}
 		if k == "starts_with" {
