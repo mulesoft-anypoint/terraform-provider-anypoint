@@ -67,6 +67,78 @@ func ListInterface2ListStrings(array []any) []string {
 	return list
 }
 
+// toInt32 safely converts any numeric value to int32 without panicking.
+// Handles int, int32, int64, float32, float64, and string representations.
+func toInt32(v any) int32 {
+	if v == nil {
+		return 0
+	}
+	switch i := v.(type) {
+	case int:
+		return int32(i)
+	case int8:
+		return int32(i)
+	case int16:
+		return int32(i)
+	case int32:
+		return i
+	case int64:
+		return int32(i)
+	case uint:
+		return int32(i)
+	case uint8:
+		return int32(i)
+	case uint16:
+		return int32(i)
+	case uint32:
+		return int32(i)
+	case uint64:
+		return int32(i)
+	case float32:
+		return int32(i)
+	case float64:
+		return int32(i)
+	case string:
+		val, _ := strconv.Atoi(i)
+		return int32(val)
+	default:
+		return 0
+	}
+}
+
+// toString safely converts any value to string without panicking.
+func toString(v any) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprint(v)
+}
+
+// toBool safely converts any value to bool without panicking.
+func toBool(v any) bool {
+	if v == nil {
+		return false
+	}
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	return false
+}
+
+// toStringSlice safely converts any value to []string without panicking.
+func toStringSlice(v any) []string {
+	if v == nil {
+		return nil
+	}
+	if arr, ok := v.([]any); ok {
+		return ListInterface2ListStrings(arr)
+	}
+	return nil
+}
+
 // tests if the provided value matches the value of an element in the valid slice. Will test with strings.EqualFold if ignoreCase is true
 func StringInSlice(expected []string, v string, ignoreCase bool) bool {
 	for _, e := range expected {

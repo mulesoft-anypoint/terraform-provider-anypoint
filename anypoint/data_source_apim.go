@@ -499,19 +499,19 @@ func parseApimSearchOpts(req apim.DefaultApiGetEnvApimInstancesRequest, params *
 			continue
 		}
 		if k == "offset" {
-			req = req.Offset(int32(v.(int)))
+			req = req.Offset(toInt32(v))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(int32(v.(int)))
+			req = req.Limit(toInt32(v))
 			continue
 		}
-		if k == "sort" && v.(string) != "" {
-			req = req.Sort(v.(string))
+		if k == "sort" && toString(v) != "" {
+			req = req.Sort(toString(v))
 			continue
 		}
 		if k == "ascending" {
-			req = req.Ascending(v.(bool))
+			req = req.Ascending(toBool(v))
 			continue
 		}
 	}

@@ -206,36 +206,39 @@ func parseTeamMembersSearchOpts(req team_members.DefaultApiApiOrganizationsOrgId
 	opts := params.List()[0]
 
 	for k, v := range opts.(map[string]any) {
-		if k == "membership_type" && v.(string) != "" {
-			req = req.MembershipType(v.(string))
+		if k == "membership_type" && toString(v) != "" {
+			req = req.MembershipType(toString(v))
 			continue
 		}
-		if k == "identity_type" && v.(string) != "" {
-			req = req.IdentityType(v.(string))
+		if k == "identity_type" && toString(v) != "" {
+			req = req.IdentityType(toString(v))
 			continue
 		}
-		if k == "member_ids" && len(v.([]any)) > 0 {
-			req = req.MemberIds(ListInterface2ListStrings(v.([]any)))
+		if k == "member_ids" {
+			ids := toStringSlice(v)
+			if len(ids) > 0 {
+				req = req.MemberIds(ids)
+			}
 			continue
 		}
-		if k == "search" && v.(string) != "" {
-			req = req.Search(v.(string))
+		if k == "search" && toString(v) != "" {
+			req = req.Search(toString(v))
 			continue
 		}
 		if k == "offset" {
-			req = req.Offset(int32(v.(int)))
+			req = req.Offset(toInt32(v))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(int32(v.(int)))
+			req = req.Limit(toInt32(v))
 			continue
 		}
-		if k == "sort" && v.(string) != "" {
-			req = req.Sort(v.(string))
+		if k == "sort" && toString(v) != "" {
+			req = req.Sort(toString(v))
 			continue
 		}
 		if k == "ascending" {
-			req = req.Ascending(v.(bool))
+			req = req.Ascending(toBool(v))
 			continue
 		}
 	}
