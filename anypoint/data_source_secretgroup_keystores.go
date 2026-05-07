@@ -154,8 +154,8 @@ func parseSgKeystoreSearchOpts(req secretgroup_keystore.DefaultApiGetSecretGroup
 	}
 	opts := params.List()[0]
 	for k, v := range opts.(map[string]any) {
-		if k == "type" {
-			req = req.Type_(v.(string))
+		if k == "type" && toString(v) != "" {
+			req = req.Type_(toString(v))
 			continue
 		}
 	}

@@ -211,16 +211,16 @@ func parseAppDeploymentSearchOpts(req application_manager_v2.DefaultApiGetAllDep
 	}
 	opts := params.List()[0]
 	for k, v := range opts.(map[string]any) {
-		if k == "target_id" {
-			req = req.TargetId(v.(string))
+		if k == "target_id" && toString(v) != "" {
+			req = req.TargetId(toString(v))
 			continue
 		}
 		if k == "offset" {
-			req = req.Offset(int32(v.(int)))
+			req = req.Offset(toInt32(v))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(int32(v.(int)))
+			req = req.Limit(toInt32(v))
 			continue
 		}
 	}

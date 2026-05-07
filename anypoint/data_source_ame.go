@@ -177,19 +177,19 @@ func parseAMESearchOpts(req amq.DefaultApiApiGetAMQListRequest, params *schema.S
 
 	for k, v := range opts.(map[string]any) {
 		if k == "offset" {
-			req = req.Offset(v.(int32))
+			req = req.Offset(toInt32(v))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(v.(int32))
+			req = req.Limit(toInt32(v))
 			continue
 		}
-		if k == "starts_with" && v.(string) != "" {
-			req = req.StartsWith(v.(string))
+		if k == "starts_with" && toString(v) != "" {
+			req = req.StartsWith(toString(v))
 			continue
 		}
 		if k == "destination_ids" {
-			req = req.DestinationIds(ListInterface2ListStrings(v.([]any)))
+			req = req.DestinationIds(toStringSlice(v))
 			continue
 		}
 	}

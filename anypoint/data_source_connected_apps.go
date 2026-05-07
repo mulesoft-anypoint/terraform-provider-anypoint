@@ -245,16 +245,16 @@ func parseConnectedAppSearchOpts(req connected_app.DefaultApiGetAllConnectedApps
 	}
 	opts := params.List()[0]
 	for k, v := range opts.(map[string]any) {
-		if k == "search" && v.(string) != "" {
-			req = req.Search(v.(string))
+		if k == "search" && toString(v) != "" {
+			req = req.Search(toString(v))
 			continue
 		}
 		if k == "offset" {
-			req = req.Offset(int32(v.(int)))
+			req = req.Offset(toInt32(v))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(int32(v.(int)))
+			req = req.Limit(toInt32(v))
 			continue
 		}
 	}
