@@ -210,11 +210,11 @@ func parseUserRolegroupsSearchOpts(req user_rolegroups.DefaultApiApiOrganization
 
 	for k, v := range opts.(map[string]any) {
 		if k == "offset" {
-			req = req.Offset(int32(v.(int)))
+			req = req.Offset(toInt32(v))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(int32(v.(int)))
+			req = req.Limit(toInt32(v))
 			continue
 		}
 	}

@@ -227,7 +227,7 @@ func parseSecretGroupsSearchOpts(req secretgroup.DefaultApiGetEnvSecretGroupsReq
 	opts := params.List()[0]
 	for k, v := range opts.(map[string]any) {
 		if k == "downloadable" {
-			req = req.Downloadable(v.(bool))
+			req = req.Downloadable(toBool(v))
 			continue
 		}
 	}

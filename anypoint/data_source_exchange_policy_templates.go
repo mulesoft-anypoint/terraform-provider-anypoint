@@ -287,28 +287,28 @@ func parseExchangePolicyTemplatesSearchOpts(req apim_policy.DefaultApiGetOrgExch
 	}
 	opts := params.List()[0]
 	for k, v := range opts.(map[string]any) {
-		if k == "env_id" {
-			req = req.EnvironmentId(v.(string))
+		if k == "env_id" && toString(v) != "" {
+			req = req.EnvironmentId(toString(v))
 			continue
 		}
 		if k == "split_model" {
-			req = req.SplitModel(v.(bool))
+			req = req.SplitModel(toBool(v))
 			continue
 		}
 		if k == "latest" {
-			req = req.Latest(v.(bool))
+			req = req.Latest(toBool(v))
 			continue
 		}
-		if k == "api_instance_id" {
-			req = req.ApiInstanceId(v.(string))
+		if k == "api_instance_id" && toString(v) != "" {
+			req = req.ApiInstanceId(toString(v))
 			continue
 		}
 		if k == "include_configuration" {
-			req = req.IncludeConfiguration(v.(bool))
+			req = req.IncludeConfiguration(toBool(v))
 			continue
 		}
 		if k == "automated_only" {
-			req = req.AutomatedOnly(v.(bool))
+			req = req.AutomatedOnly(toBool(v))
 			continue
 		}
 	}

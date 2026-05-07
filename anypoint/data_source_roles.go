@@ -207,32 +207,32 @@ func parseRoleSearchOpts(req role.DefaultApiApiRolesGetRequest, params *schema.S
 	opts := params.List()[0]
 
 	for k, v := range opts.(map[string]any) {
-		if k == "name" && len(v.(string)) > 0 {
-			req = req.Name(v.(string))
+		if k == "name" && len(toString(v)) > 0 {
+			req = req.Name(toString(v))
 			continue
 		}
-		if k == "description" && len(v.(string)) > 0 {
-			req = req.Description(v.(string))
+		if k == "description" && len(toString(v)) > 0 {
+			req = req.Description(toString(v))
 			continue
 		}
 		if k == "include_internal" {
-			req = req.IncludeInternal(v.(bool))
+			req = req.IncludeInternal(toBool(v))
 			continue
 		}
-		if k == "search" && len(v.(string)) > 0 {
-			req = req.Search(v.(string))
+		if k == "search" && len(toString(v)) > 0 {
+			req = req.Search(toString(v))
 			continue
 		}
 		if k == "offset" {
-			req = req.Offset(int32(v.(int)))
+			req = req.Offset(toInt32(v))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(int32(v.(int)))
+			req = req.Limit(toInt32(v))
 			continue
 		}
 		if k == "ascending" {
-			req = req.Ascending(v.(bool))
+			req = req.Ascending(toBool(v))
 			continue
 		}
 	}

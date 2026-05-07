@@ -238,32 +238,32 @@ func parseTeamSearchOpts(req team.DefaultAPIGetTeamsRequest, params *schema.Set)
 			req = req.ParentTeamId(ListInterface2ListStrings(v.([]any)))
 			continue
 		}
-		if k == "team_id" && v.(string) != "" {
-			req = req.TeamId(v.(string))
+		if k == "team_id" && toString(v) != "" {
+			req = req.TeamId(toString(v))
 			continue
 		}
-		if k == "team_type" && v.(string) != "" {
-			req = req.TeamType(v.(string))
+		if k == "team_type" && toString(v) != "" {
+			req = req.TeamType(toString(v))
 			continue
 		}
-		if k == "search" && v.(string) != "" {
-			req = req.Search(v.(string))
+		if k == "search" && toString(v) != "" {
+			req = req.Search(toString(v))
 			continue
 		}
 		if k == "offset" {
-			req = req.Offset(int32(v.(int)))
+			req = req.Offset(toInt32(v))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(int32(v.(int)))
+			req = req.Limit(toInt32(v))
 			continue
 		}
-		if k == "sort" && v.(string) != "" {
-			req = req.Sort(v.(string))
+		if k == "sort" && toString(v) != "" {
+			req = req.Sort(toString(v))
 			continue
 		}
 		if k == "ascending" {
-			req = req.Ascending(v.(bool))
+			req = req.Ascending(toBool(v))
 			continue
 		}
 	}

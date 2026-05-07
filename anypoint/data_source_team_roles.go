@@ -178,20 +178,20 @@ func parseTeamRolesSearchOpts(req team_roles.DefaultAPIGetTeamRolesRequest, para
 	opts := params.List()[0]
 
 	for k, v := range opts.(map[string]any) {
-		if k == "role_id" && v.(string) != "" {
-			req = req.RoleId(v.(string))
+		if k == "role_id" && toString(v) != "" {
+			req = req.RoleId(toString(v))
 			continue
 		}
-		if k == "search" && v.(string) != "" {
-			req = req.Search(v.(string))
+		if k == "search" && toString(v) != "" {
+			req = req.Search(toString(v))
 			continue
 		}
 		if k == "offset" {
-			req = req.Offset(int32(v.(int)))
+			req = req.Offset(toInt32(v))
 			continue
 		}
 		if k == "limit" {
-			req = req.Limit(int32(v.(int)))
+			req = req.Limit(toInt32(v))
 			continue
 		}
 	}
