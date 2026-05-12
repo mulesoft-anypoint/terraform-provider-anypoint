@@ -145,10 +145,13 @@ func dataSourceAMERead(ctx context.Context, d *schema.ResourceData, m any) diag.
 		return diags
 	}
 	defer httpr.Body.Close()
+	// filter by destination_ids since API ignores it
+	res = filterAMQDestinationsByIds(res, searchopts)
+
 	//process data
-	amqinstance := flattenAMEsData(&res)
+	ameinstance := flattenAMEsData(&res)
 	//save in data source schema
-	if err := d.Set("exchanges", amqinstance); err != nil {
+	if err := d.Set("exchanges", ameinstance); err != nil {
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to set AMEs",
