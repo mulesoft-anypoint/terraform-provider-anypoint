@@ -173,6 +173,9 @@ func dataSourceAMQRead(ctx context.Context, d *schema.ResourceData, m any) diag.
 		return diags
 	}
 	defer httpr.Body.Close()
+	// filter by destination_ids since API ignores it
+	res = filterAMQDestinationsByIds(res, searchopts)
+
 	//process data
 	amqinstance := flattenAMQsData(&res)
 	//save in data source schema
@@ -188,6 +191,40 @@ func dataSourceAMQRead(ctx context.Context, d *schema.ResourceData, m any) diag.
 	d.SetId(strconv.FormatInt(time.Now().Unix(), 10))
 
 	return diags
+}
+
+// NOTE: Temporary workaround because Anypoint MQ API ignores 'destinationIds' query param.
+// It manually filters the results locally. Remove this once Mulesoft fixes the underlying API to honor 'destinationIds'.
+func filterAMQDestinationsByIds(destinations []amq.Queue, searchopts *schema.Set) []amq.Queue {
+	if searchopts == nil || searchopts.Len() == 0 {
+		return destinations
+	}
+	opts := searchopts.List()[0].(map[string]any)
+	destIdsRaw, ok := opts["destination_ids"]
+	if !ok {
+		return destinations
+	}
+	destIds := toStringSlice(destIdsRaw)
+	if len(destIds) == 0 {
+		return destinations
+	}
+
+	idMap := make(map[string]bool)
+	for _, id := range destIds {
+		idMap[id] = true
+	}
+
+	filtered := make([]amq.Queue, 0)
+	for _, q := range destinations {
+		id := q.GetQueueId()
+		if id == "" {
+			id = q.GetExchangeId()
+		}
+		if idMap[id] {
+			filtered = append(filtered, q)
+		}
+	}
+	return filtered
 }
 
 // Parses search parameters
