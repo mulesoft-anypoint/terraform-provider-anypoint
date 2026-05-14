@@ -79,3 +79,7 @@ terraform-provider-anypoint
 
 #Windsurf rules
 .windsurf/rules
+
+# Local agent recipes (machine-specific paths)
+docs/MULTIREPO.md
+.claude
