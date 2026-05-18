@@ -223,8 +223,8 @@ github.com/mulesoft-anypoint/anypoint-client-go/idp v1.0.1 h1:Y7eCqsfYN06bVeMGLT
 github.com/mulesoft-anypoint/anypoint-client-go/idp v1.0.1/go.mod h1:GGCVuorW8c7mTWOFmLDC8nTn2nXgmGuJbDP/LNNPjug=
 github.com/mulesoft-anypoint/anypoint-client-go/org v0.4.0 h1:TOaHNJbX/aFMhFB8Y12TnHO+XSVr/mWv9ASU0QsdGf8=
 github.com/mulesoft-anypoint/anypoint-client-go/org v0.4.0/go.mod h1:6QFWuAYmlAtDYglheyxntcMEDxZSUV0jGbVKuXOElW8=
-github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.1.1 h1:7Sq/668TQ2Cr6Fxkup1vWBNl3rJDarJz2/nDD/iLhX0=
-github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.1.1/go.mod h1:/HvCjbc2zxtr1Fgbanf5Uc/4a9JVdYg6OzQwVymDC9Q=
+github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.2.0 h1:6ULKqbPNkQe2vcaji9JpdREnrRS2Rxir4GZ7zvtxUXI=
+github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.2.0/go.mod h1:/HvCjbc2zxtr1Fgbanf5Uc/4a9JVdYg6OzQwVymDC9Q=
 github.com/mulesoft-anypoint/anypoint-client-go/private_space_tlscontext v1.0.0 h1:S+yNQCmO1hfAsQQMrL+7r5/v5ugOsNmWiE1pjBGEOZY=
 github.com/mulesoft-anypoint/anypoint-client-go/private_space_tlscontext v1.0.0/go.mod h1:5eifsO7/jvnrMKGEJ2FG4MeIYG/dlTenCgGrCm+hGLw=
 github.com/mulesoft-anypoint/anypoint-client-go/role v0.2.0 h1:q5TddUXaFrY7Vs/7AP93zNpCiWM5yLI/ZwDr/EYN/ag=
@@ -251,8 +251,8 @@ github.com/mulesoft-anypoint/anypoint-client-go/team_group_mappings v0.2.1 h1:mf
 github.com/mulesoft-anypoint/anypoint-client-go/team_group_mappings v0.2.1/go.mod h1:kpWfKYIuN6sz3T0s3HgknJDabtRCD5YC23dCq+l8u0g=
 github.com/mulesoft-anypoint/anypoint-client-go/team_members v0.2.0 h1:LCuaM/+1KB8bzBaC+Td9a1dcH/sHpST9n64SXD0uGto=
 github.com/mulesoft-anypoint/anypoint-client-go/team_members v0.2.0/go.mod h1:qvLln8BWfD48sS/XxxEtNekUTGpx2O9/LeageiV3XWw=
-github.com/mulesoft-anypoint/anypoint-client-go/team_roles v1.1.0 h1:2cpMwp07T6RvvYhN339w3+/UOnuOGjTXr3qKdeeHl90=
-github.com/mulesoft-anypoint/anypoint-client-go/team_roles v1.1.0/go.mod h1:9kbrW/H8dRBk1BytiHJgc8z90VimKH9vZZ8AlNSvIQ4=
+github.com/mulesoft-anypoint/anypoint-client-go/team_roles v1.1.1 h1://VJWGfZO+44prqUADTYcRpkU192z5E4r0p3MoAy1wc=
+github.com/mulesoft-anypoint/anypoint-client-go/team_roles v1.1.1/go.mod h1:9kbrW/H8dRBk1BytiHJgc8z90VimKH9vZZ8AlNSvIQ4=
 github.com/mulesoft-anypoint/anypoint-client-go/user v0.3.0 h1:kz5DpyIFpitj5jy0DcznJ0ktseZliQ6aau+zZBxKNjs=
 github.com/mulesoft-anypoint/anypoint-client-go/user v0.3.0/go.mod h1:Ekg7hWtgEkYSzgUKmsV6DUxDsD2nOPtGqHupsnJWSpo=
 github.com/mulesoft-anypoint/anypoint-client-go/user_rolegroups v0.2.0 h1:vM00nxOj1NN3BEusgRKADf95K1nDRIPm3nu70pyPGaQ=

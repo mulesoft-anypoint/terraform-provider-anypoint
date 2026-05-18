@@ -97,5 +97,3 @@ Read-Only:
 - `validity_not_after` (String)
 - `validity_not_before` (String)
 - `version` (String)
-
-

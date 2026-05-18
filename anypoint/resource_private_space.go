@@ -187,7 +187,7 @@ func resourcePrivateSpaceCreate(ctx context.Context, d *schema.ResourceData, m a
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	body := newPrivateSpaceBody(d)
 	//request
-	res, httpr, err := pco.privatespaceclient.DefaultApi.CreatePrivateSpace(authctx, orgid).PrivateSpacePostBody(*body).Execute()
+	res, httpr, err := pco.privatespaceclient.DefaultAPI.CreatePrivateSpace(authctx, orgid).PrivateSpacePostBody(*body).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
@@ -227,7 +227,7 @@ func resourcePrivateSpaceRead(ctx context.Context, d *schema.ResourceData, m any
 	}
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	//request
-	res, httpr, err := pco.privatespaceclient.DefaultApi.GetPrivateSpace(authctx, orgid, id).Execute()
+	res, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpace(authctx, orgid, id).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
@@ -277,7 +277,7 @@ func resourcePrivateSpaceUpdate(ctx context.Context, d *schema.ResourceData, m a
 			log.Printf("[DEBUG] Private Space Patch Body: %s \n", bodyMap)
 		}
 		//request
-		_, httpr, err := pco.privatespaceclient.DefaultApi.UpdatePrivateSpace(authctx, orgid, id).PrivateSpacePatchBody(*body).Execute()
+		_, httpr, err := pco.privatespaceclient.DefaultAPI.UpdatePrivateSpace(authctx, orgid, id).PrivateSpacePatchBody(*body).Execute()
 		if err != nil {
 			var details string
 			if httpr != nil && httpr.StatusCode >= 400 {
@@ -308,7 +308,7 @@ func resourcePrivateSpaceDelete(ctx context.Context, d *schema.ResourceData, m a
 	orgid := d.Get("org_id").(string)
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	//request
-	httpr, err := pco.privatespaceclient.DefaultApi.DeletePrivateSpace(authctx, orgid, d.Id()).Execute()
+	httpr, err := pco.privatespaceclient.DefaultAPI.DeletePrivateSpace(authctx, orgid, d.Id()).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {

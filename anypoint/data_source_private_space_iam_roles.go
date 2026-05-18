@@ -43,7 +43,7 @@ func dataSourcePrivateSpaceIamRolesRead(ctx context.Context, d *schema.ResourceD
 	private_space_id := d.Get("private_space_id").(string)
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	//request
-	res, httpr, err := pco.privatespaceclient.DefaultApi.GetPrivateSpaceIamRoles(authctx, orgid, private_space_id).Execute()
+	res, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpaceIamRoles(authctx, orgid, private_space_id).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {

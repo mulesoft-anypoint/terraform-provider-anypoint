@@ -69,7 +69,7 @@ func dataSourcePrivateSpacesRead(ctx context.Context, d *schema.ResourceData, m 
 	orgid := d.Get("org_id").(string)
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	//request
-	res, httpr, err := pco.privatespaceclient.DefaultApi.GetPrivateSpaces(authctx, orgid).Execute()
+	res, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpaces(authctx, orgid).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {

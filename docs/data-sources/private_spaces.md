@@ -40,5 +40,3 @@ Read-Only:
 - `org_id` (String)
 - `root_org_id` (String)
 - `status` (String)
-
-
