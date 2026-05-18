@@ -71,5 +71,3 @@ Read-Only:
 - `public_key` (List of String)
 - `require_encrypted_saml_assertions` (Boolean)
 - `sp_initiated_sso_enabled` (Boolean)
-
-

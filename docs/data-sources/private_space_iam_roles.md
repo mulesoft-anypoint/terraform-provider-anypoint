@@ -35,5 +35,3 @@ output "private_space_iam_roles" {
 
 - `iam_roles` (List of String)
 - `id` (String) The ID of this resource.
-
-

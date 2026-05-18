@@ -76,5 +76,3 @@ Read-Only:
 - `team_name` (String)
 - `team_type` (String)
 - `updated_at` (String)
-
-
