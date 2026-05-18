@@ -82,4 +82,9 @@ terraform-provider-anypoint
 
 # Local agent recipes (machine-specific paths)
 docs/MULTIREPO.md
-.claude
+docs/ISSUE_*.md
+
+# Claude Code: ignore personal config, keep shared skills + commands tracked
+.claude/*
+!.claude/skills/
+!.claude/commands/
