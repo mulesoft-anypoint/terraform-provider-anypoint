@@ -84,7 +84,6 @@ terraform-provider-anypoint
 docs/MULTIREPO.md
 docs/ISSUE_*.md
 
-# Claude Code: ignore personal config, keep shared skills + commands tracked
+# Claude Code: ignore personal config, keep shared commands tracked
 .claude/*
-!.claude/skills/
 !.claude/commands/
