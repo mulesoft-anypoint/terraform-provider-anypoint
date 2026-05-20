@@ -4,7 +4,7 @@ page_title: "anypoint_private_space_tlscontext_pem Resource - terraform-provider
 subcategory: ""
 description: |-
   Manages a `private space tls context (of type PEM)` in your private space.
-      **NOTE**: This resource when applied on creation of the private space, becomes the default tls context until the private space is properly provisioned (about 30minutes). Meanwhile the resource cannot be deleted.
+  	**NOTE**: This resource when applied on creation of the private space, becomes the default tls context until the private space is properly provisioned (about 30minutes). Meanwhile the resource cannot be deleted.
 ---
 
 # anypoint_private_space_tlscontext_pem (Resource)
@@ -187,6 +187,8 @@ Read-Only:
 ## Import
 
 Import is supported using the following syntax:
+
+The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
 
 ```shell
 # In order for the import to work, you should provide a ID composed of the following:

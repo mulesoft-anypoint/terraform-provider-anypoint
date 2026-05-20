@@ -65,5 +65,3 @@ Read-Only:
 - `protocol` (String)
 - `to_port` (Number)
 - `type` (String)
-
-

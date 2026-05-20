@@ -79,3 +79,11 @@ terraform-provider-anypoint
 
 #Windsurf rules
 .windsurf/rules
+
+# Local agent recipes (machine-specific paths)
+docs/MULTIREPO.md
+docs/ISSUE_*.md
+
+# Claude Code: ignore personal config, keep shared commands tracked
+.claude/*
+!.claude/commands/

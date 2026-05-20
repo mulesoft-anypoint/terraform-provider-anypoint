@@ -89,5 +89,3 @@ Read-Only:
 - `property_name` (String)
 - `sensitive` (Boolean)
 - `type` (String)
-
-
