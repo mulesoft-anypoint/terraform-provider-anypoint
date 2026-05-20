@@ -69,4 +69,7 @@ var DATASOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_private_space_mulesoft_account":        dataSourcePrivateSpaceMulesoftAccount(),
 	"anypoint_private_space_routes":                  dataSourcePrivateSpaceRoutes(),
 	"anypoint_transit_gateways":                      dataSourceOrgTransitGateways(),
+	"anypoint_private_space_vpn":                     dataSourcePrivateSpaceVpn(),
+	"anypoint_private_space_vpns":                    dataSourcePrivateSpaceVpns(),
+	"anypoint_private_space_supported_vpn_configs":   dataSourcePrivateSpaceSupportedVpnConfigs(),
 }

@@ -223,8 +223,8 @@ github.com/mulesoft-anypoint/anypoint-client-go/idp v1.0.1 h1:Y7eCqsfYN06bVeMGLT
 github.com/mulesoft-anypoint/anypoint-client-go/idp v1.0.1/go.mod h1:GGCVuorW8c7mTWOFmLDC8nTn2nXgmGuJbDP/LNNPjug=
 github.com/mulesoft-anypoint/anypoint-client-go/org v0.4.0 h1:TOaHNJbX/aFMhFB8Y12TnHO+XSVr/mWv9ASU0QsdGf8=
 github.com/mulesoft-anypoint/anypoint-client-go/org v0.4.0/go.mod h1:6QFWuAYmlAtDYglheyxntcMEDxZSUV0jGbVKuXOElW8=
-github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.2.0 h1:6ULKqbPNkQe2vcaji9JpdREnrRS2Rxir4GZ7zvtxUXI=
-github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.2.0/go.mod h1:/HvCjbc2zxtr1Fgbanf5Uc/4a9JVdYg6OzQwVymDC9Q=
+github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.3.0 h1:ErPBqSVR3xtVRVAnFiLms8gc72Na1w5ncWS5Ci1pJaY=
+github.com/mulesoft-anypoint/anypoint-client-go/private_space v1.3.0/go.mod h1:/HvCjbc2zxtr1Fgbanf5Uc/4a9JVdYg6OzQwVymDC9Q=
 github.com/mulesoft-anypoint/anypoint-client-go/private_space_tlscontext v1.0.0 h1:S+yNQCmO1hfAsQQMrL+7r5/v5ugOsNmWiE1pjBGEOZY=
 github.com/mulesoft-anypoint/anypoint-client-go/private_space_tlscontext v1.0.0/go.mod h1:5eifsO7/jvnrMKGEJ2FG4MeIYG/dlTenCgGrCm+hGLw=
 github.com/mulesoft-anypoint/anypoint-client-go/role v0.2.0 h1:q5TddUXaFrY7Vs/7AP93zNpCiWM5yLI/ZwDr/EYN/ag=

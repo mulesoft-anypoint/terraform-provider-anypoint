@@ -46,4 +46,5 @@ var RESOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_private_space_tlscontext_pem":          resourcePrivateSpaceTlsContextPem(),
 	"anypoint_private_space_tlscontext_jks":          resourcePrivateSpaceTlsContextJKS(),
 	"anypoint_private_space_transit_gateway":         resourcePrivateSpaceTransitGateway(),
+	"anypoint_private_space_vpn":                     resourcePrivateSpaceVpn(),
 }
