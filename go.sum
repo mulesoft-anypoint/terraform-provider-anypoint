@@ -205,6 +205,8 @@ github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0 h1:YpF2mAvGrawqHmSIU
 github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0/go.mod h1:laA1EsyHnvc7fF1TqEmohyGZx7CMCXvfVItAnhOM0ks=
 github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.0.1 h1:ilSNrRBIBpkKVCaxFPeqCzISwZaL3F+DPFPT7/27iV4=
 github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.0.1/go.mod h1:aCSab2+icg00k8ur845GuxfR9MiS2KPEYumO86pauik=
+github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0 h1:fbtUh0xjk+IrELUGNs9vYiDw9Rgh+OEhiEzVJeKCnaE=
+github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0/go.mod h1:sO7Ob8yVYav3uO6zgpY3c25B8XLG2u6M8C8w1504MXU=
 github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1 h1:EAn805cAB8REdbuOVzER/n8F7t8yXMLfJIfyGq94qQ0=
 github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1/go.mod h1:RC9wgWhUwqB4ZKWZYE9R/NfFz1yCoss9bJDdTDPYQhI=
 github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2 v0.1.0 h1:NDuGf1JJZlBdJ4Av9YDSZgiZGtJGXPjzwBha4qMtUFM=
