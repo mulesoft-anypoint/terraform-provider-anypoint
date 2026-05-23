@@ -10,6 +10,7 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/amq v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.0.1
+	github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1
 	github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2 v0.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/authorization v0.3.0

@@ -6,6 +6,7 @@ import (
 	amq "github.com/mulesoft-anypoint/anypoint-client-go/amq"
 	apim "github.com/mulesoft-anypoint/anypoint-client-go/apim"
 	apim_policy "github.com/mulesoft-anypoint/anypoint-client-go/apim_policy"
+	apim_tier "github.com/mulesoft-anypoint/anypoint-client-go/apim_tier"
 	apim_upstream "github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream"
 	application_manager_v2 "github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2"
 	connected_app "github.com/mulesoft-anypoint/anypoint-client-go/connected_app"
@@ -58,6 +59,7 @@ type ProviderConfOutput struct {
 	amebindingclient             *ame_binding.APIClient
 	apimclient                   *apim.APIClient
 	apimpolicyclient             *apim_policy.APIClient
+	apimtierclient               *apim_tier.APIClient
 	apimupstreamclient           *apim_upstream.APIClient
 	flexgatewayclient            *flexgateway.APIClient
 	secretgroupclient            *secretgroup.APIClient
@@ -94,6 +96,7 @@ func newProviderConfOutput(access_token string, server_index int) ProviderConfOu
 	amebindingcfg := ame_binding.NewConfiguration()
 	apimcfg := apim.NewConfiguration()
 	apimpolicycfg := apim_policy.NewConfiguration()
+	apimtiercfg := apim_tier.NewConfiguration()
 	apimupstreamcfg := apim_upstream.NewConfiguration()
 	flexgatewaycfg := flexgateway.NewConfiguration()
 	secretgroupcfg := secretgroup.NewConfiguration()
@@ -127,6 +130,7 @@ func newProviderConfOutput(access_token string, server_index int) ProviderConfOu
 	amebindingclient := ame_binding.NewAPIClient(amebindingcfg)
 	apimclient := apim.NewAPIClient(apimcfg)
 	apimpolicyclient := apim_policy.NewAPIClient(apimpolicycfg)
+	apimtierclient := apim_tier.NewAPIClient(apimtiercfg)
 	apimupstreamclient := apim_upstream.NewAPIClient(apimupstreamcfg)
 	flexgatewayclient := flexgateway.NewAPIClient(flexgatewaycfg)
 	secretgroupclient := secretgroup.NewAPIClient(secretgroupcfg)
@@ -164,6 +168,7 @@ func newProviderConfOutput(access_token string, server_index int) ProviderConfOu
 		amebindingclient:             amebindingclient,
 		apimclient:                   apimclient,
 		apimpolicyclient:             apimpolicyclient,
+		apimtierclient:               apimtierclient,
 		apimupstreamclient:           apimupstreamclient,
 		flexgatewayclient:            flexgatewayclient,
 		secretgroupclient:            secretgroupclient,

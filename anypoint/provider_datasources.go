@@ -33,6 +33,8 @@ var DATASOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_apim_instance_policy":                  dataSourceApimInstancePolicy(),
 	"anypoint_apim_instance_policies":                dataSourceApimInstancePolicies(),
 	"anypoint_apim_instance_upstreams":               dataSourceApimInstanceUpstreams(),
+	"anypoint_api_instance_sla_tier":                 dataSourceApiInstanceSlaTier(),
+	"anypoint_api_instance_sla_tiers":                dataSourceApiInstanceSlaTiers(),
 	"anypoint_flexgateway_target":                    dataSourceFlexGatewayTarget(),
 	"anypoint_flexgateway_targets":                   dataSourceFlexGatewayTargets(),
 	"anypoint_flexgateway_registration_token":        dataSourceFlexGatewayRegistrationToken(),
