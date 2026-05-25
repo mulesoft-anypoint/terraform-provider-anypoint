@@ -41,6 +41,8 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/vpn v0.1.0
 )
 
+require github.com/mulesoft-anypoint/anypoint-client-go/exchange_assets v0.0.4
+
 require (
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
