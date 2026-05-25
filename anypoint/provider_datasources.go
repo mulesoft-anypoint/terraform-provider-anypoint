@@ -74,4 +74,6 @@ var DATASOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_private_space_vpn":                     dataSourcePrivateSpaceVpn(),
 	"anypoint_private_space_vpns":                    dataSourcePrivateSpaceVpns(),
 	"anypoint_private_space_supported_vpn_configs":   dataSourcePrivateSpaceSupportedVpnConfigs(),
+	"anypoint_exchange_asset":                        dataSourceExchangeAsset(),
+	"anypoint_exchange_assets":                       dataSourceExchangeAssets(),
 }

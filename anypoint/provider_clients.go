@@ -12,6 +12,7 @@ import (
 	connected_app "github.com/mulesoft-anypoint/anypoint-client-go/connected_app"
 	dlb "github.com/mulesoft-anypoint/anypoint-client-go/dlb"
 	env "github.com/mulesoft-anypoint/anypoint-client-go/env"
+	exchange_assets "github.com/mulesoft-anypoint/anypoint-client-go/exchange_assets"
 	flexgateway "github.com/mulesoft-anypoint/anypoint-client-go/flexgateway"
 	idp "github.com/mulesoft-anypoint/anypoint-client-go/idp"
 	org "github.com/mulesoft-anypoint/anypoint-client-go/org"
@@ -72,6 +73,7 @@ type ProviderConfOutput struct {
 	appmanagerclient             *application_manager_v2.APIClient
 	privatespaceclient           *private_space.APIClient
 	privatespacetlscontextclient *private_space_tlscontext.APIClient
+	exchangeassetsclient         *exchange_assets.APIClient
 }
 
 func newProviderConfOutput(access_token string, server_index int) ProviderConfOutput {
@@ -109,6 +111,7 @@ func newProviderConfOutput(access_token string, server_index int) ProviderConfOu
 	appmanager_cfg := application_manager_v2.NewConfiguration()
 	privatespace_cfg := private_space.NewConfiguration()
 	privatespacetlscontext_cfg := private_space_tlscontext.NewConfiguration()
+	exchangeassets_cfg := exchange_assets.NewConfiguration()
 	// ---------------------------------------------------------------------------- API CLIENTS
 	vpcclient := vpc.NewAPIClient(vpccfg)
 	vpnclient := vpn.NewAPIClient(vpncfg)
@@ -143,6 +146,7 @@ func newProviderConfOutput(access_token string, server_index int) ProviderConfOu
 	appmanagerclient := application_manager_v2.NewAPIClient(appmanager_cfg)
 	privatespaceclient := private_space.NewAPIClient(privatespace_cfg)
 	privatespacetlscontextclient := private_space_tlscontext.NewAPIClient(privatespacetlscontext_cfg)
+	exchangeassetsclient := exchange_assets.NewAPIClient(exchangeassets_cfg)
 
 	// ---------------------------------------------------------------------------- RETURN
 	return ProviderConfOutput{
@@ -181,5 +185,6 @@ func newProviderConfOutput(access_token string, server_index int) ProviderConfOu
 		appmanagerclient:             appmanagerclient,
 		privatespaceclient:           privatespaceclient,
 		privatespacetlscontextclient: privatespacetlscontextclient,
+		exchangeassetsclient:         exchangeassetsclient,
 	}
 }
