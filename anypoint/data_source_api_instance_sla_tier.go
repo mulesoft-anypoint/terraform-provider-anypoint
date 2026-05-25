@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	apim_tier "github.com/mulesoft-anypoint/anypoint-client-go/apim_tier"
 )
 
 func dataSourceApiInstanceSlaTier() *schema.Resource {
@@ -161,4 +162,74 @@ func dataSourceApiInstanceSlaTierRead(ctx context.Context, d *schema.ResourceDat
 	d.Set("api_id", apiid)
 
 	return setApimTierAttrs(d, tier)
+}
+
+func setApimTierAttrs(d *schema.ResourceData, tier *apim_tier.SlaTier) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	if err := d.Set("tier_id", int(tier.GetId())); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set tier_id", Detail: err.Error()})
+		return diags
+	}
+	if err := d.Set("name", tier.GetName()); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set name", Detail: err.Error()})
+		return diags
+	}
+	if err := d.Set("description", tier.GetDescription()); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set description", Detail: err.Error()})
+		return diags
+	}
+	if err := d.Set("auto_approve", tier.GetAutoApprove()); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set auto_approve", Detail: err.Error()})
+		return diags
+	}
+	if err := d.Set("status", tier.GetStatus()); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set status", Detail: err.Error()})
+		return diags
+	}
+	if err := d.Set("api_version_id", tier.GetApiVersionId()); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set api_version_id", Detail: err.Error()})
+		return diags
+	}
+	if err := d.Set("application_count", int(tier.GetApplicationCount())); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set application_count", Detail: err.Error()})
+		return diags
+	}
+	if err := d.Set("master_organization_id", tier.GetMasterOrganizationId()); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set master_organization_id", Detail: err.Error()})
+		return diags
+	}
+	if err := d.Set("organization_id", tier.GetOrganizationId()); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set organization_id", Detail: err.Error()})
+		return diags
+	}
+
+	if audit, ok := tier.GetAuditOk(); ok && audit != nil {
+		if created, ok := audit.GetCreatedOk(); ok && created != nil {
+			d.Set("created_at", created.GetDate())
+		}
+		if updated, ok := audit.GetUpdatedOk(); ok && updated != nil {
+			d.Set("updated_at", updated.GetDate())
+		}
+	}
+
+	limits := flattenApimTierLimits(tier.GetLimits())
+	if err := d.Set("limits", limits); err != nil {
+		diags = append(diags, diag.Diagnostic{Severity: diag.Error, Summary: "Unable to set limits", Detail: err.Error()})
+		return diags
+	}
+
+	return diags
+}
+
+func flattenApimTierLimits(limits []apim_tier.SlaLimit) []map[string]any {
+	result := make([]map[string]any, len(limits))
+	for i, l := range limits {
+		result[i] = map[string]any{
+			"visible":                     l.GetVisible(),
+			"time_period_in_milliseconds": int(l.GetTimePeriodInMilliseconds()),
+			"maximum_requests":            int(l.GetMaximumRequests()),
+		}
+	}
+	return result
 }
