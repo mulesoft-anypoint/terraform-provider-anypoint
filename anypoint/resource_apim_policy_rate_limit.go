@@ -253,6 +253,10 @@ func resourceApimInstancePolicyRateLimitingRead(ctx context.Context, d *schema.R
 	//perform request
 	res, httpr, err := pco.apimpolicyclient.DefaultApi.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()

@@ -172,6 +172,10 @@ func resourceSecretGroupCertificateRead(ctx context.Context, d *schema.ResourceD
 	//perform request
 	res, httpr, err := pco.sgcertificateclient.DefaultApi.GetSecretGroupCertificateDetails(authctx, orgid, envid, sgid, id).Execute()
 	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()

@@ -155,6 +155,10 @@ func resourceUserRolegroupRead(ctx context.Context, d *schema.ResourceData, m an
 		diags = append(diags, errDiags...)
 		return diags
 	}
+	if rg == nil {
+		d.SetId("")
+		return nil
+	}
 	//process data
 	rolegroup := flattenUserRolegroupData(rg)
 	//save in data source schema

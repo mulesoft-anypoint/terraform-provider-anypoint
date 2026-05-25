@@ -242,7 +242,11 @@ func resourceSecretGroupKeystoreRead(ctx context.Context, d *schema.ResourceData
 	}
 	authctx := getSgKeystoreAuthCtx(ctx, &pco)
 	res, httpr, err := pco.sgkeystoreclient.DefaultApi.GetSecretGroupKeystoreDetails(authctx, orgid, envid, sgid, id).Execute()
-	if err != nil && httpr.StatusCode >= 400 {
+	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()

@@ -136,6 +136,10 @@ func resourceAMERead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	//request resource
 	res, httpr, err := pco.ameclient.DefaultApi.GetAME(authctx, orgid, envid, regionid, exchangeid).Execute()
 	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()

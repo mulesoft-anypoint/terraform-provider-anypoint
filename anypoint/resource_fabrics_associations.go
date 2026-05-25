@@ -128,6 +128,10 @@ func resourceFabricsAssociationsRead(ctx context.Context, d *schema.ResourceData
 	//perform request
 	res, httpr, err := pco.rtfclient.DefaultApi.GetFabricsAssociations(authctx, orgid, fabricsid).Execute()
 	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()

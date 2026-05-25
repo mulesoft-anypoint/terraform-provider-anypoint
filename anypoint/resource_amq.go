@@ -170,6 +170,10 @@ func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	//request resource
 	res, httpr, err := pco.amqclient.DefaultApi.GetAMQ(authctx, orgid, envid, regionid, queueid).Execute()
 	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()
