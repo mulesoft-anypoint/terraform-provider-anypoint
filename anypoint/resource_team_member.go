@@ -143,6 +143,10 @@ func resourceTeamMemberRead(ctx context.Context, d *schema.ResourceData, m any) 
 	//request members
 	res, httpr, err := pco.teammembersclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdMembersGet(authctx, orgid, teamid).Execute()
 	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()

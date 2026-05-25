@@ -574,6 +574,10 @@ func resourceCloudhub2SharedSpaceDeploymentRead(ctx context.Context, d *schema.R
 	//perform request
 	res, httpr, err := pco.appmanagerclient.DefaultApi.GetDeploymentById(authctx, orgid, envid, id).Execute()
 	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()

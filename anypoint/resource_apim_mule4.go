@@ -250,6 +250,10 @@ func resourceApimMule4Read(ctx context.Context, d *schema.ResourceData, m any) d
 	//perform request
 	res, httpr, err := pco.apimclient.DefaultApi.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
 	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()

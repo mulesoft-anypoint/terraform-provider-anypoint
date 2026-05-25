@@ -200,6 +200,10 @@ func resourceSecretGroupTruststoreRead(ctx context.Context, d *schema.ResourceDa
 	authctx := getSgTruststoreAuthCtx(ctx, &pco)
 	res, httpr, err := pco.sgtruststoreclient.DefaultApi.GetSecretGroupTruststoreDetails(authctx, orgid, envid, sgid, id).Execute()
 	if err != nil {
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
+		}
 		var details string
 		if httpr != nil && httpr.StatusCode >= 400 {
 			defer httpr.Body.Close()
