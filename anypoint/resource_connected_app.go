@@ -56,8 +56,9 @@ func resourceConnectedApp() *schema.Resource {
 			},
 			"user_id": {
 				Type:        schema.TypeString,
+				Optional:    true,
 				Computed:    true,
-				Description: "The id of the user who owns the connected app",
+				Description: "The id of the user who owns the connected app. Set to a different user id to transfer ownership; leave unset to keep the platform default (creator on first apply).",
 			},
 			"grant_types": {
 				Type:     schema.TypeList,
@@ -183,7 +184,7 @@ func resourceConnectedAppCreate(ctx context.Context, d *schema.ResourceData, m a
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	body := newConnectedAppPostBody(d)
 	//request connected app creation
-	res, httpr, err := pco.connectedappclient.DefaultApi.CreateConnectedApp(authctx, orgid).ConnectedAppCore(*body).Execute()
+	res, httpr, err := pco.connectedappclient.DefaultAPI.CreateConnectedApp(authctx, orgid).ConnectedAppCore(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -232,10 +233,10 @@ func resourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m any
 	var err error
 	// perform request depending on if org_id exists or not
 	if len(orgid) > 0 {
-		res, httpr, err = pco.connectedappclient.DefaultApi.GetConnectedApp(authctx, orgid, connappid).Execute()
+		res, httpr, err = pco.connectedappclient.DefaultAPI.GetConnectedApp(authctx, orgid, connappid).Execute()
 	} else {
 		// NOTE: Ensuring backwards compatibility
-		res, httpr, err = pco.connectedappclient.DefaultApi.GetConnectedAppByIdOnly(authctx, connappid).Execute()
+		res, httpr, err = pco.connectedappclient.DefaultAPI.GetConnectedAppByIdOnly(authctx, connappid).Execute()
 	}
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
@@ -291,7 +292,7 @@ func resourceConnectedAppUpdate(ctx context.Context, d *schema.ResourceData, m a
 	if d.HasChanges(getConnectedAppAttributes()...) {
 		body := newConnectedAppPatchBody(d)
 		//perform request
-		_, httpr, err := pco.connectedappclient.DefaultApi.UpdateConnectedApp(authctx, orgid, connappid).ConnectedAppPatchExt(*body).Execute()
+		_, httpr, err := pco.connectedappclient.DefaultAPI.UpdateConnectedApp(authctx, orgid, connappid).ConnectedAppPatchExt(*body).Execute()
 		if err != nil {
 			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
@@ -327,7 +328,7 @@ func resourceConnectedAppDelete(ctx context.Context, d *schema.ResourceData, m a
 	connappid := d.Id()
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	// perform request
-	httpr, err := pco.connectedappclient.DefaultApi.DeleteConnectedApp(authctx, orgid, connappid).Execute()
+	httpr, err := pco.connectedappclient.DefaultAPI.DeleteConnectedApp(authctx, orgid, connappid).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -352,7 +353,7 @@ func replaceConnectedAppScopes(ctx context.Context, d *schema.ResourceData, m an
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	body := newConnectedAppScopesPutBody(d)
 	//request scopes replacement
-	httpr, err := pco.connectedappclient.DefaultApi.UpdateConnectedAppScopes(authctx, orgid, connappid).ConnectedAppScopesPutBody(*body).Execute()
+	httpr, err := pco.connectedappclient.DefaultAPI.UpdateConnectedAppScopes(authctx, orgid, connappid).ConnectedAppScopesPutBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		return errors.New(details)
@@ -486,6 +487,9 @@ func newConnectedAppPatchBody(d *schema.ResourceData) *connected_app.ConnectedAp
 	}
 	if enabled, ok := d.GetOk("enabled"); ok {
 		body.SetEnabled(enabled.(bool))
+	}
+	if userid, ok := d.GetOk("user_id"); ok {
+		body.SetOwnerUserId(userid.(string))
 	}
 	return body
 }
