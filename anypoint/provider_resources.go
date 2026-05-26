@@ -13,6 +13,7 @@ var RESOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_user_rolegroup":                        resourceUserRolegroup(),
 	"anypoint_team":                                  resourceTeam(),
 	"anypoint_team_roles":                            resourceTeamRoles(),
+	"anypoint_team_role":                             resourceTeamRole(),
 	"anypoint_team_member":                           resourceTeamMember(),
 	"anypoint_team_group_mappings":                   resourceTeamGroupMappings(),
 	"anypoint_dlb":                                   resourceDLB(),
