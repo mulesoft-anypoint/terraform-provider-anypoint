@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -22,6 +21,7 @@ func resourceConnectedApp() *schema.Resource {
 		ReadContext:   resourceConnectedAppRead,
 		UpdateContext: resourceConnectedAppUpdate,
 		DeleteContext: resourceConnectedAppDelete,
+		CustomizeDiff: customizeDiffConnectedApp,
 		Description: `
 		Creates and manage a ` + "`" + `connected app` + "`" + `.
 		`,
@@ -99,15 +99,11 @@ func resourceConnectedApp() *schema.Resource {
 				},
 			},
 			"scope": {
-				Description: "The scopes this connected app has authorization to work on",
-				Type:        schema.TypeList,
-				Optional:    true,
-				DefaultFunc: func() (any, error) {
-					return make([]any, 0), nil
-				},
-				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
-					return equalsConnectedAppScopes(d.GetChange("scope"))
-				},
+				Description: "The scopes this connected app has authorization to work on. " +
+					"For `client_credentials` connected apps, scopes are compared as an " +
+					"unordered set, so reordering scope blocks does not produce a diff.",
+				Type:     schema.TypeList,
+				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"scope": {
@@ -328,19 +324,17 @@ func resourceConnectedAppUpdate(ctx context.Context, d *schema.ResourceData, m a
 			return diags
 		}
 		defer httpr.Body.Close()
-		// Is it a "on its own behalf" connected apps?
-		if grant_types, ok := body.GetGrantTypesOk(); ok && StringInSlice(grant_types, "client_credentials", true) {
-			// Are there scopes to be saved?
-			if scopes := d.Get("scope"); scopes != nil && len(scopes.([]any)) > 0 {
-				// Save the connected app scopes
-				if error := replaceConnectedAppScopes(authctx, d, m); error != nil {
-					diags := append(diags, diag.Diagnostic{
-						Severity: diag.Error,
-						Summary:  "Unable to create connected-app " + connappid + " scopes",
-						Detail:   error.Error(),
-					})
-					return diags
-				}
+		// Push scopes whenever they changed for "on its own behalf"
+		// connected apps. An empty list must also be sent so removing all
+		// scope blocks actually clears scopes on the platform.
+		if grant_types, ok := body.GetGrantTypesOk(); ok && StringInSlice(grant_types, "client_credentials", true) && d.HasChange("scope") {
+			if error := replaceConnectedAppScopes(authctx, d, m); error != nil {
+				diags := append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "Unable to update connected-app " + connappid + " scopes",
+					Detail:   error.Error(),
+				})
+				return diags
 			}
 		}
 		return resourceConnectedAppRead(ctx, d, m)
@@ -531,95 +525,73 @@ func newConnectedAppPatchBody(d *schema.ResourceData) *connected_app.ConnectedAp
 	return body
 }
 
-// Compares 2 scopes lists
-// returns true if they are the same, false otherwise
-func equalsConnectedAppScopes(old, new any) bool {
-	old_list := old.([]any)
-	new_list := new.([]any)
+// customizeDiffConnectedApp clears the `scope` diff when the prior state and
+// configured scopes describe the same set. Using DiffSuppressFunc with
+// d.GetChange("scope") is unreliable for a TypeList of blocks: at diff time
+// the SDK returns (state, state) instead of (state, config), so a removed
+// block is silently dropped. ResourceDiff.GetChange returns (state, config)
+// correctly during CustomizeDiff.
+func customizeDiffConnectedApp(ctx context.Context, d *schema.ResourceDiff, m any) error {
+	if !d.HasChange("scope") {
+		return nil
+	}
+	oldV, newV := d.GetChange("scope")
+	oldList, _ := oldV.([]any)
+	newList, _ := newV.([]any)
+	if connectedAppScopeSetsEqual(oldList, newList) {
+		return d.Clear("scope")
+	}
+	return nil
+}
 
-	old_list = removeProfileScope(old_list)
-	new_list = removeProfileScope(new_list)
-
-	if len(new_list) != len(old_list) {
+// connectedAppScopeSetsEqual compares two scope block lists as unordered
+// sets, ignoring the platform-added "profile" scope.
+func connectedAppScopeSetsEqual(a, b []any) bool {
+	a = filterProfileScope(a)
+	b = filterProfileScope(b)
+	if len(a) != len(b) {
 		return false
 	}
-
-	if len(new_list) == 0 {
-		return true
+	keys := make(map[string]int, len(a))
+	for _, item := range a {
+		keys[connectedAppScopeKey(item)]++
 	}
-
-	sortScopes(old_list)
-	sortScopes(new_list)
-
-	for i, val := range old_list {
-		o := val.(map[string]any)
-		n := new_list[i].(map[string]any)
-
-		old_scope := o["scope"].(string)
-		new_scope := n["scope"].(string)
-
-		if old_scope != new_scope {
+	for _, item := range b {
+		k := connectedAppScopeKey(item)
+		if keys[k] == 0 {
 			return false
 		}
-
-		old_org_id := o["org_id"]
-		new_org_id := n["org_id"]
-
-		if old_org_id != new_org_id {
-			return false
-		}
-
-		old_env_id := o["env_id"]
-		new_env_id := n["env_id"]
-
-		if old_env_id != new_env_id {
-			return false
-		}
+		keys[k]--
 	}
-
 	return true
 }
 
-// "Profile" is a defaul scope added to "act on its own behalf" connected apps.
-// It should not be considered when dealing with this kind of connecte app
-func removeProfileScope(scopes []any) []any {
-	if len(scopes) == 0 {
-		return scopes
-	}
-
-	for i, scope := range scopes {
-		scope_map := scope.(map[string]any)
-
-		if strings.EqualFold(scope_map["scope"].(string), "profile") {
-			scopes[i] = scopes[len(scopes)-1]
-			return scopes[:len(scopes)-1]
-		}
-	}
-
-	return scopes
+// connectedAppScopeKey returns a stable key for a scope block.
+func connectedAppScopeKey(item any) string {
+	m, _ := item.(map[string]any)
+	scope, _ := m["scope"].(string)
+	orgID, _ := m["org_id"].(string)
+	envID, _ := m["env_id"].(string)
+	return scope + "|" + orgID + "|" + envID
 }
 
-func sortScopes(list []any) {
-	sort.SliceStable(list, func(i, j int) bool {
-		i_elem := list[i].(map[string]any)
-		j_elem := list[j].(map[string]any)
-		i_scope := i_elem["scope"].(string)
-		j_scope := j_elem["scope"].(string)
-		if i_scope != j_scope {
-			return i_scope < j_scope
+// filterProfileScope removes the platform-added "profile" scope, which
+// Anypoint attaches automatically to "on its own behalf" connected apps.
+func filterProfileScope(scopes []any) []any {
+	out := make([]any, 0, len(scopes))
+	for _, scope := range scopes {
+		m, ok := scope.(map[string]any)
+		if !ok {
+			out = append(out, scope)
+			continue
 		}
-		i_org_id := i_elem["org_id"].(string)
-		j_org_id := j_elem["org_id"].(string)
-		if i_org_id != j_org_id {
-			return i_org_id < j_org_id
+		name, _ := m["scope"].(string)
+		if strings.EqualFold(name, "profile") {
+			continue
 		}
-		i_env_id := i_elem["env_id"].(string)
-		j_env_id := j_elem["env_id"].(string)
-		if i_env_id != j_env_id {
-			return i_env_id < j_env_id
-		}
-		return true
-	})
+		out = append(out, scope)
+	}
+	return out
 }
 
 /*

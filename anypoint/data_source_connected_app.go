@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -295,31 +296,32 @@ func flattenConnectedAppData(connappitem *connected_app.ConnectedAppRespExt) map
 }
 
 func flattenConnectedAppScopesData(scopes *connected_app.GetConnectedAppScopes200Response) []any {
-	if scopes != nil {
-		scopes_list := make([]any, len(scopes.GetData()))
-
-		for j, scope := range scopes.GetData() {
-			s := make(map[string]any)
-
-			s["scope"] = scope.GetScope()
-
-			if contextparams, ok := scope.GetContextParamsOk(); ok {
-				if org_id, org_ok := contextparams.GetOrgOk(); org_ok {
-					s["org_id"] = org_id
-				}
-
-				if env_id, env_ok := contextparams.GetEnvIdOk(); env_ok {
-					s["env_id"] = env_id
-				}
-			}
-
-			scopes_list[j] = s
-		}
-
-		return scopes_list
+	if scopes == nil {
+		return nil
 	}
-
-	return nil
+	data := scopes.GetData()
+	scopes_list := make([]any, 0, len(data))
+	for _, scope := range data {
+		name := scope.GetScope()
+		// Anypoint automatically attaches the "profile" scope to "on its
+		// own behalf" connected apps. Skip it so it doesn't surface as
+		// drift against the user's configuration.
+		if strings.EqualFold(name, "profile") {
+			continue
+		}
+		s := make(map[string]any)
+		s["scope"] = name
+		if contextparams, ok := scope.GetContextParamsOk(); ok {
+			if org_id, org_ok := contextparams.GetOrgOk(); org_ok {
+				s["org_id"] = org_id
+			}
+			if env_id, env_ok := contextparams.GetEnvIdOk(); env_ok {
+				s["env_id"] = env_id
+			}
+		}
+		scopes_list = append(scopes_list, s)
+	}
+	return scopes_list
 }
 
 func getConnectedAppAttributes() []string {
