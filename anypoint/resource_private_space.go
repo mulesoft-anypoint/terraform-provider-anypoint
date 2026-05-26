@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"time"
 
@@ -189,14 +188,7 @@ func resourcePrivateSpaceCreate(ctx context.Context, d *schema.ResourceData, m a
 	//request
 	res, httpr, err := pco.privatespaceclient.DefaultAPI.CreatePrivateSpace(authctx, orgid).PrivateSpacePostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Create Private Space " + res.GetId() + " for org " + orgid,
@@ -233,14 +225,7 @@ func resourcePrivateSpaceRead(ctx context.Context, d *schema.ResourceData, m any
 			d.SetId("")
 			return nil
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Read Private Space " + id + " for org " + orgid,
@@ -283,14 +268,7 @@ func resourcePrivateSpaceUpdate(ctx context.Context, d *schema.ResourceData, m a
 		//request
 		_, httpr, err := pco.privatespaceclient.DefaultAPI.UpdatePrivateSpace(authctx, orgid, id).PrivateSpacePatchBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to Update Private Space " + id + " for org " + orgid,
@@ -314,14 +292,7 @@ func resourcePrivateSpaceDelete(ctx context.Context, d *schema.ResourceData, m a
 	//request
 	httpr, err := pco.privatespaceclient.DefaultAPI.DeletePrivateSpace(authctx, orgid, d.Id()).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Delete Private Space for org " + orgid,

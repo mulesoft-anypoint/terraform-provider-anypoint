@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -96,14 +95,7 @@ func resourceAMECreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	//request user creation
 	_, httpr, err := pco.ameclient.DefaultApi.CreateAME(authctx, orgid, envid, regionid, exchangeid).ExchangeBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create AME " + exchangeid,
@@ -140,14 +132,7 @@ func resourceAMERead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 			d.SetId("")
 			return nil
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get AME " + d.Id(),
@@ -191,14 +176,7 @@ func resourceAMEUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.
 		//request resource creation
 		_, httpr, err := pco.ameclient.DefaultApi.UpdateAME(authctx, orgid, envid, regionid, exchangeid).ExchangeBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to patch AME " + d.Id(),
@@ -224,14 +202,7 @@ func resourceAMEDelete(ctx context.Context, d *schema.ResourceData, m any) diag.
 	//perform request
 	httpr, err := pco.ameclient.DefaultApi.DeleteAME(authctx, orgid, envid, regionid, exchangeid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete AME " + d.Id(),

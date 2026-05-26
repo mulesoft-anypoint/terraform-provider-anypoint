@@ -2,7 +2,6 @@ package anypoint
 
 import (
 	"context"
-	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -41,14 +40,7 @@ func dataSourcePrivateSpaceMulesoftAccountRead(ctx context.Context, d *schema.Re
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	res, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpaceMulesoftAccount(authctx, orgid, psid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Read MuleSoft AWS account for private space " + psid,

@@ -2,7 +2,6 @@ package anypoint
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"time"
 
@@ -674,14 +673,7 @@ func resourceBGRead(ctx context.Context, d *schema.ResourceData, m any) diag.Dia
 			d.SetId("")
 			return nil
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to read business group " + orgid,

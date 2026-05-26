@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -186,14 +185,7 @@ func resourceConnectedAppCreate(ctx context.Context, d *schema.ResourceData, m a
 	//request connected app creation
 	res, httpr, err := pco.connectedappclient.DefaultApi.CreateConnectedApp(authctx, orgid).ConnectedAppCore(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create connected-app",
@@ -250,14 +242,7 @@ func resourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m any
 			d.SetId("")
 			return nil
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to read connected-app " + connappid,
@@ -308,14 +293,7 @@ func resourceConnectedAppUpdate(ctx context.Context, d *schema.ResourceData, m a
 		//perform request
 		_, httpr, err := pco.connectedappclient.DefaultApi.UpdateConnectedApp(authctx, orgid, connappid).ConnectedAppPatchExt(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update connected-app " + connappid,
@@ -351,14 +329,7 @@ func resourceConnectedAppDelete(ctx context.Context, d *schema.ResourceData, m a
 	// perform request
 	httpr, err := pco.connectedappclient.DefaultApi.DeleteConnectedApp(authctx, orgid, connappid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete connected-app " + connappid,
@@ -383,13 +354,7 @@ func replaceConnectedAppScopes(ctx context.Context, d *schema.ResourceData, m an
 	//request scopes replacement
 	httpr, err := pco.connectedappclient.DefaultApi.UpdateConnectedAppScopes(authctx, orgid, connappid).ConnectedAppScopesPutBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		return errors.New(details)
 	}
 	defer httpr.Body.Close()
