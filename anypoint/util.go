@@ -1,14 +1,20 @@
 package anypoint
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"log"
 	"math"
+	"math/rand"
+	"net/http"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -327,4 +333,79 @@ func getSchemaKeys(m map[string]*schema.Schema) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// extractAPIErrorDetail surfaces the API error body. The openapi-generator
+// client drains httpr.Body inside Execute() and caches it on
+// GenericOpenAPIError, so reading httpr.Body again returns nothing — must
+// read err.Body() instead. The httpr fallback exists only for the rare path
+// where err is not a generator-generated error.
+func extractAPIErrorDetail(err error, httpr *http.Response) string {
+	if err == nil {
+		return ""
+	}
+	type bodyErr interface{ Body() []byte }
+	if be, ok := err.(bodyErr); ok {
+		if b := be.Body(); len(b) > 0 {
+			if httpr != nil {
+				return fmt.Sprintf("HTTP %d: %s", httpr.StatusCode, string(b))
+			}
+			return string(b)
+		}
+	}
+	if httpr != nil && httpr.StatusCode >= 400 {
+		defer httpr.Body.Close()
+		b, _ := io.ReadAll(httpr.Body)
+		return fmt.Sprintf("HTTP %d: %s", httpr.StatusCode, string(b))
+	}
+	return err.Error()
+}
+
+// isRetryableStatus reports whether an HTTP status indicates a transient
+// server-side condition worth retrying. 409 covers parent-org contention
+// (issue #54); 429 is rate-limit; 5xx is upstream failure.
+func isRetryableStatus(httpr *http.Response) bool {
+	if httpr == nil {
+		return false
+	}
+	s := httpr.StatusCode
+	return s == http.StatusConflict || s == http.StatusTooManyRequests || s >= 500
+}
+
+// retryTransient retries an Anypoint API call on transient server-side
+// errors. The Anypoint Accounts API in particular serializes mutations
+// against shared parent-org records; concurrent for_each operations on
+// sibling resources race and intermittently fail (issue #54). Exponential
+// backoff 250ms → 4s with 50% jitter, capped at 5 attempts. Honors ctx
+// cancellation.
+func retryTransient[T any](ctx context.Context, op string, fn func() (T, *http.Response, error)) (T, *http.Response, error) {
+	const maxAttempts = 5
+	var (
+		zero  T
+		httpr *http.Response
+		err   error
+	)
+	backoff := 250 * time.Millisecond
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		zero, httpr, err = fn()
+		if err == nil || !isRetryableStatus(httpr) {
+			if attempt > 0 {
+				log.Printf("[DEBUG] retryTransient %s: succeeded on attempt %d", op, attempt+1)
+			}
+			return zero, httpr, err
+		}
+		if attempt == maxAttempts-1 {
+			log.Printf("[WARN] retryTransient %s: giving up after %d attempts, last status=%d", op, maxAttempts, httpr.StatusCode)
+			break
+		}
+		sleep := backoff + time.Duration(rand.Int63n(int64(backoff/2)))
+		log.Printf("[DEBUG] retryTransient %s: attempt %d got status=%d, sleeping %s", op, attempt+1, httpr.StatusCode, sleep)
+		select {
+		case <-ctx.Done():
+			return zero, httpr, err
+		case <-time.After(sleep):
+		}
+		backoff *= 2
+	}
+	return zero, httpr, err
 }

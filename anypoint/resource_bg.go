@@ -3,6 +3,7 @@ package anypoint
 import (
 	"context"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -643,21 +644,15 @@ func resourceBGCreate(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	pco := m.(ProviderConfOutput)
 	authctx := getBGAuthCtx(ctx, &pco)
 	body := newBGPostBody(d)
-	//perform request
-	res, httpr, err := pco.orgclient.DefaultApi.OrganizationsPost(authctx).BGPostReqBody(*body).Execute()
+	//perform request with retry on transient parent-org contention (issue #54)
+	res, httpr, err := retryTransient(ctx, "bg create", func() (org.BGCore, *http.Response, error) {
+		return pco.orgclient.DefaultApi.OrganizationsPost(authctx).BGPostReqBody(*body).Execute()
+	})
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Create Business Group",
-			Detail:   details,
+			Detail:   extractAPIErrorDetail(err, httpr),
 		})
 		return diags
 	}
@@ -717,20 +712,14 @@ func resourceBGUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	//check for updates
 	if d.HasChanges(getBGUpdatableAttributes()...) {
 		body := newBGPutBody(d)
-		_, httpr, err := pco.orgclient.DefaultApi.OrganizationsOrgIdPut(authctx, orgid).BGPutReqBody(*body).Execute()
+		_, httpr, err := retryTransient(ctx, "bg update "+orgid, func() (org.BGCore, *http.Response, error) {
+			return pco.orgclient.DefaultApi.OrganizationsOrgIdPut(authctx, orgid).BGPutReqBody(*body).Execute()
+		})
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update business group " + orgid,
-				Detail:   details,
+				Detail:   extractAPIErrorDetail(err, httpr),
 			})
 			return diags
 		}
@@ -747,20 +736,14 @@ func resourceBGDelete(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	orgid := d.Id()
 	authctx := getBGAuthCtx(ctx, &pco)
 	//perform request
-	_, httpr, err := pco.orgclient.DefaultApi.OrganizationsOrgIdDelete(authctx, orgid).Execute()
+	_, httpr, err := retryTransient(ctx, "bg delete "+orgid, func() (map[string]interface{}, *http.Response, error) {
+		return pco.orgclient.DefaultApi.OrganizationsOrgIdDelete(authctx, orgid).Execute()
+	})
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Delete Business Group",
-			Detail:   details,
+			Detail:   extractAPIErrorDetail(err, httpr),
 		})
 		return diags
 	}
