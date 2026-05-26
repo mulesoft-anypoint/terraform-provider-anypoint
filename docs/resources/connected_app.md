@@ -93,7 +93,7 @@ resource "anypoint_connected_app" "my_conn_app_behalf_of_user" {
 - `public_keys` (List of String) Application public key (PEM format). Used to validate JWT authorization grants.
 				Required when grant type jwt-bearer is selected.
 - `redirect_uris` (List of String) Configure which URIs users may be directed to after authorization
-- `scope` (Block List) The scopes this connected app has authorization to work on (see [below for nested schema](#nestedblock--scope))
+- `scope` (Block List) The scopes this connected app has authorization to work on. For `client_credentials` connected apps, scopes are compared as an unordered set, so reordering scope blocks does not produce a diff. (see [below for nested schema](#nestedblock--scope))
 - `secret` (String, Sensitive) The secret of the connected app.
 
 ### Read-Only
