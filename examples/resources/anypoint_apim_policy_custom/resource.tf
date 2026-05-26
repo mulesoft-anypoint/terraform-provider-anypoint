@@ -135,3 +135,44 @@ resource "anypoint_apim_policy_custom" "policy_custom_05" {
     exposeHeaders = true
   })
 }
+
+# Flex Gateway: Credential Injection - Basic Authentication (outbound policy).
+#
+# Outbound policies inject credentials into requests going from the Flex Gateway
+# to the upstream service. The policy is applied to the API instance (apim_id);
+# the upstream targets are configured on the anypoint_apim_flexgateway resource
+# itself, not on the policy. Use pointcut_data to scope the policy to a subset
+# of routes or HTTP methods if desired.
+#
+# asset_group_id, asset_id, and asset_version refer to the MuleSoft-provided
+# policy template in Exchange. The IDs below come from the public Anypoint
+# Exchange catalog for Flex Gateway policies (distinct from the Mule4 policies
+# org used above). If terraform apply fails with a
+# "PolicyTemplateValidationError: missing required files: [schema]" error,
+# the asset_version is most likely wrong for the template — use the
+# anypoint_exchange_policy_template data source to discover valid versions:
+#
+#   data "anypoint_exchange_policy_template" "credinj" {
+#     org_id   = var.root_org
+#     group_id = "e0b4a150-f59b-46d4-ad25-5d98f9deb24a"
+#     id       = "credential-injection-basic-auth-flex"
+#     version  = "1.0.0"
+#     include_all_versions = true
+#   }
+resource "anypoint_apim_policy_custom" "fg_outbound_basic_auth_injection" {
+  org_id   = var.root_org
+  env_id   = var.env_id
+  apim_id  = anypoint_apim_flexgateway.fg.id
+  disabled = false
+
+  asset_group_id = "e0b4a150-f59b-46d4-ad25-5d98f9deb24a"
+  asset_id       = "credential-injection-basic-auth-flex"
+  asset_version  = "1.0.0"
+
+  configuration_data = jsonencode({
+    username     = var.upstream_basic_auth_username
+    password     = var.upstream_basic_auth_password
+    overwrite    = true
+    customHeader = ""
+  })
+}
