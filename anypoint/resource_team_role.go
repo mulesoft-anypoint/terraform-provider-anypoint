@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -106,14 +105,7 @@ func resourceTeamRoleCreate(ctx context.Context, d *schema.ResourceData, m any) 
 	body := []team_roles.TeamRolePostBody{newTeamRolePostBody(roleid, ctxOrg, envId)}
 	httpr, err := pco.teamrolesclient.DefaultAPI.AssignTeamRoles(authctx, orgid, teamid).TeamRolePostBody(body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create team role " + roleid + " for team " + teamid,
@@ -143,14 +135,7 @@ func resourceTeamRoleRead(ctx context.Context, d *schema.ResourceData, m any) di
 			d.SetId("")
 			return nil
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to read team role " + roleid + " for team " + teamid,
@@ -203,14 +188,7 @@ func resourceTeamRoleDelete(ctx context.Context, d *schema.ResourceData, m any) 
 			d.SetId("")
 			return nil
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete team role " + roleid + " for team " + teamid,

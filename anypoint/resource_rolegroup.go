@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"time"
 
@@ -105,14 +104,7 @@ func resourceRoleGroupCreate(ctx context.Context, d *schema.ResourceData, m any)
 	//perform request
 	res, httpr, err := pco.rolegroupclient.DefaultApi.OrganizationsOrgIdRolegroupsPost(authctx, orgid).RolegroupPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create rolegroup " + name,
@@ -144,14 +136,7 @@ func resourceRoleGroupRead(ctx context.Context, d *schema.ResourceData, m any) d
 			d.SetId("")
 			return nil
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get rolegroup " + rolegroupid,
@@ -194,14 +179,7 @@ func resourceRoleGroupUpdate(ctx context.Context, d *schema.ResourceData, m any)
 		//perform request
 		_, httpr, err := pco.rolegroupclient.DefaultApi.OrganizationsOrgIdRolegroupsRolegroupIdPut(authctx, orgid, rolegroupid).RolegroupPutBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update rolegroup",
@@ -226,14 +204,7 @@ func resourceRoleGroupDelete(ctx context.Context, d *schema.ResourceData, m any)
 	//perform request
 	_, httpr, err := pco.rolegroupclient.DefaultApi.OrganizationsOrgIdRolegroupsRolegroupIdDelete(authctx, orgid, rolegroupid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get rolegroup " + rolegroupid,

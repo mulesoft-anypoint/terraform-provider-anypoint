@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"time"
@@ -21,7 +20,7 @@ func resourceExchangeAsset() *schema.Resource {
 		ReadContext:   resourceExchangeAssetRead,
 		UpdateContext: resourceExchangeAssetUpdate,
 		DeleteContext: resourceExchangeAssetDelete,
-		Description: "Creates and manages an Exchange asset. Asset metadata is updatable (name, description); all other attributes force replacement.",
+		Description:   "Creates and manages an Exchange asset. Asset metadata is updatable (name, description); all other attributes force replacement.",
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -461,14 +460,7 @@ func splitExchangeAssetId(id string) (orgId, groupId, assetId, version string, e
 }
 
 func exchangeAssetHTTPDiag(httpr *http.Response, err error, summary string) diag.Diagnostics {
-	var details string
-	if httpr != nil && httpr.StatusCode >= 400 {
-		defer httpr.Body.Close()
-		b, _ := io.ReadAll(httpr.Body)
-		details = string(b)
-	} else {
-		details = err.Error()
-	}
+	details := extractAPIErrorDetail(err, httpr)
 	return diag.Diagnostics{{Severity: diag.Error, Summary: summary, Detail: details}}
 }
 

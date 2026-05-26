@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -130,14 +129,7 @@ func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	//request resource creation
 	_, httpr, err := pco.amqclient.DefaultApi.CreateAMQ(authctx, orgid, envid, regionid, queueid).QueueBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create AMQ ",
@@ -174,14 +166,7 @@ func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 			d.SetId("")
 			return nil
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get AMQ " + id,
@@ -226,14 +211,7 @@ func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.
 		//request user creation
 		_, httpr, err := pco.amqclient.DefaultApi.UpdateAMQ(authctx, orgid, envid, regionid, queueid).QueueBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to patch AMQ " + d.Id(),
@@ -261,14 +239,7 @@ func resourceAMQDelete(ctx context.Context, d *schema.ResourceData, m any) diag.
 	//perform request
 	httpr, err := pco.amqclient.DefaultApi.DeleteAMQ(authctx, orgid, envid, regionid, queueid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete AMQ " + d.Id(),

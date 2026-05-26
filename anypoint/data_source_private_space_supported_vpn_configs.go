@@ -2,7 +2,6 @@ package anypoint
 
 import (
 	"context"
-	"io"
 	"sort"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -53,14 +52,7 @@ func dataSourcePrivateSpaceSupportedVpnConfigsRead(ctx context.Context, d *schem
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	res, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpaceSupportedVpnConfigs(authctx, orgid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Read supported VPN configs for org " + orgid,

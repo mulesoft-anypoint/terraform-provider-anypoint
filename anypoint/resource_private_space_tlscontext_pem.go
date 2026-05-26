@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -220,14 +219,7 @@ func resourcePrivateSpaceTlsContextPemCreate(ctx context.Context, d *schema.Reso
 	//request
 	tlscontext, httpr, err := pco.privatespacetlscontextclient.DefaultApi.CreateTlsContext(authctx, orgid, private_space_id).TlsContextPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Create Private Space TLS Context for org " + orgid + " and private space " + private_space_id,
@@ -262,14 +254,7 @@ func resourcePrivateSpaceTlsContextPemRead(ctx context.Context, d *schema.Resour
 			d.SetId("")
 			return nil
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Get Private Space TLS Context for org " + orgid + " and private space " + private_space_id + " and id " + id,
@@ -308,14 +293,7 @@ func resourcePrivateSpaceTlsContextPemUpdate(ctx context.Context, d *schema.Reso
 		//request
 		_, httpr, err := pco.privatespacetlscontextclient.DefaultApi.UpdateTlsContext(authctx, orgid, private_space_id, id).Body(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to Update Private Space TLS Context for org " + orgid + " and private space " + private_space_id + " and id " + id,
@@ -340,14 +318,7 @@ func resourcePrivateSpaceTlsContextPemDelete(ctx context.Context, d *schema.Reso
 	//request
 	httpr, err := pco.privatespacetlscontextclient.DefaultApi.DeleteTlsContext(authctx, orgid, private_space_id, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Delete Private Space TLS Context for org " + orgid + " and id " + id,

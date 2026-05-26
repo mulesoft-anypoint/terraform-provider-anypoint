@@ -2,7 +2,6 @@ package anypoint
 
 import (
 	"context"
-	"io"
 	"strconv"
 	"time"
 
@@ -150,14 +149,7 @@ func dataSourceVPCsRead(ctx context.Context, d *schema.ResourceData, m any) diag
 	//request vpcs
 	res, httpr, err := pco.vpcclient.DefaultApi.OrganizationsOrgIdVpcsGet(authctx, orgid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Get VPCs",

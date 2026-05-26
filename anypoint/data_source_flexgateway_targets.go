@@ -2,7 +2,6 @@ package anypoint
 
 import (
 	"context"
-	"io"
 	"strconv"
 	"time"
 
@@ -93,14 +92,7 @@ func dataSourceFlexGatewayTargetsRead(ctx context.Context, d *schema.ResourceDat
 	//exec request
 	res, httpr, err := pco.flexgatewayclient.DefaultApi.GetFlexGatewayTargets(authctx, orgid, envid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get flex gateway targets for org " + orgid + " and env " + envid,

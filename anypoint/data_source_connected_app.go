@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -143,14 +142,7 @@ func dataSourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m a
 	//request connected app
 	res, httpr, err := pco.connectedappclient.DefaultApi.GetConnectedApp(authctx, orgid, connappid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to read connected-app " + connappid,
@@ -194,13 +186,7 @@ func readScopesByConnectedAppId(ctx context.Context, orgid string, connappid str
 	limit := 500
 	res, httpr, err := pco.connectedappclient.DefaultApi.GetConnectedAppScopes(authctx, orgid, connappid).Limit(int32(limit)).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 
 		return nil, errors.New(details)
 	}

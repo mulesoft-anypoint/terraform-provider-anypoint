@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"strconv"
 	"time"
 
@@ -156,14 +155,7 @@ func resourceApiInstanceSlaTierCreate(ctx context.Context, d *schema.ResourceDat
 
 	res, httpr, err := pco.apimtierclient.DefaultAPI.CreateApiInstanceTier(authctx, orgid, envid, apiid).SlaTierPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create SLA tier for api " + apiid,
@@ -257,14 +249,7 @@ func resourceApiInstanceSlaTierUpdate(ctx context.Context, d *schema.ResourceDat
 
 	res, httpr, err := pco.apimtierclient.DefaultAPI.UpdateApiInstanceTier(authctx, orgid, envid, apiid, int32(tierId)).SlaTierPutBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to update SLA tier " + tierIdStr,
@@ -313,14 +298,7 @@ func resourceApiInstanceSlaTierDelete(ctx context.Context, d *schema.ResourceDat
 			d.SetId("")
 			return diags
 		}
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete SLA tier " + tierIdStr,
@@ -347,14 +325,7 @@ func apimTierReadById(
 		res, httpr, err := pco.apimtierclient.DefaultAPI.GetApiInstanceTiers(authctx, orgid, envid, apiid).
 			Limit(limit).Offset(offset).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			return nil, diag.Diagnostics{{
 				Severity: diag.Error,
 				Summary:  "Unable to read SLA tiers for api " + apiid,
