@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -139,14 +138,7 @@ func searchUserRolegroup(ctx context.Context, d *schema.ResourceData, m any) (*u
 		req = req.Offset(int32(offset))
 		res, httpr, err := req.Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to get user " + userid + " rolegroup " + rolegroupid,

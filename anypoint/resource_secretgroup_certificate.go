@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -133,14 +132,7 @@ func resourceSecretGroupCertificateCreate(ctx context.Context, d *schema.Resourc
 	//Execute request
 	res, httpr, err := req.Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create certificate " + name,
@@ -172,14 +164,11 @@ func resourceSecretGroupCertificateRead(ctx context.Context, d *schema.ResourceD
 	//perform request
 	res, httpr, err := pco.sgcertificateclient.DefaultApi.GetSecretGroupCertificateDetails(authctx, orgid, envid, sgid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get certificate " + id,
@@ -231,14 +220,7 @@ func resourceSecretGroupCertificateUpdate(ctx context.Context, d *schema.Resourc
 		//Execute request
 		_, httpr, err := req.Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update certificate " + id,

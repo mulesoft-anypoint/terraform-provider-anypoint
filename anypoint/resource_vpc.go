@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"sort"
 	"time"
 
@@ -177,14 +176,7 @@ func resourceVPCCreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	//request vpc creation
 	res, httpr, err := pco.vpcclient.DefaultApi.OrganizationsOrgIdVpcsPost(authctx, orgid).VpcCore(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create vpc " + name,
@@ -212,14 +204,11 @@ func resourceVPCRead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	//perform request
 	res, httpr, err := pco.vpcclient.DefaultApi.OrganizationsOrgIdVpcsVpcIdGet(authctx, orgid, vpcid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get vpc " + vpcid,
@@ -258,14 +247,7 @@ func resourceVPCUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.
 		//request vpc creation
 		_, httpr, err := pco.vpcclient.DefaultApi.OrganizationsOrgIdVpcsVpcIdPut(authctx, orgid, vpcid).VpcCore(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update vpc " + vpcid,
@@ -291,14 +273,7 @@ func resourceVPCDelete(ctx context.Context, d *schema.ResourceData, m any) diag.
 	//perform request
 	httpr, err := pco.vpcclient.DefaultApi.OrganizationsOrgIdVpcsVpcIdDelete(authctx, orgid, vpcid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete vpc " + vpcid,

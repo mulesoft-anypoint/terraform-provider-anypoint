@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -303,13 +302,7 @@ func resourceAMEBindingCreate(ctx context.Context, d *schema.ResourceData, m any
 	//request resource creation
 	_, httpr, err := pco.amebindingclient.DefaultApi.CreateAMEBinding(authctx, orgid, envid, regionid, exchangeid, queueid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create AME Binding " + exchangeid + " " + queueid,
@@ -350,14 +343,11 @@ func resourceAMEBindingRead(ctx context.Context, d *schema.ResourceData, m any) 
 	//request resource
 	res, httpr, err := pco.amebindingclient.DefaultApi.GetAMEBinding(authctx, orgid, envid, regionid, exchangeid, queueid).Inclusion("ALL").Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get AME Binding " + id,
@@ -413,14 +403,7 @@ func resourceAMEBindingDelete(ctx context.Context, d *schema.ResourceData, m any
 	//perform request
 	httpr, err := pco.amebindingclient.DefaultApi.DeleteAMEBinding(authctx, orgid, envid, regionid, exchangeid, queueid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete AME Binding " + d.Id(),
@@ -469,14 +452,7 @@ func resourceAMEBindingRulesCreate(ctx context.Context, d *schema.ResourceData, 
 	//request resource creation
 	_, httpr, err := pco.amebindingclient.DefaultApi.CreateAMEBindingRule(authctx, orgid, envid, regionid, exchangeid, queueid).AMEBindingRuleBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create AME Binding (" + exchangeid + ", " + queueid + ") Rules",
@@ -502,14 +478,7 @@ func resourceAMEBindingRulesDelete(ctx context.Context, d *schema.ResourceData, 
 	//request resource creation
 	httpr, err := pco.amebindingclient.DefaultApi.DeleteAMEBindingRule(authctx, orgid, envid, regionid, exchangeid, queueid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete AME Binding Rule " + d.Id(),

@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -100,14 +99,7 @@ func resourceTeamGroupMappingsCreate(ctx context.Context, d *schema.ResourceData
 	//request put
 	httpr, err := pco.teamgroupmappingsclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdGroupmappingsPut(authctx, orgid, teamid).RequestBody(body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create team group mappings for team" + teamid,
@@ -130,14 +122,7 @@ func resourceTeamGroupMappingsUpdate(ctx context.Context, d *schema.ResourceData
 	//perform request
 	httpr, err := pco.teamgroupmappingsclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdGroupmappingsPut(authctx, orgid, teamid).RequestBody(body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to update team group mappings for team " + teamid,
@@ -160,14 +145,7 @@ func resourceTeamGroupMappingsDelete(ctx context.Context, d *schema.ResourceData
 	//perform request
 	httpr, err := pco.teamgroupmappingsclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdGroupmappingsPut(authctx, orgid, teamid).RequestBody(body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete team group mappings for team " + teamid,
@@ -198,14 +176,11 @@ func resourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData, 
 	//request get
 	res, httpr, err := pco.teamgroupmappingsclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdGroupmappingsGet(authctx, orgid, teamid).Limit(500).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get team " + teamid + " groupmappings",

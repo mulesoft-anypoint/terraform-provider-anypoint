@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -167,14 +166,7 @@ func resourceApimInstancePolicyBasicAuthCreate(ctx context.Context, d *schema.Re
 	//perform request
 	res, httpr, err := pco.apimpolicyclient.DefaultApi.PostApimPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create policy basic authentication for api " + apimid,
@@ -213,14 +205,11 @@ func resourceApimInstancePolicyBasicAuthRead(ctx context.Context, d *schema.Reso
 	//perform request
 	res, httpr, err := pco.apimpolicyclient.DefaultApi.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to read policy basic authentication " + id + " for api " + apimid,
@@ -261,14 +250,7 @@ func resourceApimInstancePolicyBasicAuthUpdate(ctx context.Context, d *schema.Re
 		//perform request
 		_, httpr, err := pco.apimpolicyclient.DefaultApi.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update policy basic authentication for api " + apimid,
@@ -302,14 +284,7 @@ func resourceApimInstancePolicyBasicAuthDelete(ctx context.Context, d *schema.Re
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	httpr, err := pco.apimpolicyclient.DefaultApi.DeleteApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete policy basic authentication " + id + " for api " + apimid,
@@ -334,14 +309,7 @@ func enableApimInstancePolicyBasicAuth(ctx context.Context, d *schema.ResourceDa
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	_, httpr, err := pco.apimpolicyclient.DefaultApi.EnableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to enable policy basic authentication " + id + " for api " + apimid,
@@ -363,14 +331,7 @@ func disableApimInstancePolicyBasicAuth(ctx context.Context, d *schema.ResourceD
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	_, httpr, err := pco.apimpolicyclient.DefaultApi.DisableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to disable policy basic authentication " + id + " for api " + apimid,

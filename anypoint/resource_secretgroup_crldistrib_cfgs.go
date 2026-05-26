@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -118,14 +117,7 @@ func resourceSecretGroupCrlDistribCfgsCreate(ctx context.Context, d *schema.Reso
 	//perform request
 	res, httpr, err := pco.sgcrldistribcfgsclient.DefaultApi.PostSecretGroupCrlDistribCfgs(authctx, orgid, envid, sgid).CrlDistribCfgsReqBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create crl-distributor-configs " + name,
@@ -155,14 +147,11 @@ func resourceSecretGroupCrlDistribCfgsRead(ctx context.Context, d *schema.Resour
 	//perform request
 	res, httpr, err := pco.sgcrldistribcfgsclient.DefaultApi.GetSecretGroupCrlDistribCfgsDetails(authctx, orgid, envid, sgid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get crl-distributor-configs " + id,
@@ -203,14 +192,7 @@ func resourceSecretGroupCrlDistribCfgsUpdate(ctx context.Context, d *schema.Reso
 		// perform request
 		_, httpr, err := pco.sgcrldistribcfgsclient.DefaultApi.PutSecretGroupTlsContext(authctx, orgid, envid, sgid, id).CrlDistribCfgsReqBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update crl-distributor-configs " + id,

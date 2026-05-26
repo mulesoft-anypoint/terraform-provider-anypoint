@@ -13,6 +13,7 @@ var RESOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_user_rolegroup":                        resourceUserRolegroup(),
 	"anypoint_team":                                  resourceTeam(),
 	"anypoint_team_roles":                            resourceTeamRoles(),
+	"anypoint_team_role":                             resourceTeamRole(),
 	"anypoint_team_member":                           resourceTeamMember(),
 	"anypoint_team_group_mappings":                   resourceTeamGroupMappings(),
 	"anypoint_dlb":                                   resourceDLB(),
@@ -30,6 +31,7 @@ var RESOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_apim_policy_basic_auth":                resourceApimInstancePolicyBasicAuth(),
 	"anypoint_apim_policy_message_logging":           resourceApimInstancePolicyMessageLogging(),
 	"anypoint_apim_policy_custom":                    resourceApimInstancePolicyCustom(),
+	"anypoint_api_instance_sla_tier":                 resourceApiInstanceSlaTier(),
 	"anypoint_secretgroup":                           resourceSecretGroup(),
 	"anypoint_secretgroup_keystore":                  resourceSecretGroupKeystore(),
 	"anypoint_secretgroup_truststore":                resourceSecretGroupTruststore(),
@@ -47,4 +49,5 @@ var RESOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_private_space_tlscontext_jks":          resourcePrivateSpaceTlsContextJKS(),
 	"anypoint_private_space_transit_gateway":         resourcePrivateSpaceTransitGateway(),
 	"anypoint_private_space_vpn":                     resourcePrivateSpaceVpn(),
+	"anypoint_exchange_asset":                        resourceExchangeAsset(),
 }

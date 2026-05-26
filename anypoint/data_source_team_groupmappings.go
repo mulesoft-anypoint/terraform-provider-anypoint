@@ -2,7 +2,6 @@ package anypoint
 
 import (
 	"context"
-	"io"
 	"strconv"
 	"time"
 
@@ -88,7 +87,7 @@ func dataSourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData
 	searchOpts := d.Get("params").(*schema.Set)
 	orgid := d.Get("org_id").(string)
 	teamid := d.Get("team_id").(string)
-	authctx := getTeamMembersAuthCtx(ctx, &pco)
+	authctx := getTeamGroupMappingsAuthCtx(ctx, &pco)
 	//prepare request
 	req := pco.teamgroupmappingsclient.DefaultApi.OrganizationsOrgIdTeamsTeamIdGroupmappingsGet(authctx, orgid, teamid)
 	req, errDiags := parseTeamGroupMappingsSearchOpts(req, searchOpts)
@@ -99,14 +98,7 @@ func dataSourceTeamGroupMappingsRead(ctx context.Context, d *schema.ResourceData
 	//request members
 	res, httpr, err := req.Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get team " + teamid + " groupmappings ",

@@ -2,7 +2,6 @@ package anypoint
 
 import (
 	"context"
-	"io"
 	"strconv"
 	"time"
 
@@ -186,7 +185,7 @@ func dataSourceConnectedAppsRead(ctx context.Context, d *schema.ResourceData, m 
 	searchOpts := d.Get("params").(*schema.Set)
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	//prepare request
-	req := pco.connectedappclient.DefaultApi.GetAllConnectedApps(authctx).OrgId(orgid)
+	req := pco.connectedappclient.DefaultAPI.GetAllConnectedApps(authctx).OrgId(orgid)
 	req, errDiags := parseConnectedAppSearchOpts(req, searchOpts)
 	if errDiags.HasError() {
 		diags = append(diags, errDiags...)
@@ -195,14 +194,7 @@ func dataSourceConnectedAppsRead(ctx context.Context, d *schema.ResourceData, m 
 	//execut request
 	res, httpr, err := req.Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get connected-apps for org " + orgid,
@@ -238,7 +230,7 @@ func dataSourceConnectedAppsRead(ctx context.Context, d *schema.ResourceData, m 
 Parses the api manager search options in order to check if the required search parameters are set correctly.
 Appends the parameters to the given request
 */
-func parseConnectedAppSearchOpts(req connected_app.DefaultApiGetAllConnectedAppsRequest, params *schema.Set) (connected_app.DefaultApiGetAllConnectedAppsRequest, diag.Diagnostics) {
+func parseConnectedAppSearchOpts(req connected_app.DefaultAPIGetAllConnectedAppsRequest, params *schema.Set) (connected_app.DefaultAPIGetAllConnectedAppsRequest, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if params.Len() == 0 {
 		return req, diags

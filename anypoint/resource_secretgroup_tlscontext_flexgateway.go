@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -206,14 +205,7 @@ func resourceSecretGroupTlsContextFGCreate(ctx context.Context, d *schema.Resour
 	//perform request
 	res, httpr, err := pco.sgtlscontextclient.DefaultApi.PostSecretGroupTlsContext(authctx, orgid, envid, sgid).TlsContextPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create tls-context " + name,
@@ -245,14 +237,11 @@ func resourceSecretGroupTlsContextFGRead(ctx context.Context, d *schema.Resource
 	//perform request
 	res, httpr, err := pco.sgtlscontextclient.DefaultApi.GetSecretGroupTlsContextDetails(authctx, orgid, envid, sgid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get tls-context " + id,
@@ -300,14 +289,7 @@ func resourceSecretGroupTlsContextFGUpdate(ctx context.Context, d *schema.Resour
 		// perform request
 		_, httpr, err := pco.sgtlscontextclient.DefaultApi.PutSecretGroupTlsContext(authctx, orgid, envid, sgid, id).TlsContextPutBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update tls-context " + id,

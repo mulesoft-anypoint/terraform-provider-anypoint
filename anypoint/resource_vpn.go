@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -199,14 +198,7 @@ func resourceVPNCreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	//perform request
 	res, httpr, err := pco.vpnclient.DefaultApi.OrganizationsOrgIdVpcsVpcIdIpsecPost(authctx, orgid, vpcid).VpnPostReqBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create vpn " + name,
@@ -236,14 +228,11 @@ func resourceVPNRead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	req := pco.vpnclient.DefaultApi.OrganizationsOrgIdVpcsVpcIdIpsecVpnIdGet(authctx, orgid, vpcid, vpnid)
 	res, httpr, err := req.Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get vpn " + vpnid,
@@ -289,14 +278,7 @@ func resourceVPNDelete(ctx context.Context, d *schema.ResourceData, m any) diag.
 	//perform request
 	httpr, err := pco.vpnclient.DefaultApi.OrganizationsOrgIdVpcsVpcIdIpsecVpnIdDelete(authctx, orgid, vpcid, vpnid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete vpn " + vpnid,

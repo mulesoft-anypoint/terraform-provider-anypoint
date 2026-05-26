@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -107,14 +106,7 @@ func resourceSecretGroupCreate(ctx context.Context, d *schema.ResourceData, m an
 	// execute post request
 	res, httpr, err := pco.secretgroupclient.DefaultApi.PostSecretGroup(authctx, orgid, envid).SecretGroupPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create secret group for org " + orgid + " and env " + envid,
@@ -145,14 +137,11 @@ func resourceSecretGroupRead(ctx context.Context, d *schema.ResourceData, m any)
 	authctx := getSecretGroupAuthCtx(ctx, &pco)
 	res, httpr, err := pco.secretgroupclient.DefaultApi.GetSecretGroup(authctx, orgid, envid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get secret group " + id,
@@ -190,14 +179,7 @@ func resourceSecretGroupUpdate(ctx context.Context, d *schema.ResourceData, m an
 		body := newSecretGroupPatchBody(d)
 		_, httpr, err := pco.secretgroupclient.DefaultApi.PatchSecretGroup(authctx, orgid, envid, id).SecretGroupPatchBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update secret group " + id,
@@ -222,14 +204,7 @@ func resourceSecretGroupDelete(ctx context.Context, d *schema.ResourceData, m an
 	authctx := getSecretGroupAuthCtx(ctx, &pco)
 	httpr, err := pco.secretgroupclient.DefaultApi.DeleteSecretGroup(authctx, orgid, envid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete secret group " + id,

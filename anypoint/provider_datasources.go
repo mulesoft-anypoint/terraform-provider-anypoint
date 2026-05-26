@@ -18,6 +18,7 @@ var DATASOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_team":                                  dataSourceTeam(),
 	"anypoint_teams":                                 dataSourceTeams(),
 	"anypoint_team_roles":                            dataSourceTeamRoles(),
+	"anypoint_team_role":                             dataSourceTeamRole(),
 	"anypoint_team_members":                          dataSourceTeamMembers(),
 	"anypoint_team_group_mappings":                   dataSourceTeamGroupMappings(),
 	"anypoint_dlb":                                   dataSourceDLB(),
@@ -33,6 +34,8 @@ var DATASOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_apim_instance_policy":                  dataSourceApimInstancePolicy(),
 	"anypoint_apim_instance_policies":                dataSourceApimInstancePolicies(),
 	"anypoint_apim_instance_upstreams":               dataSourceApimInstanceUpstreams(),
+	"anypoint_api_instance_sla_tier":                 dataSourceApiInstanceSlaTier(),
+	"anypoint_api_instance_sla_tiers":                dataSourceApiInstanceSlaTiers(),
 	"anypoint_flexgateway_target":                    dataSourceFlexGatewayTarget(),
 	"anypoint_flexgateway_targets":                   dataSourceFlexGatewayTargets(),
 	"anypoint_flexgateway_registration_token":        dataSourceFlexGatewayRegistrationToken(),
@@ -72,4 +75,6 @@ var DATASOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_private_space_vpn":                     dataSourcePrivateSpaceVpn(),
 	"anypoint_private_space_vpns":                    dataSourcePrivateSpaceVpns(),
 	"anypoint_private_space_supported_vpn_configs":   dataSourcePrivateSpaceSupportedVpnConfigs(),
+	"anypoint_exchange_asset":                        dataSourceExchangeAsset(),
+	"anypoint_exchange_assets":                       dataSourceExchangeAssets(),
 }

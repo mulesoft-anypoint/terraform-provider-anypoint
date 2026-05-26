@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -140,16 +140,9 @@ func dataSourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m a
 	orgid := d.Get("org_id").(string)
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	//request connected app
-	res, httpr, err := pco.connectedappclient.DefaultApi.GetConnectedApp(authctx, orgid, connappid).Execute()
+	res, httpr, err := pco.connectedappclient.DefaultAPI.GetConnectedApp(authctx, orgid, connappid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to read connected-app " + connappid,
@@ -191,15 +184,9 @@ func readScopesByConnectedAppId(ctx context.Context, orgid string, connappid str
 	pco := m.(ProviderConfOutput)
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	limit := 500
-	res, httpr, err := pco.connectedappclient.DefaultApi.GetConnectedAppScopes(authctx, orgid, connappid).Limit(int32(limit)).Execute()
+	res, httpr, err := pco.connectedappclient.DefaultAPI.GetConnectedAppScopes(authctx, orgid, connappid).Limit(int32(limit)).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 
 		return nil, errors.New(details)
 	}
@@ -295,31 +282,32 @@ func flattenConnectedAppData(connappitem *connected_app.ConnectedAppRespExt) map
 }
 
 func flattenConnectedAppScopesData(scopes *connected_app.GetConnectedAppScopes200Response) []any {
-	if scopes != nil {
-		scopes_list := make([]any, len(scopes.GetData()))
-
-		for j, scope := range scopes.GetData() {
-			s := make(map[string]any)
-
-			s["scope"] = scope.GetScope()
-
-			if contextparams, ok := scope.GetContextParamsOk(); ok {
-				if org_id, org_ok := contextparams.GetOrgOk(); org_ok {
-					s["org_id"] = org_id
-				}
-
-				if env_id, env_ok := contextparams.GetEnvIdOk(); env_ok {
-					s["env_id"] = env_id
-				}
-			}
-
-			scopes_list[j] = s
-		}
-
-		return scopes_list
+	if scopes == nil {
+		return nil
 	}
-
-	return nil
+	data := scopes.GetData()
+	scopes_list := make([]any, 0, len(data))
+	for _, scope := range data {
+		name := scope.GetScope()
+		// Anypoint automatically attaches the "profile" scope to "on its
+		// own behalf" connected apps. Skip it so it doesn't surface as
+		// drift against the user's configuration.
+		if strings.EqualFold(name, "profile") {
+			continue
+		}
+		s := make(map[string]any)
+		s["scope"] = name
+		if contextparams, ok := scope.GetContextParamsOk(); ok {
+			if org_id, org_ok := contextparams.GetOrgOk(); org_ok {
+				s["org_id"] = org_id
+			}
+			if env_id, env_ok := contextparams.GetEnvIdOk(); env_ok {
+				s["env_id"] = env_id
+			}
+		}
+		scopes_list = append(scopes_list, s)
+	}
+	return scopes_list
 }
 
 func getConnectedAppAttributes() []string {

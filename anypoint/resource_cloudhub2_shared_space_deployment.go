@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -538,14 +537,7 @@ func resourceCloudhub2SharedSpaceDeploymentCreate(ctx context.Context, d *schema
 	//Execute post deployment
 	res, httpr, err := pco.appmanagerclient.DefaultApi.PostDeployment(authctx, orgid, envid).DeploymentRequestBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create " + name + " deployment for cloudhub 2.0 shared-space.",
@@ -574,14 +566,11 @@ func resourceCloudhub2SharedSpaceDeploymentRead(ctx context.Context, d *schema.R
 	//perform request
 	res, httpr, err := pco.appmanagerclient.DefaultApi.GetDeploymentById(authctx, orgid, envid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to read cloudhub2 deployment " + id + " on shared-space.",
@@ -623,14 +612,7 @@ func resourceCloudhub2SharedSpaceDeploymentUpdate(ctx context.Context, d *schema
 	body := newCloudhub2SharedSpaceDeploymentBody(d)
 	_, httpr, err := pco.appmanagerclient.DefaultApi.PatchDeployment(authctx, orgid, envid, id).DeploymentRequestBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to update deployment " + name + " on cloudhub 2.0 shared-space.",
@@ -652,14 +634,7 @@ func resourceCloudhub2SharedSpaceDeploymentDelete(ctx context.Context, d *schema
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
 	httpr, err := pco.appmanagerclient.DefaultApi.DeleteDeployment(authctx, orgid, envid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete deployment " + name + " on cloudhub 2.0 shared-space.",

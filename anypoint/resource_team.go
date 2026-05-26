@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -101,14 +100,7 @@ func resourceTeamCreate(ctx context.Context, d *schema.ResourceData, m any) diag
 	//request user creation
 	res, httpr, err := pco.teamclient.DefaultAPI.CreateTeam(authctx, orgid).TeamPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create team ",
@@ -136,14 +128,11 @@ func resourceTeamRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	//request roles
 	res, httpr, err := pco.teamclient.DefaultAPI.GetTeam(authctx, orgid, teamid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get team " + teamid,
@@ -182,14 +171,7 @@ func resourceTeamUpdate(ctx context.Context, d *schema.ResourceData, m any) diag
 		//request user creation
 		_, httpr, err := pco.teamclient.DefaultAPI.UpdateTeam(authctx, orgid, teamid).TeamPatchBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to patch team " + teamid,
@@ -206,14 +188,7 @@ func resourceTeamUpdate(ctx context.Context, d *schema.ResourceData, m any) diag
 		//request user creation
 		_, httpr, err := pco.teamclient.DefaultAPI.MoveTeam(authctx, orgid, teamid).TeamPutBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to move team " + teamid,
@@ -237,14 +212,7 @@ func resourceTeamDelete(ctx context.Context, d *schema.ResourceData, m any) diag
 	//perform request
 	httpr, err := pco.teamclient.DefaultAPI.DeleteTeam(authctx, orgid, teamid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete team " + teamid,

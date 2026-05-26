@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -121,14 +120,7 @@ func resourcePrivateSpaceTransitGatewayCreate(ctx context.Context, d *schema.Res
 	body := newPrivateSpaceTransitGatewayPostBody(d)
 	res, httpr, err := pco.privatespaceclient.DefaultAPI.CreatePrivateSpaceTransitGateway(authctx, orgid, psid).TransitGatewayPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Create transit gateway " + d.Get("name").(string) + " for private space " + psid,
@@ -153,14 +145,11 @@ func resourcePrivateSpaceTransitGatewayRead(ctx context.Context, d *schema.Resou
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	list, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpaceTransitGateways(authctx, orgid, psid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Read transit gateway " + tgwid + " for private space " + psid,
@@ -206,14 +195,7 @@ func resourcePrivateSpaceTransitGatewayUpdate(ctx context.Context, d *schema.Res
 		body := private_space.NewTransitGatewayPatchRoutesBody(ListInterface2ListStrings(d.Get("routes").(*schema.Set).List()))
 		_, httpr, err := pco.privatespaceclient.DefaultAPI.UpdatePrivateSpaceTransitGatewayRoutes(authctx, orgid, psid, tgwid).TransitGatewayPatchRoutesBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to Update routes for transit gateway " + tgwid,
@@ -227,14 +209,7 @@ func resourcePrivateSpaceTransitGatewayUpdate(ctx context.Context, d *schema.Res
 		body := private_space.NewTransitGatewayPatchNameBody(d.Get("name").(string))
 		_, httpr, err := pco.privatespaceclient.DefaultAPI.UpdateOrgTransitGatewayName(authctx, orgid, tgwid).TransitGatewayPatchNameBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to Update name for transit gateway " + tgwid,
@@ -258,14 +233,7 @@ func resourcePrivateSpaceTransitGatewayDelete(ctx context.Context, d *schema.Res
 	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
 	httpr, err := pco.privatespaceclient.DefaultAPI.DeletePrivateSpaceTransitGateway(authctx, orgid, psid, tgwid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Delete transit gateway " + tgwid + " for private space " + psid,

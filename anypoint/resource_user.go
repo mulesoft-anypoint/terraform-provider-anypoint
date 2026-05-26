@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -179,14 +178,7 @@ func resourceUserCreate(ctx context.Context, d *schema.ResourceData, m any) diag
 	//perform request
 	res, httpr, err := pco.userclient.DefaultApi.OrganizationsOrgIdUsersPost(authctx, orgid).UserPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create user " + username,
@@ -214,14 +206,11 @@ func resourceUserRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	//perform request
 	res, httpr, err := pco.userclient.DefaultApi.OrganizationsOrgIdUsersUserIdGet(authctx, orgid, userid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to retrieve user " + userid,
@@ -260,14 +249,7 @@ func resourceUserUpdate(ctx context.Context, d *schema.ResourceData, m any) diag
 		//request user creation
 		_, httpr, err := pco.userclient.DefaultApi.OrganizationsOrgIdUsersUserIdPut(authctx, orgid, userid).UserPutBody(*body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update user " + userid,
@@ -292,14 +274,7 @@ func resourceUserDelete(ctx context.Context, d *schema.ResourceData, m any) diag
 	//perform request
 	httpr, err := pco.userclient.DefaultApi.OrganizationsOrgIdUsersUserIdDelete(authctx, orgid, userid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete user " + userid,

@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -91,14 +90,7 @@ func resourceFabricsAssociationsCreate(ctx context.Context, d *schema.ResourceDa
 	//prepare request
 	_, httpr, err := pco.rtfclient.DefaultApi.PostFabricsAssociations(authctx, orgid, fabricsid).FabricsAssociationsPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create fabrics " + fabricsid + " associations ",
@@ -128,14 +120,11 @@ func resourceFabricsAssociationsRead(ctx context.Context, d *schema.ResourceData
 	//perform request
 	res, httpr, err := pco.rtfclient.DefaultApi.GetFabricsAssociations(authctx, orgid, fabricsid).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to read fabrics " + fabricsid + " associations",
@@ -171,14 +160,7 @@ func resourceFabricsAssociationsDelete(ctx context.Context, d *schema.ResourceDa
 	//perform request
 	_, httpr, err := pco.rtfclient.DefaultApi.PostFabricsAssociations(authctx, orgid, fabricsid).FabricsAssociationsPostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to delete fabrics " + fabricsid,

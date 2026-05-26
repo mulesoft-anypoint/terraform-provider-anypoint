@@ -3,7 +3,6 @@ package anypoint
 import (
 	"context"
 	"fmt"
-	"io"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -113,14 +112,7 @@ func resourceRoleGroupRolesCreate(ctx context.Context, d *schema.ResourceData, m
 	//perform request
 	_, httpr, err := pco.roleclient.DefaultApi.OrganizationsOrgIdRolegroupsRolegroupIdRolesPost(authctx, org_id, rolegroup_id).RequestBody(body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to assign roles to rolegroup " + rolegroup_id,
@@ -151,14 +143,11 @@ func resourceRoleGroupRolesRead(ctx context.Context, d *schema.ResourceData, m a
 	//perform request
 	res, httpr, err := pco.roleclient.DefaultApi.OrganizationsOrgIdRolegroupsRolegroupIdRolesGet(authctx, org_id, rolegroup_id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get rolegroup " + rolegroup_id + " assigned roles",
@@ -212,14 +201,7 @@ func resourceRoleGroupRolesDelete(ctx context.Context, d *schema.ResourceData, m
 	//perform request
 	_, httpr, err := pco.roleclient.DefaultApi.OrganizationsOrgIdRolegroupsRolegroupIdRolesDelete(authctx, org_id, rolegroup_id).RequestBody(body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to Delete rolegroup roles",

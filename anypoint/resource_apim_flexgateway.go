@@ -499,14 +499,7 @@ func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, 
 	// execute post request
 	res, httpr, err := pco.apimclient.DefaultApi.PostApimInstance(authctx, orgid, envid).ApimInstancePostBody(*body).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
-		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to create API flex gateway for org " + orgid + " and env " + envid,
@@ -546,14 +539,7 @@ func resourceApimFlexGatewayUpstreamsCreate(ctx context.Context, d *schema.Resou
 			//execute post upstream
 			_, httpr, err := pco.apimupstreamclient.DefaultApi.PostApimInstanceUpstream(authctx, orgid, envid, id).UpstreamPostBody(*body).Execute()
 			if err != nil {
-				var details error
-				if httpr != nil && httpr.StatusCode >= 400 {
-					defer httpr.Body.Close()
-					b, _ := io.ReadAll(httpr.Body)
-					details = errors.New(string(b))
-				} else {
-					details = err
-				}
+				details := errors.New(extractAPIErrorDetail(err, httpr))
 				diags = append(diags, diag.Diagnostic{
 					Severity: diag.Error,
 					Summary:  "Unable to create Flex Gateway upstream " + body.GetLabel() + " for instance " + id,
@@ -585,14 +571,11 @@ func resourceApimFlexGatewayRead(ctx context.Context, d *schema.ResourceData, m 
 
 	res, httpr, err := pco.apimclient.DefaultApi.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
 	if err != nil {
-		var details string
-		if httpr != nil && httpr.StatusCode >= 400 {
-			defer httpr.Body.Close()
-			b, _ := io.ReadAll(httpr.Body)
-			details = string(b)
-		} else {
-			details = err.Error()
+		if httpr != nil && httpr.StatusCode == 404 {
+			d.SetId("")
+			return nil
 		}
+		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Unable to get API manager's flex gateway instance",
@@ -638,14 +621,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 			id := item["id"].(string)
 			_, httpr, err := pco.apimupstreamclient.DefaultApi.PatchApimInstanceUpstream(authctx, orgid, envid, apimid, id).UpstreamPatchBody(*body).Execute()
 			if err != nil {
-				var details error
-				if httpr != nil && httpr.StatusCode >= 400 {
-					defer httpr.Body.Close()
-					b, _ := io.ReadAll(httpr.Body)
-					details = errors.New(string(b))
-				} else {
-					details = err
-				}
+				details := errors.New(extractAPIErrorDetail(err, httpr))
 				diags = append(diags, diag.Diagnostic{
 					Severity: diag.Error,
 					Summary:  "Unable to update Flex Gateway upstream " + id + " for instance " + apimid,
@@ -661,14 +637,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 		for _, body := range bodies {
 			_, httpr, err := pco.apimupstreamclient.DefaultApi.PostApimInstanceUpstream(authctx, orgid, envid, apimid).UpstreamPostBody(*body).Execute()
 			if err != nil {
-				var details error
-				if httpr != nil && httpr.StatusCode >= 400 {
-					defer httpr.Body.Close()
-					b, _ := io.ReadAll(httpr.Body)
-					details = errors.New(string(b))
-				} else {
-					details = err
-				}
+				details := errors.New(extractAPIErrorDetail(err, httpr))
 				diags = append(diags, diag.Diagnostic{
 					Severity: diag.Error,
 					Summary:  "Unable to create Flex Gateway upstream " + body.GetLabel() + " for instance " + apimid,
@@ -683,14 +652,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 		authctx := getApimAuthCtx(ctx, &pco)
 		_, httpr, err := pco.apimclient.DefaultApi.PatchApimInstance(authctx, orgid, envid, apimid).Body(body).Execute()
 		if err != nil {
-			var details error
-			if httpr != nil && httpr.StatusCode >= 400 {
-				defer httpr.Body.Close()
-				b, _ := io.ReadAll(httpr.Body)
-				details = errors.New(string(b))
-			} else {
-				details = err
-			}
+			details := errors.New(extractAPIErrorDetail(err, httpr))
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "Unable to update Flex Gateway instance " + apimid,
@@ -706,14 +668,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 			id := item["id"].(string)
 			httpr, err := pco.apimupstreamclient.DefaultApi.DeleteApimInstanceUpstream(authctx, orgid, envid, apimid, id).Execute()
 			if err != nil {
-				var details error
-				if httpr != nil && httpr.StatusCode >= 400 {
-					defer httpr.Body.Close()
-					b, _ := io.ReadAll(httpr.Body)
-					details = errors.New(string(b))
-				} else {
-					details = err
-				}
+				details := errors.New(extractAPIErrorDetail(err, httpr))
 				diags = append(diags, diag.Diagnostic{
 					Severity: diag.Error,
 					Summary:  "Unable to remove Flex Gateway upstream " + id + " for instance " + apimid,
@@ -741,13 +696,7 @@ func resourceApimFlexGatewayRoutingUpdate(ctx context.Context, d *schema.Resourc
 		// patch
 		_, httpr, err := pco.apimclient.DefaultApi.PatchApimInstance(authctx, orgid, envid, id).Body(body).Execute()
 		if err != nil {
-			var details string
-			if httpr != nil && httpr.StatusCode >= 400 {
-				b, _ := io.ReadAll(httpr.Body)
-				details = string(b)
-			} else {
-				details = err.Error()
-			}
+			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "unable to update api manager's flex gateway instance " + id + " with routing parameters ",
