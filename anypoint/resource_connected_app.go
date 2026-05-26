@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -20,7 +21,6 @@ func resourceConnectedApp() *schema.Resource {
 		ReadContext:   resourceConnectedAppRead,
 		UpdateContext: resourceConnectedAppUpdate,
 		DeleteContext: resourceConnectedAppDelete,
-		CustomizeDiff: customizeDiffConnectedApp,
 		Description: `
 		Creates and manage a ` + "`" + `connected app` + "`" + `.
 		`,
@@ -100,8 +100,9 @@ func resourceConnectedApp() *schema.Resource {
 			},
 			"scope": {
 				Description: "The scopes this connected app has authorization to work on. " +
-					"For `client_credentials` connected apps, scopes are compared as an " +
-					"unordered set, so reordering scope blocks does not produce a diff.",
+					"Do not declare the `profile` scope: Anypoint attaches it automatically to " +
+					"`client_credentials` connected apps, and the Read step filters it out of " +
+					"state, so declaring it in configuration would create a perpetual diff.",
 				Type:     schema.TypeList,
 				Optional: true,
 				Elem: &schema.Resource{
@@ -109,7 +110,17 @@ func resourceConnectedApp() *schema.Resource {
 						"scope": {
 							Type:        schema.TypeString,
 							Required:    true,
-							Description: "Scope",
+							Description: "Scope name. The reserved `profile` scope is not allowed here — it is platform-managed.",
+							ValidateDiagFunc: func(v any, p cty.Path) diag.Diagnostics {
+								if s, ok := v.(string); ok && strings.EqualFold(s, "profile") {
+									return diag.Diagnostics{diag.Diagnostic{
+										Severity: diag.Error,
+										Summary:  "Reserved scope \"profile\" cannot be declared",
+										Detail:   "Anypoint attaches the `profile` scope automatically to `client_credentials` connected apps. The provider strips it from state on Read, so declaring it in configuration produces a perpetual diff. Remove the scope block (or replace it with a real scope name) to fix the plan.",
+									}}
+								}
+								return nil
+							},
 						},
 						"org_id": {
 							Type:        schema.TypeString,
@@ -492,75 +503,6 @@ func newConnectedAppPatchBody(d *schema.ResourceData) *connected_app.ConnectedAp
 		body.SetOwnerUserId(userid.(string))
 	}
 	return body
-}
-
-// customizeDiffConnectedApp clears the `scope` diff when the prior state and
-// configured scopes describe the same set. Using DiffSuppressFunc with
-// d.GetChange("scope") is unreliable for a TypeList of blocks: at diff time
-// the SDK returns (state, state) instead of (state, config), so a removed
-// block is silently dropped. ResourceDiff.GetChange returns (state, config)
-// correctly during CustomizeDiff.
-func customizeDiffConnectedApp(ctx context.Context, d *schema.ResourceDiff, m any) error {
-	if !d.HasChange("scope") {
-		return nil
-	}
-	oldV, newV := d.GetChange("scope")
-	oldList, _ := oldV.([]any)
-	newList, _ := newV.([]any)
-	if connectedAppScopeSetsEqual(oldList, newList) {
-		return d.Clear("scope")
-	}
-	return nil
-}
-
-// connectedAppScopeSetsEqual compares two scope block lists as unordered
-// sets, ignoring the platform-added "profile" scope.
-func connectedAppScopeSetsEqual(a, b []any) bool {
-	a = filterProfileScope(a)
-	b = filterProfileScope(b)
-	if len(a) != len(b) {
-		return false
-	}
-	keys := make(map[string]int, len(a))
-	for _, item := range a {
-		keys[connectedAppScopeKey(item)]++
-	}
-	for _, item := range b {
-		k := connectedAppScopeKey(item)
-		if keys[k] == 0 {
-			return false
-		}
-		keys[k]--
-	}
-	return true
-}
-
-// connectedAppScopeKey returns a stable key for a scope block.
-func connectedAppScopeKey(item any) string {
-	m, _ := item.(map[string]any)
-	scope, _ := m["scope"].(string)
-	orgID, _ := m["org_id"].(string)
-	envID, _ := m["env_id"].(string)
-	return scope + "|" + orgID + "|" + envID
-}
-
-// filterProfileScope removes the platform-added "profile" scope, which
-// Anypoint attaches automatically to "on its own behalf" connected apps.
-func filterProfileScope(scopes []any) []any {
-	out := make([]any, 0, len(scopes))
-	for _, scope := range scopes {
-		m, ok := scope.(map[string]any)
-		if !ok {
-			out = append(out, scope)
-			continue
-		}
-		name, _ := m["scope"].(string)
-		if strings.EqualFold(name, "profile") {
-			continue
-		}
-		out = append(out, scope)
-	}
-	return out
 }
 
 /*
