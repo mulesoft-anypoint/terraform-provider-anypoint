@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -49,12 +48,9 @@ Depending on the ` + "`" + `role` + "`" + `, some roles are environment scoped o
 				Description: "The master organization id where the team is defined.",
 			},
 			"roles": {
-				Type:     schema.TypeList,
-				Required: true,
-				ForceNew: true,
-				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
-					return equalTeamRoles(d.GetChange("roles"))
-				},
+				Type:        schema.TypeList,
+				Required:    true,
+				ForceNew:    true,
 				Description: "The roles (permissions) of the team.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -161,6 +157,7 @@ func resourceTeamRolesRead(ctx context.Context, d *schema.ResourceData, m any) d
 	defer httpr.Body.Close()
 	//process result
 	roles := flattenTeamRolesData(res.Data)
+	roles = filterOwnedTeamRoles(roles, d.Get("roles").([]any))
 	//save in data source schema
 	if err := d.Set("roles", roles); err != nil {
 		diags = append(diags, diag.Diagnostic{
@@ -283,112 +280,62 @@ func newTeamRolesDeleteBody(d *schema.ResourceData) []team_roles.TeamRoleDeleteB
 	return body
 }
 
-// Compares old and new values of roles
-// returns true if they are the same, false otherwise
-func equalTeamRoles(old, new any) bool {
-	old_list := old.([]any)
-	new_list := new.([]any)
-	old_list = FilterMapList(old_list, rolesSkipFilter)
-	new_list = FilterMapList(new_list, rolesSkipFilter)
-	sortMapListRoles(old_list)
-	sortMapListRoles(new_list)
-	if len(old_list) != len(new_list) {
-		return false
-	}
-	for i := range old_list {
-		if !equalTeamRole(old_list[i], new_list[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// compares 2 singles roles
-func equalTeamRole(old, new any) bool {
-	old_role := old.(map[string]any)
-	new_role := new.(map[string]any)
-
-	ridkey := "role_id"
-	cparamskey := "context_params"
-
-	if old_role[ridkey].(string) != new_role[ridkey].(string) {
-		return false
-	}
-	if !equalTeamRoleContextParams(old_role[cparamskey], new_role[cparamskey]) {
-		return false
-	}
-	return true
-}
-
-// compares 2 role contexts
-func equalTeamRoleContextParams(old, new any) bool {
-	old_cparams := old.(map[string]any)
-	new_cparams := new.(map[string]any)
-
-	for k := range old_cparams {
-		oldVal, oldOk := old_cparams[k].(string)
-		newVal, newOk := new_cparams[k].(string)
-
-		if !oldOk && !newOk {
-			// Both values are not strings. Check if both are actually nil.
-			if old_cparams[k] != nil || new_cparams[k] != nil {
-				return false // One is nil and the other is some non-nil non-string
+// filterOwnedTeamRoles restricts the API response to roles owned by this
+// resource. Anypoint auto-grants roles (notably the Business Group Viewer)
+// when a team is created or modified; leaving them in state surfaces as
+// permanent drift against the user's configuration and forces a recreate.
+//
+// When state already lists roles (steady state), keep only API entries whose
+// (role_id, org, envId) identity matches the owned set. On import the owned
+// list is empty — fall back to dropping only the well-known auto-grants so
+// the imported state mirrors what the user can realistically manage.
+func filterOwnedTeamRoles(apiRoles, ownedRoles []any) []any {
+	if len(ownedRoles) == 0 {
+		out := make([]any, 0, len(apiRoles))
+		for _, r := range apiRoles {
+			m, ok := r.(map[string]any)
+			if !ok {
+				continue
 			}
-			// Both are nil, treat as equal, continue checking next key
-		} else if oldOk && newOk {
-			// Both values are strings, compare them
-			if oldVal != newVal {
-				return false
+			if rid, _ := m["role_id"].(string); rid == BG_VIEWER_ROLE_ID {
+				continue
 			}
-		} else {
-			// One is a string and the other is either nil or some other non-string type
-			return false
+			out = append(out, r)
+		}
+		return out
+	}
+	owned := make(map[string]bool, len(ownedRoles))
+	for _, r := range ownedRoles {
+		owned[teamRoleIdentity(r)] = true
+	}
+	out := make([]any, 0, len(apiRoles))
+	for _, r := range apiRoles {
+		if owned[teamRoleIdentity(r)] {
+			out = append(out, r)
 		}
 	}
+	return out
+}
 
-	// Also check for any keys in new_cparams that are not in old_cparams
-	for k := range new_cparams {
-		if _, exists := old_cparams[k]; !exists {
-			return false
+// teamRoleIdentity builds a stable identity key for a role assignment from
+// role_id and the context scope (org, envId). Two assignments are considered
+// the same iff this key matches.
+func teamRoleIdentity(role any) string {
+	m, ok := role.(map[string]any)
+	if !ok {
+		return ""
+	}
+	rid, _ := m["role_id"].(string)
+	var org, env string
+	if cp, ok := m["context_params"].(map[string]any); ok {
+		if v, ok := cp["org"].(string); ok {
+			org = v
+		}
+		if v, ok := cp["envId"].(string); ok {
+			env = v
 		}
 	}
-
-	return true
-}
-
-// filter for roles to skip when attempting to calculate the diffin
-// the role ids in this function are automatically added when a team is created. Therefore should be skipped
-func rolesSkipFilter(item map[string]any) bool {
-	skip := []string{BG_VIEWER_ROLE_ID}
-	ridkey := "role_id"
-	return !StringInSlice(skip, item[ridkey].(string), false)
-}
-
-// sorts a list of roles by role_id, org, envId
-func sortMapListRoles(roles []any) {
-	sort.SliceStable(roles, func(i, j int) bool {
-		i_elem := roles[i].(map[string]any)
-		j_elem := roles[j].(map[string]any)
-
-		sortAttrA := "role_id"
-		sortAttrB := "context_params"
-		if i_elem[sortAttrA].(string) != j_elem[sortAttrA].(string) {
-			return i_elem[sortAttrA].(string) < j_elem[sortAttrA].(string)
-		}
-
-		sortAttrC := "org"
-		sortAttrD := "envId"
-		i_context := i_elem[sortAttrB].(map[string]any)
-		j_context := j_elem[sortAttrB].(map[string]any)
-		if i_context[sortAttrC] != nil && j_context[sortAttrC] != nil && i_context[sortAttrC].(string) != j_context[sortAttrC].(string) {
-			return i_context[sortAttrC].(string) < j_context[sortAttrC].(string)
-		}
-		if i_context[sortAttrD] != nil && j_context[sortAttrD] != nil && i_context[sortAttrD].(string) != j_context[sortAttrD].(string) {
-			return i_context[sortAttrD].(string) < j_context[sortAttrD].(string)
-		}
-
-		return true
-	})
+	return rid + "|" + org + "|" + env
 }
 
 /*
