@@ -68,8 +68,8 @@ resource "anypoint_exchange_asset" "external_http_api" {
 - `main_file` (String) The main file of the asset package. Required for raml, raml-fragment, oas, wsdl. Write-only.
 - `metadata` (String) Stringified JSON object describing asset projectId, branchId and commitId (Design Center metadata). Write-only.
 - `original_format_version` (String) The version of the API spec format (e.g. '2.0' for OAS 2.0). Write-only.
-- `strict_package` (Boolean) Whether the asset package is immutable (X-Strict-Package header).
-- `tags` (List of String) Tags to associate with the asset. The provider stringifies the list before sending.
+- `strict_package` (Boolean) Whether the asset package is immutable (X-Strict-Package header). Write-only: defaults to false, the Exchange API never returns it.
+- `tags` (List of String) Tags to associate with the asset. The provider stringifies the list before sending. Write-only.
 
 ### Read-Only
 

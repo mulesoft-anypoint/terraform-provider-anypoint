@@ -47,6 +47,7 @@ output "petstore_status" {
 
 - `attributes` (List of Object) (see [below for nested schema](#nestedatt--attributes))
 - `categories` (List of Object) (see [below for nested schema](#nestedatt--categories))
+- `classifier` (String)
 - `contact_email` (String)
 - `contact_name` (String)
 - `created_at` (String)

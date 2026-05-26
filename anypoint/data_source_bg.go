@@ -838,9 +838,11 @@ func getBGCoreAttributes() []string {
 
 func getBGUpdatableAttributes() []string {
 	attributes := [...]string{
-		"name", "owner_id", "entitlements_createenvironments", "entitlements_createsuborgs",
-		"entitlements_globaldeployment", "entitlements_vcoresproduction_assigned", "entitlements_vcoressandbox_assigned",
-		"entitlements_vcoresdesign_assigned", "entitlements_vpcs_assigned", "entitlements_loadbalancer_assigned", "entitlements_vpns_assigned",
+		"name", "owner_id", "session_timeout", "is_federated",
+		"entitlements_createenvironments", "entitlements_createsuborgs", "entitlements_globaldeployment",
+		"entitlements_vcoresproduction_assigned", "entitlements_vcoressandbox_assigned", "entitlements_vcoresdesign_assigned",
+		"entitlements_vpcs_assigned", "entitlements_vpns_assigned", "entitlements_staticips_assigned",
+		"entitlements_loadbalancer_assigned",
 	}
 	return attributes[:]
 }
