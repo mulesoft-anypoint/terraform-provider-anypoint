@@ -18,6 +18,7 @@ var DATASOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_team":                                  dataSourceTeam(),
 	"anypoint_teams":                                 dataSourceTeams(),
 	"anypoint_team_roles":                            dataSourceTeamRoles(),
+	"anypoint_team_role":                             dataSourceTeamRole(),
 	"anypoint_team_members":                          dataSourceTeamMembers(),
 	"anypoint_team_group_mappings":                   dataSourceTeamGroupMappings(),
 	"anypoint_dlb":                                   dataSourceDLB(),
