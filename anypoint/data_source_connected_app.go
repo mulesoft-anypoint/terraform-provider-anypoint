@@ -140,7 +140,7 @@ func dataSourceConnectedAppRead(ctx context.Context, d *schema.ResourceData, m a
 	orgid := d.Get("org_id").(string)
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	//request connected app
-	res, httpr, err := pco.connectedappclient.DefaultApi.GetConnectedApp(authctx, orgid, connappid).Execute()
+	res, httpr, err := pco.connectedappclient.DefaultAPI.GetConnectedApp(authctx, orgid, connappid).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -184,7 +184,7 @@ func readScopesByConnectedAppId(ctx context.Context, orgid string, connappid str
 	pco := m.(ProviderConfOutput)
 	authctx := getConnectedAppAuthCtx(ctx, &pco)
 	limit := 500
-	res, httpr, err := pco.connectedappclient.DefaultApi.GetConnectedAppScopes(authctx, orgid, connappid).Limit(int32(limit)).Execute()
+	res, httpr, err := pco.connectedappclient.DefaultAPI.GetConnectedAppScopes(authctx, orgid, connappid).Limit(int32(limit)).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 

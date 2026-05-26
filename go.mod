@@ -14,7 +14,7 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1
 	github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2 v0.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/authorization v0.3.0
-	github.com/mulesoft-anypoint/anypoint-client-go/connected_app v1.1.1
+	github.com/mulesoft-anypoint/anypoint-client-go/connected_app v1.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/dlb v0.5.0
 	github.com/mulesoft-anypoint/anypoint-client-go/env v0.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/flexgateway v0.1.1
