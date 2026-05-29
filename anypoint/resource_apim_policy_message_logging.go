@@ -218,7 +218,7 @@ func resourceApimInstancePolicyMessageLoggingCreate(ctx context.Context, d *sche
 	//prepare body
 	body := newApimPolicyMessageLoggingBody(d)
 	//perform request
-	res, httpr, err := pco.apimpolicyclient.DefaultApi.PostApimPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
+	res, httpr, err := pco.apimpolicyclient.DefaultAPI.PostApimPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -257,7 +257,7 @@ func resourceApimInstancePolicyMessageLoggingRead(ctx context.Context, d *schema
 	}
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.apimpolicyclient.DefaultApi.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	res, httpr, err := pco.apimpolicyclient.DefaultAPI.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -303,7 +303,7 @@ func resourceApimInstancePolicyMessageLoggingUpdate(ctx context.Context, d *sche
 		//prepare body
 		body := newApimPolicyMessageLoggingPatchBody(d)
 		//perform request
-		_, httpr, err := pco.apimpolicyclient.DefaultApi.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
+		_, httpr, err := pco.apimpolicyclient.DefaultAPI.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
 		if err != nil {
 			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
@@ -337,7 +337,7 @@ func resourceApimInstancePolicyMessageLoggingDelete(ctx context.Context, d *sche
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	httpr, err := pco.apimpolicyclient.DefaultApi.DeleteApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	httpr, err := pco.apimpolicyclient.DefaultAPI.DeleteApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -362,7 +362,7 @@ func enableApimInstancePolicyMessageLogging(ctx context.Context, d *schema.Resou
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	_, httpr, err := pco.apimpolicyclient.DefaultApi.EnableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	_, httpr, err := pco.apimpolicyclient.DefaultAPI.EnableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -384,7 +384,7 @@ func disableApimInstancePolicyMessageLogging(ctx context.Context, d *schema.Reso
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	_, httpr, err := pco.apimpolicyclient.DefaultApi.DisableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	_, httpr, err := pco.apimpolicyclient.DefaultAPI.DisableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{

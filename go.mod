@@ -9,7 +9,7 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/ame_binding v1.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/amq v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0
-	github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.0.1
+	github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.2.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1
 	github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2 v0.1.0
@@ -42,6 +42,8 @@ require (
 )
 
 require github.com/mulesoft-anypoint/anypoint-client-go/exchange_assets v0.0.4
+
+require gopkg.in/validator.v2 v2.0.1 // indirect
 
 require (
 	github.com/agext/levenshtein v1.2.3 // indirect

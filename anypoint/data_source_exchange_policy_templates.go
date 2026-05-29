@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -58,6 +59,18 @@ func dataSourceExchangePolicyTemplates() *schema.Resource {
 							Type:        schema.TypeBool,
 							Optional:    true,
 							Description: "Whether to include automated policies only",
+						},
+						"injection_point": {
+							Type:        schema.TypeString,
+							Optional:    true,
+							Description: "Filter by policy injection point (\"inbound\" or \"outbound\").",
+							ValidateFunc: func(val any, key string) (warns []string, errs []error) {
+								v := val.(string)
+								if v != "" && v != "inbound" && v != "outbound" {
+									errs = append(errs, fmt.Errorf("%q must be 'inbound' or 'outbound', got: %s", key, v))
+								}
+								return
+							},
 						},
 					},
 				},
@@ -222,9 +235,57 @@ func dataSourceExchangePolicyTemplates() *schema.Resource {
 						"configuration": {
 							Type:        schema.TypeList,
 							Computed:    true,
-							Description: "The policy template list of property configurations.",
+							Description: "Legacy policy configuration list (mule3/older mule4). Empty for modern policies that return a JSON Schema in `configuration_schema`.",
 							Elem: &schema.Resource{
 								Schema: EXCHANGE_POLICY_TEMPLATE_CONFIG,
+							},
+						},
+						"configuration_schema": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Modern policy configuration as a JSON Schema (draft-2019-09) string. Empty for legacy policies.",
+						},
+						"schema_id": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Identifier of the underlying JSON schema for modern policies.",
+						},
+						"split_asset_model": {
+							Type:        schema.TypeBool,
+							Computed:    true,
+							Description: "Whether the policy uses the split asset model.",
+						},
+						"ootb_upgradeable_impl": {
+							Type:        schema.TypeBool,
+							Computed:    true,
+							Description: "Whether the OOTB implementation supports in-place upgrades.",
+						},
+						"supported_java_versions": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: "Java runtime versions this policy implementation is compatible with.",
+							Elem:        &schema.Schema{Type: schema.TypeString},
+						},
+						"interface_scope": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: "Scopes at which the policy can be applied (e.g. \"api\", \"resource\").",
+							Elem:        &schema.Schema{Type: schema.TypeString},
+						},
+						"interface_transformation": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: "Modern replacement for the flat raml/oas snippet fields.",
+							Elem: &schema.Resource{
+								Schema: EXCHANGE_POLICY_TEMPLATE_INTERFACE_TRANSFORMATION,
+							},
+						},
+						"all_versions": {
+							Type:        schema.TypeList,
+							Computed:    true,
+							Description: "The policy template list of versions.",
+							Elem: &schema.Resource{
+								Schema: EXCHANGE_POLICY_TEMPLATE_ALL_VERSIONS,
 							},
 						},
 					},
@@ -240,7 +301,7 @@ func dataSourceExchangePolicyTemplatesRead(ctx context.Context, d *schema.Resour
 	searchOpts := d.Get("params").(*schema.Set)
 	orgid := d.Get("org_id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	req := pco.apimpolicyclient.DefaultApi.GetOrgExchangePolicyTemplates(authctx, orgid)
+	req := pco.apimpolicyclient.DefaultAPI.GetOrgExchangePolicyTemplates(authctx, orgid)
 	req, errDiags := parseExchangePolicyTemplatesSearchOpts(req, searchOpts)
 	if errDiags.HasError() {
 		diags = append(diags, errDiags...)
@@ -272,7 +333,7 @@ func dataSourceExchangePolicyTemplatesRead(ctx context.Context, d *schema.Resour
 	return diags
 }
 
-func parseExchangePolicyTemplatesSearchOpts(req apim_policy.DefaultApiGetOrgExchangePolicyTemplatesRequest, params *schema.Set) (apim_policy.DefaultApiGetOrgExchangePolicyTemplatesRequest, diag.Diagnostics) {
+func parseExchangePolicyTemplatesSearchOpts(req apim_policy.DefaultAPIGetOrgExchangePolicyTemplatesRequest, params *schema.Set) (apim_policy.DefaultAPIGetOrgExchangePolicyTemplatesRequest, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if params.Len() == 0 {
 		return req, diags
@@ -301,6 +362,10 @@ func parseExchangePolicyTemplatesSearchOpts(req apim_policy.DefaultApiGetOrgExch
 		}
 		if k == "automated_only" {
 			req = req.AutomatedOnly(toBool(v))
+			continue
+		}
+		if k == "injection_point" && toString(v) != "" {
+			req = req.InjectionPoint(toString(v))
 			continue
 		}
 	}
