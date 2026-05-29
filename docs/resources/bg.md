@@ -41,16 +41,60 @@ resource "anypoint_bg" "bg" {
 
 ### Optional
 
+- `entitlements_anggovernance_level` (Number, Deprecated) The ANG governance level for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_anypointsecurityedgepolicies_enabled` (Boolean, Deprecated) Whether Anypoint Security edge policies are enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_anypointsecuritytokenization_enabled` (Boolean, Deprecated) Whether Anypoint Security tokenization is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_apicommunitymanager_enabled` (Boolean, Deprecated) Whether api community manager is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_apimonitoring_schedules` (Number, Deprecated) The number of api monitoring schedules for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_apiquery_enabled` (Boolean, Deprecated) Whether api queries are enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_apiquery_productsku` (Number, Deprecated) The number of api query product sku for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_apiqueryc360_enabled` (Boolean, Deprecated) Whether api query C360 is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_apis_enabled` (Boolean, Deprecated) Whether APIs are enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_appviz` (Boolean, Deprecated) Whether the application visualization entitlement is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_armalerts` (Boolean, Deprecated) Whether arm alerts are enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_autoscaling` (Boolean, Deprecated) Whether autoscaling is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_cam_enabled` (Boolean, Deprecated) Whether CAM is enabled for this organization. Read-only — tied to the organization's subscription.
 - `entitlements_createenvironments` (Boolean) Whether this organization can have additional environments.
 - `entitlements_createsuborgs` (Boolean) Whether this organization can create sub organizations (descendants).
+- `entitlements_crowd_environments` (Boolean, Deprecated) Whether the Crowd environments entitlement is enabled. Read-only — tied to the organization's subscription.
+- `entitlements_crowd_hideapimanagerdesigner` (Boolean, Deprecated) Whether the Crowd hide API Manager designer entitlement is enabled. Read-only — tied to the organization's subscription.
+- `entitlements_crowd_hideformerapiplatform` (Boolean, Deprecated) Whether the Crowd hide former API platform entitlement is enabled. Read-only — tied to the organization's subscription.
+- `entitlements_crowdselfservicemigration_enabled` (Boolean, Deprecated) Whether Crowd self-service migration is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_designcenter_api` (Boolean, Deprecated) Whether the design center api is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_designcenter_mozart` (Boolean, Deprecated) Whether the design center mozart is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_exchange2_enabled` (Boolean, Deprecated) Whether Exchange v2 is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_externalidentity` (Boolean, Deprecated) Whether an external identity provider (IDP) was assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_gateways_assigned` (Number, Deprecated) The number of gateways assigned to this organization. Read-only — tied to the organization's subscription.
 - `entitlements_globaldeployment` (Boolean) Whether this organization can have global deployments.
+- `entitlements_kpidashboard_enabled` (Boolean, Deprecated) Whether the KPI dashboard is enabled for this organization. Read-only — tied to the organization's subscription.
 - `entitlements_loadbalancer_assigned` (Number) The number of dedicated load balancers (DLB) assigned to this organization.
+- `entitlements_messaging_assigned` (Number, Deprecated) The number of messaging units assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_monitoringcenter_productsku` (Number, Deprecated) The number of monitoring center products sku for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_mqadvancedfeatures_enabled` (Boolean, Deprecated) Whether the Anypoint MQ advanced features are enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_mqmessages_addon` (Number, Deprecated) The number of MQ messages addons assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_mqmessages_base` (Number, Deprecated) The number of basic MQ messages assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_mqrequests_addon` (Number, Deprecated) The number of MQ requests addon assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_mqrequests_base` (Number, Deprecated) The number of MQ requests base assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_objectstorekeys_addon` (Number, Deprecated) The number of object store keys addon for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_objectstorekeys_base` (Number, Deprecated) The number of object store keys base for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_objectstorerequestunits_addon` (Number, Deprecated) The number of object store request units addon for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_objectstorerequestunits_base` (Number, Deprecated) The number of object store request units base for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_partnersproduction_assigned` (Number, Deprecated) The number of partners production vcores assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_partnerssandbox_assigned` (Number, Deprecated) The number of partners sandbox vcores assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_pcf` (Boolean, Deprecated) Whether PCF is included for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_runtimefabric` (Boolean, Deprecated) Whether Runtime Fabric (RTF) is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_runtimefabriccloud_enabled` (Boolean, Deprecated) Whether Runtime Fabric Cloud is enabled for this organization. Read-only — tied to the organization's subscription.
+- `entitlements_servicemesh_enabled` (Boolean, Deprecated) Whether Service Mesh is enabled for this organization. Read-only — tied to the organization's subscription.
 - `entitlements_staticips_assigned` (Number) The number of static IPs assigned to this organization.
+- `entitlements_tradingpartnersproduction_assigned` (Number, Deprecated) The number of trading partners production vcores assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_tradingpartnerssandbox_assigned` (Number, Deprecated) The number of trading partners sandbox vcores assigned to this organization. Read-only — tied to the organization's subscription.
 - `entitlements_vcoresdesign_assigned` (Number) The number of design vcores assigned to this organization.
 - `entitlements_vcoresproduction_assigned` (Number) The number of production vcores assigned to this organization.
 - `entitlements_vcoressandbox_assigned` (Number) The number of sandbox vcores assigned to this organization.
 - `entitlements_vpcs_assigned` (Number) The number of VPCs assigned to this organization.
 - `entitlements_vpns_assigned` (Number) The number of VPNs assigned to this organization.
+- `entitlements_workerclouds_assigned` (Number, Deprecated) The number of worker clouds assigned to this organization. Read-only — tied to the organization's subscription.
+- `entitlements_workerloggingoverride_enabled` (Boolean, Deprecated) Whether the logging override on workers is enabled for this organization. Read-only — tied to the organization's subscription.
 - `is_federated` (Boolean) Whether this organization is federated.
 - `last_updated` (String) The last time this resource has been updated locally.
 - `session_timeout` (Number) The organization's session timeout
@@ -60,61 +104,17 @@ resource "anypoint_bg" "bg" {
 - `client_id` (String) The organization client id.
 - `created_at` (String) The time when this organization was created.
 - `domain` (String) The organization's domain
-- `entitlements_anggovernance_level` (Number) The ANG governance level for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_anypointsecurityedgepolicies_enabled` (Boolean) Whether Anypoint Security edge policies are enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_anypointsecuritytokenization_enabled` (Boolean) Whether Anypoint Security tokenization is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_apicommunitymanager_enabled` (Boolean) Whether api community manager is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_apimonitoring_schedules` (Number) The number of api monitoring schedules for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_apiquery_enabled` (Boolean) Whether api queries are enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_apiquery_productsku` (Number) The number of api query product sku for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_apiqueryc360_enabled` (Boolean) Whether api query C360 is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_apis_enabled` (Boolean) Whether APIs are enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_appviz` (Boolean) Whether the application visualization entitlement is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_armalerts` (Boolean) Whether arm alerts are enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_autoscaling` (Boolean) Whether autoscaling is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_cam_enabled` (Boolean) Whether CAM is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_crowd_environments` (Boolean) Whether the Crowd environments entitlement is enabled. Read-only — tied to the organization's subscription.
-- `entitlements_crowd_hideapimanagerdesigner` (Boolean) Whether the Crowd hide API Manager designer entitlement is enabled. Read-only — tied to the organization's subscription.
-- `entitlements_crowd_hideformerapiplatform` (Boolean) Whether the Crowd hide former API platform entitlement is enabled. Read-only — tied to the organization's subscription.
-- `entitlements_crowdselfservicemigration_enabled` (Boolean) Whether Crowd self-service migration is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_designcenter_api` (Boolean) Whether the design center api is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_designcenter_mozart` (Boolean) Whether the design center mozart is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_exchange2_enabled` (Boolean) Whether Exchange v2 is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_externalidentity` (Boolean) Whether an external identity provider (IDP) was assigned to this organization. Read-only — tied to the organization's subscription.
-- `entitlements_gateways_assigned` (Number) The number of gateways assigned to this organization. Read-only — tied to the organization's subscription.
 - `entitlements_hybridautodiscoverproperties` (Boolean) Whether this organization has hybrid auto-discovery properties enabled
 - `entitlements_hybridenabled` (Boolean) Whether this organization has hybrid enabled.
 - `entitlements_hybridinsight` (Boolean) Whether this organization has hybrid insight.
-- `entitlements_kpidashboard_enabled` (Boolean) Whether the KPI dashboard is enabled for this organization. Read-only — tied to the organization's subscription.
 - `entitlements_loadbalancer_reassigned` (Number) The number of dedicated load balancers (DLB) reassigned to this organization.
-- `entitlements_messaging_assigned` (Number) The number of messaging units assigned to this organization. Read-only — tied to the organization's subscription.
-- `entitlements_monitoringcenter_productsku` (Number) The number of monitoring center products sku for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_mqadvancedfeatures_enabled` (Boolean) Whether the Anypoint MQ advanced features are enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_mqmessages_addon` (Number) The number of MQ messages addons assigned to this organization. Read-only — tied to the organization's subscription.
-- `entitlements_mqmessages_base` (Number) The number of basic MQ messages assigned to this organization. Read-only — tied to the organization's subscription.
-- `entitlements_mqrequests_addon` (Number) The number of MQ requests addon assigned to this organization. Read-only — tied to the organization's subscription.
-- `entitlements_mqrequests_base` (Number) The number of MQ requests base assigned to this organization. Read-only — tied to the organization's subscription.
-- `entitlements_objectstorekeys_addon` (Number) The number of object store keys addon for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_objectstorekeys_base` (Number) The number of object store keys base for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_objectstorerequestunits_addon` (Number) The number of object store request units addon for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_objectstorerequestunits_base` (Number) The number of object store request units base for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_partnersproduction_assigned` (Number) The number of partners production vcores assigned to this organization. Read-only — tied to the organization's subscription.
-- `entitlements_partnerssandbox_assigned` (Number) The number of partners sandbox vcores assigned to this organization. Read-only — tied to the organization's subscription.
-- `entitlements_pcf` (Boolean) Whether PCF is included for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_runtimefabric` (Boolean) Whether Runtime Fabric (RTF) is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_runtimefabriccloud_enabled` (Boolean) Whether Runtime Fabric Cloud is enabled for this organization. Read-only — tied to the organization's subscription.
-- `entitlements_servicemesh_enabled` (Boolean) Whether Service Mesh is enabled for this organization. Read-only — tied to the organization's subscription.
 - `entitlements_staticips_reassigned` (Number) The number of static IPs reassigned to this organization.
-- `entitlements_tradingpartnersproduction_assigned` (Number) The number of trading partners production vcores assigned to this organization. Read-only — tied to the organization's subscription.
-- `entitlements_tradingpartnerssandbox_assigned` (Number) The number of trading partners sandbox vcores assigned to this organization. Read-only — tied to the organization's subscription.
 - `entitlements_vcoresdesign_reassigned` (Number) The number of design vcores reassigned to this organization.
 - `entitlements_vcoresproduction_reassigned` (Number) The number of production vcores reassigned to this organization.
 - `entitlements_vcoressandbox_reassigned` (Number) The number of sandbox vcores reassigned to this organization.
 - `entitlements_vpcs_reassigned` (Number) The number of VPCs reassigned to this organization.
 - `entitlements_vpns_reassigned` (Number) The number of VPNs reassigned to this organization.
-- `entitlements_workerclouds_assigned` (Number) The number of worker clouds assigned to this organization. Read-only — tied to the organization's subscription.
 - `entitlements_workerclouds_reassigned` (Number) The number of worker clouds reassigned to this organization
-- `entitlements_workerloggingoverride_enabled` (Boolean) Whether the logging override on workers is enabled for this organization. Read-only — tied to the organization's subscription.
 - `environments` (List of Object) The organization's list of environments (see [below for nested schema](#nestedatt--environments))
 - `id` (String) This organization's unique id generated by the anypoint plaform
 - `idprovider_id` (String) The identity provider if of this organization
