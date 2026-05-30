@@ -128,7 +128,7 @@ func dataSourceApimInstancePoliciesRead(ctx context.Context, d *schema.ResourceD
 	apimid := d.Get("apim_id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.apimpolicyclient.DefaultApi.GetApimPolicies(authctx, orgid, envid, apimid).FullInfo(false).Execute()
+	res, httpr, err := pco.apimpolicyclient.DefaultAPI.GetApimPolicies(authctx, orgid, envid, apimid).FullInfo(false).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
