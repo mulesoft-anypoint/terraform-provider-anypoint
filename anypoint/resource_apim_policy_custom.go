@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/http"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -130,11 +131,24 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 				ForceNew:    true,
 				Description: "the policy template version in anypoint exchange.",
 			},
+			"injection_point": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				Default:      "inbound",
+				ValidateFunc: validation.StringInSlice([]string{"inbound", "outbound"}, false),
+				Description:  "Where the policy is applied. 'inbound' (default) routes through .../policies; 'outbound' routes through .../policies/outbound-policies. Required for credential-injection and LLM-provider policies that are outbound-only.",
+			},
 		},
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
+}
+
+// isOutboundPolicy reports whether the resource is configured to use the outbound endpoint family.
+func isOutboundPolicy(d *schema.ResourceData) bool {
+	return d.Get("injection_point").(string) == "outbound"
 }
 
 func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
@@ -155,7 +169,14 @@ func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.Resou
 		return diags
 	}
 	//perform request
-	res, httpr, err := pco.apimpolicyclient.DefaultAPI.PostApimPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
+	api := pco.apimpolicyclient.DefaultAPI
+	var res *apim_policy.ApimPolicy
+	var httpr *http.Response
+	if isOutboundPolicy(d) {
+		res, httpr, err = api.PostApimOutboundPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
+	} else {
+		res, httpr, err = api.PostApimPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
+	}
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -186,15 +207,24 @@ func resourceApimInstancePolicyCustomRead(ctx context.Context, d *schema.Resourc
 	envid := d.Get("env_id").(string)
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
+	injection := d.Get("injection_point").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, apimid, id, diags = decomposeApimPolicyCustomId(d)
+		orgid, envid, apimid, injection, id, diags = decomposeApimPolicyCustomId(d)
 	}
 	if diags.HasError() {
 		return diags
 	}
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.apimpolicyclient.DefaultAPI.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	api := pco.apimpolicyclient.DefaultAPI
+	var res *apim_policy.ApimPolicy
+	var httpr *http.Response
+	var err error
+	if injection == "outbound" {
+		res, httpr, err = api.GetApimOutboundPolicy(authctx, orgid, envid, apimid, id).Execute()
+	} else {
+		res, httpr, err = api.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	}
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -233,6 +263,7 @@ func resourceApimInstancePolicyCustomRead(ctx context.Context, d *schema.Resourc
 	d.Set("apim_id", apimid)
 	d.Set("env_id", envid)
 	d.Set("org_id", orgid)
+	d.Set("injection_point", injection)
 	return diags
 }
 
@@ -257,7 +288,13 @@ func resourceApimInstancePolicyCustomUpdate(ctx context.Context, d *schema.Resou
 			return diags
 		}
 		//perform request
-		_, httpr, err := pco.apimpolicyclient.DefaultAPI.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
+		api := pco.apimpolicyclient.DefaultAPI
+		var httpr *http.Response
+		if isOutboundPolicy(d) {
+			_, httpr, err = api.PatchApimOutboundPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
+		} else {
+			_, httpr, err = api.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
+		}
 		if err != nil {
 			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
@@ -291,7 +328,14 @@ func resourceApimInstancePolicyCustomDelete(ctx context.Context, d *schema.Resou
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	httpr, err := pco.apimpolicyclient.DefaultAPI.DeleteApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	api := pco.apimpolicyclient.DefaultAPI
+	var httpr *http.Response
+	var err error
+	if isOutboundPolicy(d) {
+		httpr, err = api.DeleteApimOutboundPolicy(authctx, orgid, envid, apimid, id).Execute()
+	} else {
+		httpr, err = api.DeleteApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	}
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -316,7 +360,14 @@ func enableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData,
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	_, httpr, err := pco.apimpolicyclient.DefaultAPI.EnableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	api := pco.apimpolicyclient.DefaultAPI
+	var httpr *http.Response
+	var err error
+	if isOutboundPolicy(d) {
+		_, httpr, err = api.EnableApimOutboundPolicy(authctx, orgid, envid, apimid, id).Execute()
+	} else {
+		_, httpr, err = api.EnableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	}
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -338,7 +389,14 @@ func disableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	_, httpr, err := pco.apimpolicyclient.DefaultAPI.DisableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	api := pco.apimpolicyclient.DefaultAPI
+	var httpr *http.Response
+	var err error
+	if isOutboundPolicy(d) {
+		_, httpr, err = api.DisableApimOutboundPolicy(authctx, orgid, envid, apimid, id).Execute()
+	} else {
+		_, httpr, err = api.DisableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	}
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -439,16 +497,34 @@ func newApimPolicyCustomPointcutDataBody(collection []any) []apim_policy.Pointcu
 	return slice
 }
 
-func decomposeApimPolicyCustomId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
+// decomposeApimPolicyCustomId accepts two composite-id shapes:
+//   - 4-segment: ORG_ID/ENV_ID/APIM_ID/POLICY_ID — legacy, always inbound
+//   - 5-segment: ORG_ID/ENV_ID/APIM_ID/INJECTION_POINT/POLICY_ID — required for outbound
+//
+// Returns (orgId, envId, apimId, injectionPoint, policyId, diags).
+func decomposeApimPolicyCustomId(d *schema.ResourceData) (string, string, string, string, string, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	if len(s) != 4 {
+	switch len(s) {
+	case 4:
+		return s[0], s[1], s[2], "inbound", s[3], diags
+	case 5:
+		injection := s[3]
+		if injection != "inbound" && injection != "outbound" {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Invalid APIM Policy Custom ID format",
+				Detail:   fmt.Sprintf("Expected INJECTION_POINT to be 'inbound' or 'outbound', got %q in %s", injection, d.Id()),
+			})
+			return "", "", "", "", "", diags
+		}
+		return s[0], s[1], s[2], injection, s[4], diags
+	default:
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "Invalid APIM Policy Custom ID format",
-			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/APIM_ID/INSTANCE_ID, got %s", d.Id()),
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/APIM_ID/POLICY_ID or ORG_ID/ENV_ID/APIM_ID/INJECTION_POINT/POLICY_ID, got %s", d.Id()),
 		})
-		return "", "", "", "", diags
+		return "", "", "", "", "", diags
 	}
-	return s[0], s[1], s[2], s[3], diags
 }

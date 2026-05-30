@@ -135,3 +135,30 @@ resource "anypoint_apim_policy_custom" "policy_custom_05" {
     exposeHeaders = true
   })
 }
+
+#Outbound Credential Injection (OAuth2 OBO) Policy Example
+#injection_point = "outbound" routes CRUD through .../apis/{apiId}/policies/outbound-policies
+#instead of the default inbound .../apis/{apiId}/policies path.
+resource "anypoint_apim_policy_custom" "policy_custom_06_outbound_obo" {
+  org_id = var.root_org
+  env_id = var.env_id
+  apim_id = anypoint_apim_mule4.api.id
+  disabled = false
+  asset_group_id="68ef9520-24e9-4cf2-b2f5-620025690913"
+  asset_id="credential-injection-oauth2-obo"
+  asset_version = "1.1.1"
+  injection_point = "outbound"
+
+  configuration_data = jsonencode({
+    flow             = "microsoft-entra-obo"
+    clientId         = var.mule_obo_client_id
+    clientSecret     = var.mule_obo_client_secret
+    tokenEndpoint    = var.token_exchange_endpoint
+    scope            = var.nickel_api_scope
+    timeout          = 10000
+    distributed      = false
+    cibaEnabled      = false
+    subjectTokenType = "urn:ietf:params:oauth:token-type:access_token"
+    targetType       = "audience"
+  })
+}
