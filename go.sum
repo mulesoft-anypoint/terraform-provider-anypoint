@@ -203,8 +203,8 @@ github.com/mulesoft-anypoint/anypoint-client-go/amq v1.0.0 h1:FTUeJeijtxOPlzoBNW
 github.com/mulesoft-anypoint/anypoint-client-go/amq v1.0.0/go.mod h1:xRlQkNnIFD6/pR4o/M/YhnXaK5SpHTGZnL/uaoysGZs=
 github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0 h1:YpF2mAvGrawqHmSIUl0lLPcESfd+54nfCd4vDxg5Mqw=
 github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0/go.mod h1:laA1EsyHnvc7fF1TqEmohyGZx7CMCXvfVItAnhOM0ks=
-github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.2.0 h1:EXc6i97HEMfct+UE3rsLkOThaQZONn4E9D73WI+85Tk=
-github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.2.0/go.mod h1:aCSab2+icg00k8ur845GuxfR9MiS2KPEYumO86pauik=
+github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.3.0 h1:ebxdyWENVuP3fQhwa/eKFrpXXw4quM/TCjlVk4mOKPA=
+github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.3.0/go.mod h1:aCSab2+icg00k8ur845GuxfR9MiS2KPEYumO86pauik=
 github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0 h1:fbtUh0xjk+IrELUGNs9vYiDw9Rgh+OEhiEzVJeKCnaE=
 github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0/go.mod h1:sO7Ob8yVYav3uO6zgpY3c25B8XLG2u6M8C8w1504MXU=
 github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1 h1:EAn805cAB8REdbuOVzER/n8F7t8yXMLfJIfyGq94qQ0=
