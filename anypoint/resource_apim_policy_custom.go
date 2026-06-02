@@ -137,7 +137,14 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 				ForceNew:     true,
 				Default:      "inbound",
 				ValidateFunc: validation.StringInSlice([]string{"inbound", "outbound"}, false),
-				Description:  "Where the policy is applied. 'inbound' (default) routes through .../policies; 'outbound' routes through .../policies/outbound-policies. Required for credential-injection and LLM-provider policies that are outbound-only.",
+				Description:  "Where the policy is applied. 'inbound' (default) creates the policy via `POST .../policies`; 'outbound' creates it via `POST .../xapi/v1/.../policies/outbound-policies` and requires `upstream_id`. Required for credential-injection and LLM-provider policies that are outbound-only.",
+			},
+			"upstream_id": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    true,
+				ForceNew:    true,
+				Description: "Identifier of the upstream this outbound policy is bound to. Required when `injection_point = \"outbound\"` and must be left empty for inbound policies. Reference an `anypoint_api_instance_upstream.<x>.id`.",
 			},
 		},
 		Importer: &schema.ResourceImporter{
@@ -158,36 +165,81 @@ func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.Resou
 	envid := d.Get("env_id").(string)
 	apimid := d.Get("apim_id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	//prepare body
-	body, err := newApimPolicyCustomBody(d)
-	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Unable to parse policy configuration for api " + apimid,
-			Detail:   err.Error(),
-		})
-		return diags
-	}
-	//perform request
 	api := pco.apimpolicyclient.DefaultAPI
-	var res *apim_policy.ApimPolicy
+	var id int32
 	var httpr *http.Response
 	if isOutboundPolicy(d) {
-		res, httpr, err = api.PostApimOutboundPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
+		upstreamId := d.Get("upstream_id").(string)
+		if upstreamId == "" {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Missing upstream_id for outbound policy on api " + apimid,
+				Detail:   "When injection_point = \"outbound\", upstream_id is required and must reference an existing api instance upstream id.",
+			})
+			return diags
+		}
+		apimIdInt, err := strconv.Atoi(apimid)
+		if err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Invalid apim_id for outbound policy",
+				Detail:   "apim_id must be the numeric api instance id, got: " + apimid,
+			})
+			return diags
+		}
+		body, err := newApimPolicyCustomOutboundBody(d, int32(apimIdInt), upstreamId)
+		if err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Unable to parse policy configuration for api " + apimid,
+				Detail:   err.Error(),
+			})
+			return diags
+		}
+		res, hr, err := api.PostApimOutboundPolicy(authctx, orgid, envid, apimid).ApimOutboundPolicyBody(*body).Execute()
+		httpr = hr
+		if err != nil {
+			details := extractAPIErrorDetail(err, httpr)
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Unable to create custom outbound policy for api " + apimid,
+				Detail:   details,
+			})
+			return diags
+		}
+		if len(res) == 0 {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Empty response creating outbound policy for api " + apimid,
+				Detail:   "API returned an empty policy array — expected at least one record per upstream id.",
+			})
+			return diags
+		}
+		id = res[0].GetId()
 	} else {
-		res, httpr, err = api.PostApimPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
-	}
-	if err != nil {
-		details := extractAPIErrorDetail(err, httpr)
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "Unable to create custom policy for api " + apimid,
-			Detail:   details,
-		})
-		return diags
+		body, err := newApimPolicyCustomBody(d)
+		if err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Unable to parse policy configuration for api " + apimid,
+				Detail:   err.Error(),
+			})
+			return diags
+		}
+		res, hr, err := api.PostApimPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
+		httpr = hr
+		if err != nil {
+			details := extractAPIErrorDetail(err, httpr)
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Unable to create custom policy for api " + apimid,
+				Detail:   details,
+			})
+			return diags
+		}
+		id = res.GetId()
 	}
 	defer httpr.Body.Close()
-	id := res.GetId()
 	d.SetId(strconv.Itoa(int(id)))
 	diags = append(diags, resourceApimInstancePolicyCustomRead(ctx, d, m)...)
 	//in case disabled
@@ -215,16 +267,10 @@ func resourceApimInstancePolicyCustomRead(ctx context.Context, d *schema.Resourc
 		return diags
 	}
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	//perform request
+	//perform request — both inbound and outbound policies live on the singular inbound GET endpoint.
 	api := pco.apimpolicyclient.DefaultAPI
-	var res *apim_policy.ApimPolicy
-	var httpr *http.Response
-	var err error
-	if injection == "outbound" {
-		res, httpr, err = api.GetApimOutboundPolicy(authctx, orgid, envid, apimid, id).Execute()
-	} else {
-		res, httpr, err = api.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
-	}
+	res, httpr, err := api.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	_ = injection
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -287,14 +333,9 @@ func resourceApimInstancePolicyCustomUpdate(ctx context.Context, d *schema.Resou
 			})
 			return diags
 		}
-		//perform request
+		//perform request — outbound policies share the singular inbound PATCH endpoint.
 		api := pco.apimpolicyclient.DefaultAPI
-		var httpr *http.Response
-		if isOutboundPolicy(d) {
-			_, httpr, err = api.PatchApimOutboundPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
-		} else {
-			_, httpr, err = api.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
-		}
+		_, httpr, err := api.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
 		if err != nil {
 			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
@@ -329,13 +370,7 @@ func resourceApimInstancePolicyCustomDelete(ctx context.Context, d *schema.Resou
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	api := pco.apimpolicyclient.DefaultAPI
-	var httpr *http.Response
-	var err error
-	if isOutboundPolicy(d) {
-		httpr, err = api.DeleteApimOutboundPolicy(authctx, orgid, envid, apimid, id).Execute()
-	} else {
-		httpr, err = api.DeleteApimPolicy(authctx, orgid, envid, apimid, id).Execute()
-	}
+	httpr, err := api.DeleteApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -361,13 +396,7 @@ func enableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData,
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	api := pco.apimpolicyclient.DefaultAPI
-	var httpr *http.Response
-	var err error
-	if isOutboundPolicy(d) {
-		_, httpr, err = api.EnableApimOutboundPolicy(authctx, orgid, envid, apimid, id).Execute()
-	} else {
-		_, httpr, err = api.EnableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
-	}
+	_, httpr, err := api.EnableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -390,13 +419,7 @@ func disableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	api := pco.apimpolicyclient.DefaultAPI
-	var httpr *http.Response
-	var err error
-	if isOutboundPolicy(d) {
-		_, httpr, err = api.DisableApimOutboundPolicy(authctx, orgid, envid, apimid, id).Execute()
-	} else {
-		_, httpr, err = api.DisableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
-	}
+	_, httpr, err := api.DisableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -420,6 +443,30 @@ func flattenApimPolicyCustomCfg(d *schema.ResourceData, policy *apim_policy.Apim
 	maps.Copy(dst, data)
 	b, _ := json.Marshal(data)
 	return string(b), nil
+}
+
+func newApimPolicyCustomOutboundBody(d *schema.ResourceData, apiVersionId int32, upstreamId string) (*apim_policy.ApimOutboundPolicyBody, error) {
+	body := apim_policy.NewApimOutboundPolicyBodyWithDefaults()
+	if val, ok := d.GetOk("configuration_data"); ok {
+		var cfg map[string]any
+		err := json.Unmarshal([]byte(val.(string)), &cfg)
+		if err != nil {
+			return nil, fmt.Errorf("configuration_data expected to be a valid JSON Object. %s", err.Error())
+		}
+		body.SetConfigurationData(cfg)
+	}
+	body.SetApiVersionId(apiVersionId)
+	if val, ok := d.GetOk("asset_group_id"); ok {
+		body.SetGroupId(val.(string))
+	}
+	if val, ok := d.GetOk("asset_id"); ok {
+		body.SetAssetId(val.(string))
+	}
+	if val, ok := d.GetOk("asset_version"); ok {
+		body.SetAssetVersion(val.(string))
+	}
+	body.SetUpstreamIds([]string{upstreamId})
+	return body, nil
 }
 
 func newApimPolicyCustomBody(d *schema.ResourceData) (*apim_policy.ApimPolicyBody, error) {
