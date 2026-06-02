@@ -315,6 +315,10 @@ func resourceApimInstancePolicyCustomRead(ctx context.Context, d *schema.Resourc
 
 func resourceApimInstancePolicyCustomUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
+	// Capture the planned `disabled` value up front — the mid-Update Read below
+	// rewrites `disabled` in state with the API-returned value, which would flip
+	// the branch in the toggle block at the bottom of this function.
+	plannedDisabled := d.Get("disabled").(bool)
 	//detect change
 	if d.HasChanges("configuration_data", "pointcut_data") {
 		pco := m.(ProviderConfOutput)
@@ -349,8 +353,7 @@ func resourceApimInstancePolicyCustomUpdate(ctx context.Context, d *schema.Resou
 		diags = append(diags, resourceApimInstancePolicyCustomRead(ctx, d, m)...)
 	}
 	if d.HasChange("disabled") {
-		disabled := d.Get("disabled").(bool)
-		if disabled {
+		if plannedDisabled {
 			diags = append(diags, disableApimInstancePolicyCustom(ctx, d, m)...)
 		} else {
 			diags = append(diags, enableApimInstancePolicyCustom(ctx, d, m)...)
@@ -433,15 +436,23 @@ func disableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData
 	return diags
 }
 
+// flattenApimPolicyCustomCfg merges the API-returned `configurationData` over the
+// declared `configuration_data` from prior state. Sensitive fields (e.g. clientId,
+// clientSecret) are not returned by the GET endpoint, so falling back to the prior
+// declared values prevents perpetual `+` drift on every plan.
 func flattenApimPolicyCustomCfg(d *schema.ResourceData, policy *apim_policy.ApimPolicy) (string, error) {
 	data := policy.GetConfigurationData()
-	var dst map[string]any
-	err := json.Unmarshal([]byte(d.Get("configuration_data").(string)), &dst)
-	if err != nil {
-		return "", fmt.Errorf("configuration_data expected to be a valid JSON Object. %s", err.Error())
+	dst := make(map[string]any)
+	if raw, ok := d.Get("configuration_data").(string); ok && raw != "" {
+		if err := json.Unmarshal([]byte(raw), &dst); err != nil {
+			return "", fmt.Errorf("configuration_data expected to be a valid JSON Object. %s", err.Error())
+		}
 	}
 	maps.Copy(dst, data)
-	b, _ := json.Marshal(data)
+	b, err := json.Marshal(dst)
+	if err != nil {
+		return "", fmt.Errorf("unable to marshal merged configuration_data. %s", err.Error())
+	}
 	return string(b), nil
 }
 
