@@ -473,6 +473,10 @@ func resourceApimInstancePolicyJwtValidationRead(ctx context.Context, d *schema.
 
 func resourceApimInstancePolicyJwtValidationUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
+	// Capture the planned `disabled` value up front — the mid-Update Read below
+	// rewrites `disabled` in state with the API-returned value, which would flip
+	// the branch in the toggle block at the bottom of this function.
+	plannedDisabled := d.Get("disabled").(bool)
 	//detect change
 	if d.HasChanges("configuration_data", "pointcut_data") {
 		pco := m.(ProviderConfOutput)
@@ -498,8 +502,7 @@ func resourceApimInstancePolicyJwtValidationUpdate(ctx context.Context, d *schem
 		diags = append(diags, resourceApimInstancePolicyJwtValidationRead(ctx, d, m)...)
 	}
 	if d.HasChange("disabled") {
-		disabled := d.Get("disabled").(bool)
-		if disabled {
+		if plannedDisabled {
 			diags = append(diags, disableApimInstancePolicyJwtValidation(ctx, d, m)...)
 		} else {
 			diags = append(diags, enableApimInstancePolicyJwtValidation(ctx, d, m)...)
