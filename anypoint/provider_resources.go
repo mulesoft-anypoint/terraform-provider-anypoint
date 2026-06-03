@@ -31,6 +31,7 @@ var RESOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_apim_policy_basic_auth":                resourceApimInstancePolicyBasicAuth(),
 	"anypoint_apim_policy_message_logging":           resourceApimInstancePolicyMessageLogging(),
 	"anypoint_apim_policy_custom":                    resourceApimInstancePolicyCustom(),
+	"anypoint_apim_policy":                           resourceApimInstancePolicy(),
 	"anypoint_api_instance_sla_tier":                 resourceApiInstanceSlaTier(),
 	"anypoint_secretgroup":                           resourceSecretGroup(),
 	"anypoint_secretgroup_keystore":                  resourceSecretGroupKeystore(),

@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -14,16 +15,23 @@ import (
 	"github.com/mulesoft-anypoint/anypoint-client-go/apim_policy"
 )
 
-func resourceApimInstancePolicyCustom() *schema.Resource {
+// resourceApimInstancePolicy is the generic API Manager policy resource. It
+// supersedes the typed `_custom` / `_basic_auth` / `_client_id_enforcement` /
+// `_jwt_validation` / `_message_logging` / `_rate_limiting` resources and adds
+// plan-time validation of `configuration_data` against the policy's published
+// JSON Schema.
+func resourceApimInstancePolicy() *schema.Resource {
 	return &schema.Resource{
-		CreateContext:      resourceApimInstancePolicyCustomCreate,
-		ReadContext:        resourceApimInstancePolicyCustomRead,
-		UpdateContext:      resourceApimInstancePolicyCustomUpdate,
-		DeleteContext:      resourceApimInstancePolicyCustomDelete,
-		DeprecationMessage: "Use `anypoint_apim_policy` instead. `anypoint_apim_policy_custom` will be removed in v2.0. The new resource has the same schema plus plan-time `configuration_data` validation against the policy template's JSON Schema.",
-		Description: `
-		Create and manage an API Policy of any type.
-		`,
+		CreateContext: resourceApimInstancePolicyCreate,
+		ReadContext:   resourceApimInstancePolicyRead,
+		UpdateContext: resourceApimInstancePolicyUpdate,
+		DeleteContext: resourceApimInstancePolicyDelete,
+		CustomizeDiff: resourceApimInstancePolicyCustomizeDiff,
+		Description: "Creates and manages an API Manager instance policy of any type. " +
+			"Replaces `anypoint_apim_policy_custom` and the per-policy-template resources. " +
+			"Validates the supplied `configuration_data` against the policy template's " +
+			"published JSON Schema at plan time, so configuration errors surface before " +
+			"`terraform apply` instead of as opaque HTTP 400s from the API.",
 		Schema: map[string]*schema.Schema{
 			"last_updated": {
 				Type:        schema.TypeString,
@@ -34,7 +42,7 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 			"id": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The policy's unique id",
+				Description: "The policy's unique id.",
 			},
 			"apim_id": {
 				Type:        schema.TypeString,
@@ -52,28 +60,28 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "The environment id where api instance is defined.",
+				Description: "The environment id where the api instance is defined.",
 			},
 			"audit": {
 				Type:        schema.TypeMap,
 				Computed:    true,
-				Description: "The instance's auditing data",
+				Description: "The instance's auditing data.",
 			},
 			"master_organization_id": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The organization id where the api instance is defined.",
+				Description: "The master organization id.",
 			},
 			"configuration_data": {
 				Type:             schema.TypeString,
 				Required:         true,
-				Description:      "The policy configuration data in json format",
+				Description:      "Policy configuration data as a JSON object encoded with `jsonencode()`. Validated against the policy template's published JSON Schema at plan time when the template exposes one.",
 				ValidateDiagFunc: validation.ToDiagFunc(validation.StringIsJSON),
 			},
 			"policy_template_id": {
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "The policy template id",
+				Description: "The policy template id.",
 			},
 			"order": {
 				Type:        schema.TypeInt,
@@ -89,13 +97,13 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 			"pointcut_data": {
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "The method & resource conditions",
+				Description: "Method & resource conditions controlling where the policy applies. Ignored for outbound policies.",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"method_regex": {
 							Type:        schema.TypeSet,
 							Required:    true,
-							Description: "The list of HTTP methods",
+							Description: "List of HTTP methods.",
 							Elem: &schema.Schema{
 								Type: schema.TypeString,
 								ValidateDiagFunc: validation.ToDiagFunc(
@@ -109,7 +117,7 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 						"uri_template_regex": {
 							Type:        schema.TypeString,
 							Required:    true,
-							Description: "URI template regex",
+							Description: "URI template regex.",
 						},
 					},
 				},
@@ -118,19 +126,18 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "The policy template group id in anypoint exchange. Don't change unless mulesoft has renamed the policy group id.",
+				Description: "Exchange asset group id for the policy template.",
 			},
 			"asset_id": {
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
-				Description: "The policy template id in anypoint exchange. Don't change unless mulesoft has renamed the policy asset id.",
+				Description: "Exchange asset id for the policy template.",
 			},
 			"asset_version": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
-				Description: "the policy template version in anypoint exchange.",
+				Description: "Exchange asset version for the policy template. Changing this value upgrades the policy in place (no resource replacement).",
 			},
 			"injection_point": {
 				Type:         schema.TypeString,
@@ -138,14 +145,14 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 				ForceNew:     true,
 				Default:      "inbound",
 				ValidateFunc: validation.StringInSlice([]string{"inbound", "outbound"}, false),
-				Description:  "Where the policy is applied. 'inbound' (default) creates the policy via `POST .../policies`; 'outbound' creates it via `POST .../xapi/v1/.../policies/outbound-policies` and requires `upstream_id`. Required for credential-injection and LLM-provider policies that are outbound-only.",
+				Description:  "Where the policy is applied. `inbound` (default) creates via `POST .../policies`; `outbound` creates via `POST .../xapi/v1/.../policies/outbound-policies` and requires `upstream_id`. Required for credential-injection and LLM-provider policies that are outbound-only.",
 			},
 			"upstream_id": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Computed:    true,
 				ForceNew:    true,
-				Description: "Identifier of the upstream this outbound policy is bound to. Required when `injection_point = \"outbound\"` and must be left empty for inbound policies. Reference an `anypoint_api_instance_upstream.<x>.id`.",
+				Description: "Identifier of the upstream this outbound policy is bound to. Required when `injection_point = \"outbound\"`. Reference an `anypoint_apim_instance_upstream.<x>.id`.",
 			},
 		},
 		Importer: &schema.ResourceImporter{
@@ -154,12 +161,66 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 	}
 }
 
-// isOutboundPolicy reports whether the resource is configured to use the outbound endpoint family.
-func isOutboundPolicy(d *schema.ResourceData) bool {
-	return d.Get("injection_point").(string) == "outbound"
+// resourceApimInstancePolicyCustomizeDiff performs plan-time validation of the
+// declared `configuration_data` against the policy template's JSON Schema and
+// of `upstream_id` against the `injection_point` selection.
+func resourceApimInstancePolicyCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m any) error {
+	if m == nil {
+		// Provider not configured (e.g. `terraform validate` without inputs). Skip.
+		return nil
+	}
+	pco, ok := m.(ProviderConfOutput)
+	if !ok {
+		return nil
+	}
+
+	injectionPoint, _ := d.Get("injection_point").(string)
+	upstreamId, _ := d.Get("upstream_id").(string)
+	if injectionPoint == "outbound" && upstreamId == "" {
+		// upstream_id may legitimately be Computed during create flow when the user
+		// references it from another resource; only error when the diff has a
+		// final empty value at apply time.
+		if !d.NewValueKnown("upstream_id") {
+			// unknown — defer
+		} else {
+			return fmt.Errorf("upstream_id is required when injection_point = \"outbound\"")
+		}
+	}
+	if injectionPoint == "inbound" && upstreamId != "" {
+		return fmt.Errorf("upstream_id must be empty when injection_point = \"inbound\"")
+	}
+
+	orgId, _ := d.Get("org_id").(string)
+	assetGroupId, _ := d.Get("asset_group_id").(string)
+	assetId, _ := d.Get("asset_id").(string)
+	assetVersion, _ := d.Get("asset_version").(string)
+	configJSON, _ := d.Get("configuration_data").(string)
+	if orgId == "" || assetGroupId == "" || assetId == "" || assetVersion == "" {
+		// Insufficient inputs to fetch the template — defer to apply-time errors.
+		return nil
+	}
+	if !d.NewValueKnown("configuration_data") || !d.NewValueKnown("asset_version") {
+		// Wait until values are resolvable.
+		return nil
+	}
+	entry, diags := loadPolicyTemplateCached(ctx, &pco, orgId, assetGroupId, assetId, assetVersion)
+	if diags.HasError() {
+		// Surface upstream fetch issues at plan time so users see why validation
+		// was skipped instead of silently allowing a known-bad config through.
+		return diagToError(diags)
+	}
+	if entry == nil || entry.Schema == nil {
+		// Legacy template with no schema — nothing to validate.
+		return nil
+	}
+	assetCoord := assetGroupId + "/" + assetId + "/" + assetVersion
+	if vdiags := validateConfigAgainstSchema(configJSON, entry.Schema, assetCoord); vdiags.HasError() {
+		return diagToError(vdiags)
+	}
+	return nil
 }
 
-func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func resourceApimInstancePolicyCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -169,7 +230,7 @@ func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.Resou
 	api := pco.apimpolicyclient.DefaultAPI
 	var id int32
 	var httpr *http.Response
-	if isOutboundPolicy(d) {
+	if d.Get("injection_point").(string) == "outbound" {
 		upstreamId := d.Get("upstream_id").(string)
 		if upstreamId == "" {
 			diags = append(diags, diag.Diagnostic{
@@ -188,7 +249,7 @@ func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.Resou
 			})
 			return diags
 		}
-		body, err := newApimPolicyCustomOutboundBody(d, int32(apimIdInt), upstreamId)
+		body, err := newApimPolicyOutboundBody(d, int32(apimIdInt), upstreamId)
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -203,7 +264,7 @@ func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.Resou
 			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  "Unable to create custom outbound policy for api " + apimid,
+				Summary:  "Unable to create outbound policy for api " + apimid,
 				Detail:   details,
 			})
 			return diags
@@ -218,7 +279,7 @@ func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.Resou
 		}
 		id = res[0].GetId()
 	} else {
-		body, err := newApimPolicyCustomBody(d)
+		body, err := newApimPolicyInboundBody(d)
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -233,7 +294,7 @@ func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.Resou
 			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  "Unable to create custom policy for api " + apimid,
+				Summary:  "Unable to create policy for api " + apimid,
 				Detail:   details,
 			})
 			return diags
@@ -242,56 +303,50 @@ func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.Resou
 	}
 	defer httpr.Body.Close()
 	d.SetId(strconv.Itoa(int(id)))
-	diags = append(diags, resourceApimInstancePolicyCustomRead(ctx, d, m)...)
-	//in case disabled
-	disabled := d.Get("disabled").(bool)
-	if disabled {
-		diags = append(diags, disableApimInstancePolicyCustom(ctx, d, m)...)
-		diags = append(diags, resourceApimInstancePolicyCustomRead(ctx, d, m)...)
+	diags = append(diags, resourceApimInstancePolicyRead(ctx, d, m)...)
+	if d.Get("disabled").(bool) {
+		diags = append(diags, disableApimInstancePolicy(ctx, d, m)...)
+		diags = append(diags, resourceApimInstancePolicyRead(ctx, d, m)...)
 	}
-
 	return diags
 }
 
-func resourceApimInstancePolicyCustomRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func resourceApimInstancePolicyRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
 	envid := d.Get("env_id").(string)
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
-	injection := d.Get("injection_point").(string)
 	if isComposedResourceId(id) {
-		orgid, envid, apimid, injection, id, diags = decomposeApimPolicyCustomId(d)
-	}
-	if diags.HasError() {
-		return diags
+		var derr diag.Diagnostics
+		orgid, envid, apimid, id, derr = decomposeApimPolicyId(d)
+		if derr.HasError() {
+			return derr
+		}
 	}
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	//perform request — both inbound and outbound policies live on the singular inbound GET endpoint.
 	api := pco.apimpolicyclient.DefaultAPI
 	res, httpr, err := api.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
-	_ = injection
 	if err != nil {
-		if httpr != nil && httpr.StatusCode == 404 {
+		if httpr != nil && httpr.StatusCode == http.StatusNotFound {
 			d.SetId("")
 			return nil
 		}
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to read custom policy " + id + " for api " + apimid,
+			Summary:  "Unable to read policy " + id + " for api " + apimid,
 			Detail:   details,
 		})
 		return diags
 	}
 	defer httpr.Body.Close()
-	// process data
 	data := flattenApimInstancePolicy(res)
-	if cfg, err := flattenApimPolicyCustomCfg(d, res); err != nil {
+	if cfg, err := flattenApimPolicyMergedCfg(d, res); err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to parse configuration data of custom policy " + id + " for api " + apimid,
+			Summary:  "Unable to parse configuration data of policy " + id + " for api " + apimid,
 			Detail:   err.Error(),
 		})
 		return diags
@@ -299,9 +354,9 @@ func resourceApimInstancePolicyCustomRead(ctx context.Context, d *schema.Resourc
 		data["configuration_data"] = cfg
 	}
 	if err := setApimInstancePolicyAttributesToResourceData(d, data); err != nil {
-		diags := append(diags, diag.Diagnostic{
+		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to set api custom policy " + id + " details attributes",
+			Summary:  "Unable to set api policy " + id + " details attributes",
 			Detail:   err.Error(),
 		})
 		return diags
@@ -310,26 +365,21 @@ func resourceApimInstancePolicyCustomRead(ctx context.Context, d *schema.Resourc
 	d.Set("apim_id", apimid)
 	d.Set("env_id", envid)
 	d.Set("org_id", orgid)
-	d.Set("injection_point", injection)
 	return diags
 }
 
-func resourceApimInstancePolicyCustomUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func resourceApimInstancePolicyUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
-	// Capture the planned `disabled` value up front — the mid-Update Read below
-	// rewrites `disabled` in state with the API-returned value, which would flip
-	// the branch in the toggle block at the bottom of this function.
+	// Capture planned disabled value before any Read can overwrite state with API-returned value.
 	plannedDisabled := d.Get("disabled").(bool)
-	//detect change
-	if d.HasChanges("configuration_data", "pointcut_data") {
+	if d.HasChanges("configuration_data", "pointcut_data", "asset_version") {
 		pco := m.(ProviderConfOutput)
 		orgid := d.Get("org_id").(string)
 		envid := d.Get("env_id").(string)
 		apimid := d.Get("apim_id").(string)
 		id := d.Get("id").(string)
 		authctx := getApimPolicyAuthCtx(ctx, &pco)
-		//prepare body
-		body, err := newApimPolicyCustomPatchBody(d)
+		body, err := newApimPolicyPatchBody(d)
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -338,34 +388,32 @@ func resourceApimInstancePolicyCustomUpdate(ctx context.Context, d *schema.Resou
 			})
 			return diags
 		}
-		//perform request — outbound policies share the singular inbound PATCH endpoint.
 		api := pco.apimpolicyclient.DefaultAPI
 		_, httpr, err := api.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
 		if err != nil {
 			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  "Unable to update custom policy for api " + apimid,
+				Summary:  "Unable to update policy for api " + apimid,
 				Detail:   details,
 			})
 			return diags
 		}
 		defer httpr.Body.Close()
-		diags = append(diags, resourceApimInstancePolicyCustomRead(ctx, d, m)...)
+		diags = append(diags, resourceApimInstancePolicyRead(ctx, d, m)...)
 	}
 	if d.HasChange("disabled") {
 		if plannedDisabled {
-			diags = append(diags, disableApimInstancePolicyCustom(ctx, d, m)...)
+			diags = append(diags, disableApimInstancePolicy(ctx, d, m)...)
 		} else {
-			diags = append(diags, enableApimInstancePolicyCustom(ctx, d, m)...)
+			diags = append(diags, enableApimInstancePolicy(ctx, d, m)...)
 		}
-		diags = append(diags, resourceApimInstancePolicyCustomRead(ctx, d, m)...)
+		diags = append(diags, resourceApimInstancePolicyRead(ctx, d, m)...)
 	}
-
 	return diags
 }
 
-func resourceApimInstancePolicyCustomDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func resourceApimInstancePolicyDelete(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -379,19 +427,17 @@ func resourceApimInstancePolicyCustomDelete(ctx context.Context, d *schema.Resou
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to delete custom policy " + id + " for api " + apimid,
+			Summary:  "Unable to delete policy " + id + " for api " + apimid,
 			Detail:   details,
 		})
 		return diags
 	}
 	defer httpr.Body.Close()
-	// d.SetId("") is automatically called assuming delete returns no errors, but
-	// it is added here for explicitness.
 	d.SetId("")
 	return diags
 }
 
-func enableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func enableApimInstancePolicy(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -405,7 +451,7 @@ func enableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData,
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to enable custom policy " + id + " for api " + apimid,
+			Summary:  "Unable to enable policy " + id + " for api " + apimid,
 			Detail:   details,
 		})
 		return diags
@@ -414,7 +460,7 @@ func enableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData,
 	return diags
 }
 
-func disableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+func disableApimInstancePolicy(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -428,7 +474,7 @@ func disableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Unable to disable custom policy " + id + " for api " + apimid,
+			Summary:  "Unable to disable policy " + id + " for api " + apimid,
 			Detail:   details,
 		})
 		return diags
@@ -437,11 +483,11 @@ func disableApimInstancePolicyCustom(ctx context.Context, d *schema.ResourceData
 	return diags
 }
 
-// flattenApimPolicyCustomCfg merges the API-returned `configurationData` over the
-// declared `configuration_data` from prior state. Sensitive fields (e.g. clientId,
-// clientSecret) are not returned by the GET endpoint, so falling back to the prior
-// declared values prevents perpetual `+` drift on every plan.
-func flattenApimPolicyCustomCfg(d *schema.ResourceData, policy *apim_policy.ApimPolicy) (string, error) {
+// flattenApimPolicyMergedCfg merges the API-returned configurationData over the
+// declared one and marshals the merged map. Same fallback shape as
+// flattenApimPolicyCustomCfg — keeps sensitive fields (clientId / clientSecret
+// on credential-injection policies) from drifting out of state on Read.
+func flattenApimPolicyMergedCfg(d *schema.ResourceData, policy *apim_policy.ApimPolicy) (string, error) {
 	data := policy.GetConfigurationData()
 	dst := make(map[string]any)
 	if raw, ok := d.Get("configuration_data").(string); ok && raw != "" {
@@ -457,12 +503,35 @@ func flattenApimPolicyCustomCfg(d *schema.ResourceData, policy *apim_policy.Apim
 	return string(b), nil
 }
 
-func newApimPolicyCustomOutboundBody(d *schema.ResourceData, apiVersionId int32, upstreamId string) (*apim_policy.ApimOutboundPolicyBody, error) {
+func newApimPolicyInboundBody(d *schema.ResourceData) (*apim_policy.ApimPolicyBody, error) {
+	body := apim_policy.NewApimPolicyBody()
+	if val, ok := d.GetOk("configuration_data"); ok {
+		var cfg map[string]any
+		if err := json.Unmarshal([]byte(val.(string)), &cfg); err != nil {
+			return nil, fmt.Errorf("configuration_data expected to be a valid JSON Object. %s", err.Error())
+		}
+		body.SetConfigurationData(cfg)
+	}
+	if val, ok := d.GetOk("pointcut_data"); ok {
+		body.SetPointcutData(newApimPolicyPointcutDataBody(val.([]any)))
+	}
+	if val, ok := d.GetOk("asset_group_id"); ok {
+		body.SetGroupId(val.(string))
+	}
+	if val, ok := d.GetOk("asset_id"); ok {
+		body.SetAssetId(val.(string))
+	}
+	if val, ok := d.GetOk("asset_version"); ok {
+		body.SetAssetVersion(val.(string))
+	}
+	return body, nil
+}
+
+func newApimPolicyOutboundBody(d *schema.ResourceData, apiVersionId int32, upstreamId string) (*apim_policy.ApimOutboundPolicyBody, error) {
 	body := apim_policy.NewApimOutboundPolicyBodyWithDefaults()
 	if val, ok := d.GetOk("configuration_data"); ok {
 		var cfg map[string]any
-		err := json.Unmarshal([]byte(val.(string)), &cfg)
-		if err != nil {
+		if err := json.Unmarshal([]byte(val.(string)), &cfg); err != nil {
 			return nil, fmt.Errorf("configuration_data expected to be a valid JSON Object. %s", err.Error())
 		}
 		body.SetConfigurationData(cfg)
@@ -481,43 +550,17 @@ func newApimPolicyCustomOutboundBody(d *schema.ResourceData, apiVersionId int32,
 	return body, nil
 }
 
-func newApimPolicyCustomBody(d *schema.ResourceData) (*apim_policy.ApimPolicyBody, error) {
-	body := apim_policy.NewApimPolicyBody()
-	if val, ok := d.GetOk("configuration_data"); ok {
-		var cfg map[string]any
-		err := json.Unmarshal([]byte(val.(string)), &cfg)
-		if err != nil {
-			return nil, fmt.Errorf("configuration_data expected to be a valid JSON Object. %s", err.Error())
-		}
-		body.SetConfigurationData(cfg)
-	}
-	if val, ok := d.GetOk("pointcut_data"); ok {
-		body.SetPointcutData(newApimPolicyCustomPointcutDataBody(val.([]any)))
-	}
-	if val, ok := d.GetOk("asset_group_id"); ok {
-		body.SetGroupId(val.(string))
-	}
-	if val, ok := d.GetOk("asset_id"); ok {
-		body.SetAssetId(val.(string))
-	}
-	if val, ok := d.GetOk("asset_version"); ok {
-		body.SetAssetVersion(val.(string))
-	}
-	return body, nil
-}
-
-func newApimPolicyCustomPatchBody(d *schema.ResourceData) (map[string]any, error) {
+func newApimPolicyPatchBody(d *schema.ResourceData) (map[string]any, error) {
 	body := make(map[string]any)
 	if val, ok := d.GetOk("configuration_data"); ok {
 		var cfg map[string]any
-		err := json.Unmarshal([]byte(val.(string)), &cfg)
-		if err != nil {
+		if err := json.Unmarshal([]byte(val.(string)), &cfg); err != nil {
 			return nil, fmt.Errorf("configuration_data expected to be a valid JSON Object. %s", err.Error())
 		}
 		body["configurationData"] = cfg
 	}
 	if val, ok := d.GetOk("pointcut_data"); ok {
-		collection := newApimPolicyClientIdEnfPointcutDataBody(val.([]any))
+		collection := newApimPolicyPointcutDataBody(val.([]any))
 		slice := make([]map[string]any, len(collection))
 		for i, item := range collection {
 			m, _ := item.ToMap()
@@ -539,7 +582,7 @@ func newApimPolicyCustomPatchBody(d *schema.ResourceData) (map[string]any, error
 	return body, nil
 }
 
-func newApimPolicyCustomPointcutDataBody(collection []any) []apim_policy.PointcutDataItem {
+func newApimPolicyPointcutDataBody(collection []any) []apim_policy.PointcutDataItem {
 	slice := make([]apim_policy.PointcutDataItem, len(collection))
 	for i, item := range collection {
 		data := item.(map[string]any)
@@ -556,34 +599,42 @@ func newApimPolicyCustomPointcutDataBody(collection []any) []apim_policy.Pointcu
 	return slice
 }
 
-// decomposeApimPolicyCustomId accepts two composite-id shapes:
-//   - 4-segment: ORG_ID/ENV_ID/APIM_ID/POLICY_ID — legacy, always inbound
-//   - 5-segment: ORG_ID/ENV_ID/APIM_ID/INJECTION_POINT/POLICY_ID — required for outbound
-//
-// Returns (orgId, envId, apimId, injectionPoint, policyId, diags).
-func decomposeApimPolicyCustomId(d *schema.ResourceData) (string, string, string, string, string, diag.Diagnostics) {
+// decomposeApimPolicyId accepts a 4-segment composite id ORG/ENV/APIM/POLICY_ID.
+// Returns (orgId, envId, apimId, policyId, diags).
+func decomposeApimPolicyId(d *schema.ResourceData) (string, string, string, string, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	s := DecomposeResourceId(d.Id())
-	switch len(s) {
-	case 4:
-		return s[0], s[1], s[2], "inbound", s[3], diags
-	case 5:
-		injection := s[3]
-		if injection != "inbound" && injection != "outbound" {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Invalid APIM Policy Custom ID format",
-				Detail:   fmt.Sprintf("Expected INJECTION_POINT to be 'inbound' or 'outbound', got %q in %s", injection, d.Id()),
-			})
-			return "", "", "", "", "", diags
-		}
-		return s[0], s[1], s[2], injection, s[4], diags
-	default:
+	if len(s) != 4 {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "Invalid APIM Policy Custom ID format",
-			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/APIM_ID/POLICY_ID or ORG_ID/ENV_ID/APIM_ID/INJECTION_POINT/POLICY_ID, got %s", d.Id()),
+			Summary:  "Invalid APIM Policy ID format",
+			Detail:   fmt.Sprintf("Expected ORG_ID/ENV_ID/APIM_ID/POLICY_ID, got %s", d.Id()),
 		})
-		return "", "", "", "", "", diags
+		return "", "", "", "", diags
 	}
+	return s[0], s[1], s[2], s[3], diags
+}
+
+// diagToError flattens a diag.Diagnostics returned by SDK helpers into a plain
+// error for use inside CustomizeDiff (which only accepts error). Concatenates
+// summary + detail per diag.
+func diagToError(diags diag.Diagnostics) error {
+	if len(diags) == 0 {
+		return nil
+	}
+	var parts []string
+	for _, d := range diags {
+		if d.Severity != diag.Error {
+			continue
+		}
+		if d.Detail != "" {
+			parts = append(parts, fmt.Sprintf("%s: %s", d.Summary, d.Detail))
+		} else {
+			parts = append(parts, d.Summary)
+		}
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%s", strings.Join(parts, "; "))
 }

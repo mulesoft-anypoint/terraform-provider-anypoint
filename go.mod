@@ -41,7 +41,10 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/vpn v0.1.0
 )
 
-require github.com/mulesoft-anypoint/anypoint-client-go/exchange_assets v0.0.4
+require (
+	github.com/mulesoft-anypoint/anypoint-client-go/exchange_assets v0.0.4
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
+)
 
 require gopkg.in/validator.v2 v2.0.1 // indirect
 
