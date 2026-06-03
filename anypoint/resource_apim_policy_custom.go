@@ -20,8 +20,12 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 		ReadContext:   resourceApimInstancePolicyCustomRead,
 		UpdateContext: resourceApimInstancePolicyCustomUpdate,
 		DeleteContext: resourceApimInstancePolicyCustomDelete,
+		CustomizeDiff: resourceApimInstancePolicyCustomCustomizeDiff,
 		Description: `
-		Create and manage an API Policy of any type.
+		Create and manage an API Policy of any type. The supplied ` + "`configuration_data`" + ` is
+		validated against the policy template's published JSON Schema at plan time when
+		the template exposes one, so configuration errors surface before ` + "`terraform apply`" + `.
+		` + "`asset_version`" + ` changes are applied in place — no resource replacement.
 		`,
 		Schema: map[string]*schema.Schema{
 			"last_updated": {
@@ -128,8 +132,7 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 			"asset_version": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
-				Description: "the policy template version in anypoint exchange.",
+				Description: "The policy template version in Anypoint Exchange. Changing this value upgrades the policy in place via PATCH — no resource replacement. Validated against the new template's published JSON Schema at plan time.",
 			},
 			"injection_point": {
 				Type:         schema.TypeString,
@@ -156,6 +159,54 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 // isOutboundPolicy reports whether the resource is configured to use the outbound endpoint family.
 func isOutboundPolicy(d *schema.ResourceData) bool {
 	return d.Get("injection_point").(string) == "outbound"
+}
+
+// resourceApimInstancePolicyCustomCustomizeDiff runs plan-time validation of
+// `configuration_data` against the policy template's published JSON Schema and
+// of the `injection_point` / `upstream_id` invariants. Legacy templates with
+// no JSON Schema (mule3 / older mule4) are skipped — there is nothing to
+// validate against.
+func resourceApimInstancePolicyCustomCustomizeDiff(ctx context.Context, d *schema.ResourceDiff, m any) error {
+	if m == nil {
+		return nil
+	}
+	pco, ok := m.(ProviderConfOutput)
+	if !ok {
+		return nil
+	}
+
+	injectionPoint, _ := d.Get("injection_point").(string)
+	upstreamId, _ := d.Get("upstream_id").(string)
+	if injectionPoint == "outbound" && upstreamId == "" && d.NewValueKnown("upstream_id") {
+		return fmt.Errorf("upstream_id is required when injection_point = \"outbound\"")
+	}
+	if injectionPoint == "inbound" && upstreamId != "" {
+		return fmt.Errorf("upstream_id must be empty when injection_point = \"inbound\"")
+	}
+
+	orgId, _ := d.Get("org_id").(string)
+	assetGroupId, _ := d.Get("asset_group_id").(string)
+	assetId, _ := d.Get("asset_id").(string)
+	assetVersion, _ := d.Get("asset_version").(string)
+	configJSON, _ := d.Get("configuration_data").(string)
+	if orgId == "" || assetGroupId == "" || assetId == "" || assetVersion == "" {
+		return nil
+	}
+	if !d.NewValueKnown("configuration_data") || !d.NewValueKnown("asset_version") {
+		return nil
+	}
+	entry, diags := loadPolicyTemplateCached(ctx, &pco, orgId, assetGroupId, assetId, assetVersion)
+	if diags.HasError() {
+		return diagsToError(diags)
+	}
+	if entry == nil || entry.Schema == nil {
+		return nil
+	}
+	assetCoord := assetGroupId + "/" + assetId + "/" + assetVersion
+	if vdiags := validateConfigAgainstSchema(configJSON, entry.Schema, assetCoord); vdiags.HasError() {
+		return diagsToError(vdiags)
+	}
+	return nil
 }
 
 func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
@@ -320,7 +371,7 @@ func resourceApimInstancePolicyCustomUpdate(ctx context.Context, d *schema.Resou
 	// the branch in the toggle block at the bottom of this function.
 	plannedDisabled := d.Get("disabled").(bool)
 	//detect change
-	if d.HasChanges("configuration_data", "pointcut_data") {
+	if d.HasChanges("configuration_data", "pointcut_data", "asset_version") {
 		pco := m.(ProviderConfOutput)
 		orgid := d.Get("org_id").(string)
 		envid := d.Get("env_id").(string)

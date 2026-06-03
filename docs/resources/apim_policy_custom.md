@@ -3,12 +3,18 @@
 page_title: "anypoint_apim_policy_custom Resource - terraform-provider-anypoint"
 subcategory: ""
 description: |-
-  Create and manage an API Policy of any type.
+  Create and manage an API Policy of any type. The supplied `configuration_data` is
+  	validated against the policy template's published JSON Schema at plan time when
+  	the template exposes one, so configuration errors surface before `terraform apply`.
+  	`asset_version` changes are applied in place — no resource replacement.
 ---
 
 # anypoint_apim_policy_custom (Resource)
 
-Create and manage an API Policy of any type.
+Create and manage an API Policy of any type. The supplied `configuration_data` is
+		validated against the policy template's published JSON Schema at plan time when
+		the template exposes one, so configuration errors surface before `terraform apply`.
+		`asset_version` changes are applied in place — no resource replacement.
 
 ## Example Usage
 
@@ -196,7 +202,7 @@ resource "anypoint_apim_policy_custom" "policy_custom_06_outbound_obo" {
 - `apim_id` (String) The api manager instance id where the api instance is defined.
 - `asset_group_id` (String) The policy template group id in anypoint exchange. Don't change unless mulesoft has renamed the policy group id.
 - `asset_id` (String) The policy template id in anypoint exchange. Don't change unless mulesoft has renamed the policy asset id.
-- `asset_version` (String) the policy template version in anypoint exchange.
+- `asset_version` (String) The policy template version in Anypoint Exchange. Changing this value upgrades the policy in place via PATCH — no resource replacement. Validated against the new template's published JSON Schema at plan time.
 - `configuration_data` (String) The policy configuration data in json format
 - `env_id` (String) The environment id where api instance is defined.
 - `org_id` (String) The organization id where the api instance is defined.
