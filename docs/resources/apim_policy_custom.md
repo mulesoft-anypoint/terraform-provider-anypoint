@@ -212,6 +212,7 @@ resource "anypoint_apim_policy_custom" "policy_custom_06_outbound_obo" {
 - `disabled` (Boolean) Whether the policy is disabled.
 - `injection_point` (String) Where the policy is applied. 'inbound' (default) creates the policy via `POST .../policies`; 'outbound' creates it via `POST .../xapi/v1/.../policies/outbound-policies` and requires `upstream_id`. Required for credential-injection and LLM-provider policies that are outbound-only.
 - `last_updated` (String) The last time this resource has been updated locally.
+- `order` (Number) The policy execution order. Lower values execute earlier. Leave unset to let Anypoint append at the end of the stack. Updating this value reorders the policy in place via PATCH. For outbound policies the value is applied via a follow-up PATCH after Create — the outbound POST endpoint does not accept `order` in its body.
 - `pointcut_data` (Block List) The method & resource conditions (see [below for nested schema](#nestedblock--pointcut_data))
 - `upstream_id` (String) Identifier of the upstream this outbound policy is bound to. Required when `injection_point = "outbound"` and must be left empty for inbound policies. Reference an `anypoint_api_instance_upstream.<x>.id`.
 
@@ -220,7 +221,6 @@ resource "anypoint_apim_policy_custom" "policy_custom_06_outbound_obo" {
 - `audit` (Map of String) The instance's auditing data
 - `id` (String) The policy's unique id
 - `master_organization_id` (String) The organization id where the api instance is defined.
-- `order` (Number) The policy order.
 - `policy_template_id` (String) The policy template id
 
 <a id="nestedblock--pointcut_data"></a>

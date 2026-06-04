@@ -80,8 +80,9 @@ func resourceApimInstancePolicyCustom() *schema.Resource {
 			},
 			"order": {
 				Type:        schema.TypeInt,
+				Optional:    true,
 				Computed:    true,
-				Description: "The policy order.",
+				Description: "The policy execution order. Lower values execute earlier. Leave unset to let Anypoint append at the end of the stack. Updating this value reorders the policy in place via PATCH. For outbound policies the value is applied via a follow-up PATCH after Create — the outbound POST endpoint does not accept `order` in its body.",
 			},
 			"disabled": {
 				Type:        schema.TypeBool,
@@ -292,6 +293,26 @@ func resourceApimInstancePolicyCustomCreate(ctx context.Context, d *schema.Resou
 	}
 	defer httpr.Body.Close()
 	d.SetId(strconv.Itoa(int(id)))
+	// Outbound POST body cannot carry `order` — patch it in afterwards when the user
+	// declared one, so a single `apply` lands the resource at the desired position.
+	if isOutboundPolicy(d) {
+		if val, ok := d.GetOk("order"); ok {
+			patchBody := map[string]any{"order": int32(val.(int))}
+			_, phttpr, perr := api.PatchApimPolicy(authctx, orgid, envid, apimid, strconv.Itoa(int(id))).Body(patchBody).Execute()
+			if perr != nil {
+				details := extractAPIErrorDetail(perr, phttpr)
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "Unable to apply order to outbound custom policy " + strconv.Itoa(int(id)) + " for api " + apimid,
+					Detail:   details,
+				})
+				return diags
+			}
+			if phttpr != nil {
+				phttpr.Body.Close()
+			}
+		}
+	}
 	diags = append(diags, resourceApimInstancePolicyCustomRead(ctx, d, m)...)
 	//in case disabled
 	disabled := d.Get("disabled").(bool)
@@ -371,7 +392,7 @@ func resourceApimInstancePolicyCustomUpdate(ctx context.Context, d *schema.Resou
 	// the branch in the toggle block at the bottom of this function.
 	plannedDisabled := d.Get("disabled").(bool)
 	//detect change
-	if d.HasChanges("configuration_data", "pointcut_data", "asset_version") {
+	if d.HasChanges("configuration_data", "pointcut_data", "asset_version", "order") {
 		pco := m.(ProviderConfOutput)
 		orgid := d.Get("org_id").(string)
 		envid := d.Get("env_id").(string)
@@ -553,6 +574,9 @@ func newApimPolicyCustomBody(d *schema.ResourceData) (*apim_policy.ApimPolicyBod
 	if val, ok := d.GetOk("asset_version"); ok {
 		body.SetAssetVersion(val.(string))
 	}
+	if val, ok := d.GetOk("order"); ok {
+		body.SetOrder(int32(val.(int)))
+	}
 	return body, nil
 }
 
@@ -585,6 +609,9 @@ func newApimPolicyCustomPatchBody(d *schema.ResourceData) (map[string]any, error
 	}
 	if val, ok := d.GetOk("asset_version"); ok {
 		body["assetVersion"] = val
+	}
+	if val, ok := d.GetOk("order"); ok {
+		body["order"] = int32(val.(int))
 	}
 	return body, nil
 }
