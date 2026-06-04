@@ -105,8 +105,9 @@ func resourceApimInstancePolicyClientIdEnf() *schema.Resource {
 			},
 			"order": {
 				Type:        schema.TypeInt,
+				Optional:    true,
 				Computed:    true,
-				Description: "The policy order.",
+				Description: "The policy execution order. Lower values execute earlier. Leave unset to let Anypoint append at the end of the stack. Updating this value reorders the policy in place via PATCH.",
 			},
 			"disabled": {
 				Type:        schema.TypeBool,
@@ -262,7 +263,7 @@ func resourceApimInstancePolicyClientIdEnfUpdate(ctx context.Context, d *schema.
 	// the branch in the toggle block at the bottom of this function.
 	plannedDisabled := d.Get("disabled").(bool)
 	//detect change
-	if d.HasChanges("configuration_data", "pointcut_data") {
+	if d.HasChanges("configuration_data", "pointcut_data", "order") {
 		pco := m.(ProviderConfOutput)
 		orgid := d.Get("org_id").(string)
 		envid := d.Get("env_id").(string)
@@ -386,6 +387,9 @@ func newApimPolicyClientIdEnfBody(d *schema.ResourceData) *apim_policy.ApimPolic
 	if val, ok := d.GetOk("asset_version"); ok {
 		body.SetAssetVersion(val.(string))
 	}
+	if val, ok := d.GetOk("order"); ok {
+		body.SetOrder(int32(val.(int)))
+	}
 	return body
 }
 
@@ -416,6 +420,9 @@ func newApimPolicyClientIdEnfPatchBody(d *schema.ResourceData) map[string]any {
 	}
 	if val, ok := d.GetOk("asset_version"); ok {
 		body["assetVersion"] = val
+	}
+	if val, ok := d.GetOk("order"); ok {
+		body["order"] = int32(val.(int))
 	}
 	return body
 }
