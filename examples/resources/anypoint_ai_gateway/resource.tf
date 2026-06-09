@@ -37,14 +37,27 @@ resource "anypoint_ai_gateway" "prod" {
       openai_api_key         = var.openai_api_key
       openai_embedding_model = "text-embedding-3-small"
       threshold              = 0.85
-      deny_topics            = ["harm", "illegal", "violence"]
+      deny_topics {
+        name       = "Politics"
+        embeddings = var.politics_embeddings_json
+      }
+      deny_topics {
+        name       = "Violence"
+        embeddings = var.violence_embeddings_json
+      }
     }
   }
 
   routing {
     type = "model-based"
     model_based {
-      supported_vendors = ["anthropic", "openai"]
+      supported_vendors {
+        vendor       = "Openai"
+        target_model = "gpt-4"
+      }
+      supported_vendors {
+        vendor = "AzureOpenAI"
+      }
     }
   }
 

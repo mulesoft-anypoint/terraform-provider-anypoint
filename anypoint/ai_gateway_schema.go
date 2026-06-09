@@ -124,7 +124,17 @@ func aiGatewayPromptGuardSchema() map[string]*schema.Schema {
 					"openai_embedding_model": {Type: schema.TypeString, Required: true, Description: "OpenAI embedding model identifier (`openaiEmbeddingModel`)."},
 					"openai_provider":        {Type: schema.TypeString, Optional: true, Description: "Optional OpenAI provider override (`openaiProvider`)."},
 					"threshold":              {Type: schema.TypeFloat, Required: true, Description: "Cosine-similarity threshold (`threshold`) above which a prompt is blocked."},
-					"deny_topics":            {Type: schema.TypeList, Required: true, Elem: &schema.Schema{Type: schema.TypeString}, Description: "List of denied topics (`denyTopics`)."},
+					"deny_topics": {
+						Type:        schema.TypeList,
+						Required:    true,
+						Description: "List of denied topics (`denyTopics`). Each entry pairs a topic name with its pre-computed embedding JSON string.",
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"name":       {Type: schema.TypeString, Required: true, Description: "Topic name (`name`), e.g. `Politics`, `Violence`."},
+								"embeddings": {Type: schema.TypeString, Required: true, Sensitive: true, Description: "Pre-computed embedding vectors for the topic's example utterances, as a JSON string (`embeddings`)."},
+							},
+						},
+					},
 					"timeout":                {Type: schema.TypeInt, Optional: true, Description: "Timeout in milliseconds (`timeout`)."},
 				},
 			},
@@ -147,7 +157,17 @@ func aiGatewayRoutingSchema() map[string]*schema.Schema {
 			Description: "Configuration for the `model-based-routing` policy.",
 			Elem: &schema.Resource{
 				Schema: map[string]*schema.Schema{
-					"supported_vendors": {Type: schema.TypeList, Required: true, Elem: &schema.Schema{Type: schema.TypeString}, Description: "List of supported provider vendors (`supportedVendors`). Routing decides upstream based on the inbound `model` field matching one of these."},
+					"supported_vendors": {
+						Type:        schema.TypeList,
+						Required:    true,
+						Description: "List of supported provider vendors (`supportedVendors`). Routing decides upstream based on the inbound `model` field matching one of these.",
+						Elem: &schema.Resource{
+							Schema: map[string]*schema.Schema{
+								"vendor":       {Type: schema.TypeString, Required: true, Description: "LLM vendor name (`vendor`), e.g. `Openai`, `Gemini`, `AzureOpenAI`."},
+								"target_model": {Type: schema.TypeString, Optional: true, Description: "Optional target model from the vendor (`targetModel`), e.g. `gpt-4`, `gemini-pro`."},
+							},
+						},
+					},
 					"fallback":          {Type: schema.TypeString, Optional: true, Description: "Optional fallback target identifier (`fallback`) when no rule matches."},
 				},
 			},

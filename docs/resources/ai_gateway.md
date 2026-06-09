@@ -72,14 +72,27 @@ resource "anypoint_ai_gateway" "prod" {
       openai_api_key         = var.openai_api_key
       openai_embedding_model = "text-embedding-3-small"
       threshold              = 0.85
-      deny_topics            = ["harm", "illegal", "violence"]
+      deny_topics {
+        name       = "Politics"
+        embeddings = var.politics_embeddings_json
+      }
+      deny_topics {
+        name       = "Violence"
+        embeddings = var.violence_embeddings_json
+      }
     }
   }
 
   routing {
     type = "model-based"
     model_based {
-      supported_vendors = ["anthropic", "openai"]
+      supported_vendors {
+        vendor       = "Openai"
+        target_model = "gpt-4"
+      }
+      supported_vendors {
+        vendor = "AzureOpenAI"
+      }
     }
   }
 
@@ -190,7 +203,7 @@ Required:
 
 Required:
 
-- `deny_topics` (List of String) List of denied topics (`denyTopics`).
+- `deny_topics` (Block List, Min: 1) List of denied topics (`denyTopics`). Each entry pairs a topic name with its pre-computed embedding JSON string. (see [below for nested schema](#nestedblock--prompt_guard--semantic_openai--deny_topics))
 - `openai_api_key` (String, Sensitive) OpenAI API key (`openaiApiKey`).
 - `openai_embedding_model` (String) OpenAI embedding model identifier (`openaiEmbeddingModel`).
 - `openai_url` (String) OpenAI embeddings endpoint URL (`openaiUrl`).
@@ -200,6 +213,15 @@ Optional:
 
 - `openai_provider` (String) Optional OpenAI provider override (`openaiProvider`).
 - `timeout` (Number) Timeout in milliseconds (`timeout`).
+
+<a id="nestedblock--prompt_guard--semantic_openai--deny_topics"></a>
+### Nested Schema for `prompt_guard.semantic_openai.deny_topics`
+
+Required:
+
+- `embeddings` (String, Sensitive) Pre-computed embedding vectors for the topic's example utterances, as a JSON string (`embeddings`).
+- `name` (String) Topic name (`name`), e.g. `Politics`, `Violence`.
+
 
 
 
@@ -239,11 +261,23 @@ Required:
 
 Required:
 
-- `supported_vendors` (List of String) List of supported provider vendors (`supportedVendors`). Routing decides upstream based on the inbound `model` field matching one of these.
+- `supported_vendors` (Block List, Min: 1) List of supported provider vendors (`supportedVendors`). Routing decides upstream based on the inbound `model` field matching one of these. (see [below for nested schema](#nestedblock--routing--model_based--supported_vendors))
 
 Optional:
 
 - `fallback` (String) Optional fallback target identifier (`fallback`) when no rule matches.
+
+<a id="nestedblock--routing--model_based--supported_vendors"></a>
+### Nested Schema for `routing.model_based.supported_vendors`
+
+Required:
+
+- `vendor` (String) LLM vendor name (`vendor`), e.g. `Openai`, `Gemini`, `AzureOpenAI`.
+
+Optional:
+
+- `target_model` (String) Optional target model from the vendor (`targetModel`), e.g. `gpt-4`, `gemini-pro`.
+
 
 
 

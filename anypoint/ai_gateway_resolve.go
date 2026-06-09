@@ -164,11 +164,20 @@ func aiGatewayGuardPolicy(d aiGatewayResourceLike, versions map[string]string) *
 			conf["threshold"] = v
 		}
 		if v, ok := sub["deny_topics"].([]any); ok && len(v) > 0 {
-			topics := make([]string, 0, len(v))
+			topics := make([]map[string]any, 0, len(v))
 			for _, t := range v {
-				if s, ok := t.(string); ok {
-					topics = append(topics, s)
+				m, ok := t.(map[string]any)
+				if !ok {
+					continue
 				}
+				entry := map[string]any{}
+				if s, _ := m["name"].(string); s != "" {
+					entry["name"] = s
+				}
+				if s, _ := m["embeddings"].(string); s != "" {
+					entry["embeddings"] = s
+				}
+				topics = append(topics, entry)
 			}
 			conf["denyTopics"] = topics
 		}
@@ -206,11 +215,20 @@ func aiGatewayRoutingPolicy(d aiGatewayResourceLike, versions map[string]string)
 		}
 		conf := map[string]any{}
 		if v, ok := sub["supported_vendors"].([]any); ok && len(v) > 0 {
-			vendors := make([]string, 0, len(v))
+			vendors := make([]map[string]any, 0, len(v))
 			for _, e := range v {
-				if s, ok := e.(string); ok {
-					vendors = append(vendors, s)
+				m, ok := e.(map[string]any)
+				if !ok {
+					continue
 				}
+				entry := map[string]any{}
+				if s, _ := m["vendor"].(string); s != "" {
+					entry["vendor"] = s
+				}
+				if s, _ := m["target_model"].(string); s != "" {
+					entry["targetModel"] = s
+				}
+				vendors = append(vendors, entry)
 			}
 			conf["supportedVendors"] = vendors
 		}
