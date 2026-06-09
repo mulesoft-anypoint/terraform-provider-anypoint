@@ -42,7 +42,7 @@ require (
 )
 
 require (
-	github.com/mulesoft-anypoint/anypoint-client-go/exchange_assets v0.0.4
+	github.com/mulesoft-anypoint/anypoint-client-go/exchange_assets v0.0.5
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 )
 
