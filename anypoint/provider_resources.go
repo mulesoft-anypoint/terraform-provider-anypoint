@@ -50,4 +50,5 @@ var RESOURCES_MAP = map[string]*schema.Resource{
 	"anypoint_private_space_transit_gateway":         resourcePrivateSpaceTransitGateway(),
 	"anypoint_private_space_vpn":                     resourcePrivateSpaceVpn(),
 	"anypoint_exchange_asset":                        resourceExchangeAsset(),
+	"anypoint_exchange_asset_llm":                    resourceExchangeAssetLLM(),
 }
