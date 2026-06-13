@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -69,6 +70,19 @@ var EXCHANGE_POLICY_TEMPLATE_CONFIG = map[string]*schema.Schema{
 	},
 }
 
+var EXCHANGE_POLICY_TEMPLATE_INTERFACE_TRANSFORMATION = map[string]*schema.Schema{
+	"language": {
+		Type:        schema.TypeString,
+		Computed:    true,
+		Description: "Snippet language (e.g. ramlSnippet, ramlV1Snippet, oasV2Snippet, oasV3Snippet).",
+	},
+	"transformation": {
+		Type:        schema.TypeString,
+		Computed:    true,
+		Description: "Snippet body to merge into the API definition.",
+	},
+}
+
 var EXCHANGE_POLICY_TEMPLATE_ALL_VERSIONS = map[string]*schema.Schema{
 	"group_id": {
 		Type:        schema.TypeString,
@@ -79,6 +93,11 @@ var EXCHANGE_POLICY_TEMPLATE_ALL_VERSIONS = map[string]*schema.Schema{
 		Type:        schema.TypeString,
 		Computed:    true,
 		Description: "The asset id.",
+	},
+	"status": {
+		Type:        schema.TypeString,
+		Computed:    true,
+		Description: "Lifecycle status of the version (e.g. published, deprecated, development).",
 	},
 	"version": {
 		Type:        schema.TypeString,
@@ -119,6 +138,17 @@ func dataSourceExchangePolicyTemplate() *schema.Resource {
 				Optional:    true,
 				Default:     false,
 				Description: "Whether to include all versions of the asset.",
+			},
+			"split_model": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "Whether to request the split-asset model. When true, modern policies return `configuration` as a JSON Schema (draft-2019-09) object surfaced via `configuration_schema`; when false, legacy policies return a list of property configurations in `configuration`. Defaults to false for backward compatibility.",
+			},
+			"api_instance_id": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Optional api instance id used to filter applicability of the template.",
 			},
 			"audit": {
 				Type:        schema.TypeMap,
@@ -249,9 +279,53 @@ func dataSourceExchangePolicyTemplate() *schema.Resource {
 			"configuration": {
 				Type:        schema.TypeList,
 				Computed:    true,
-				Description: "The policy template list of property configurations.",
+				Description: "Legacy policy configuration list (mule3/older mule4). Empty for modern policies that return a JSON Schema in `configuration_schema`.",
 				Elem: &schema.Resource{
 					Schema: EXCHANGE_POLICY_TEMPLATE_CONFIG,
+				},
+			},
+			"configuration_schema": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Modern policy configuration as a JSON Schema (draft-2019-09) string. Populated when the policy returns the new schema shape; empty for legacy policies that use `configuration`.",
+			},
+			"schema_id": {
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "Identifier of the underlying JSON schema for modern policies.",
+			},
+			"split_asset_model": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "Whether the policy uses the split asset model.",
+			},
+			"ootb_upgradeable_impl": {
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "Whether the OOTB implementation supports in-place upgrades.",
+			},
+			"supported_java_versions": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: "Java runtime versions this policy implementation is compatible with.",
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"interface_scope": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: "Scopes at which the policy can be applied (e.g. \"api\", \"resource\").",
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+			"interface_transformation": {
+				Type:        schema.TypeList,
+				Computed:    true,
+				Description: "Modern replacement for the flat raml/oas snippet fields. Each entry pairs a language identifier with a transformation snippet.",
+				Elem: &schema.Resource{
+					Schema: EXCHANGE_POLICY_TEMPLATE_INTERFACE_TRANSFORMATION,
 				},
 			},
 			"all_versions": {
@@ -274,9 +348,17 @@ func dataSourceExchangePolicyTemplateRead(ctx context.Context, d *schema.Resourc
 	version := d.Get("version").(string)
 	id := d.Get("id").(string)
 	include_all_versions := d.Get("include_all_versions").(bool)
+	split_model := d.Get("split_model").(bool)
+	api_instance_id := d.Get("api_instance_id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.apimpolicyclient.DefaultApi.GetOrgExchangePolicyTemplateDetails(authctx, orgid, groupid, id, version).IncludeAllVersions(include_all_versions).Execute()
+	req := pco.apimpolicyclient.DefaultAPI.GetOrgExchangePolicyTemplateDetails(authctx, orgid, groupid, id, version).
+		IncludeAllVersions(include_all_versions).
+		SplitModel(split_model)
+	if api_instance_id != "" {
+		req = req.ApiInstanceId(api_instance_id)
+	}
+	res, httpr, err := req.Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -390,13 +472,68 @@ func flattenExchangePolicyTemplate(template *apim_policy.ExchangePolicyTemplate)
 	if val, ok := template.GetApplicableOk(); ok {
 		result["applicable"] = *val
 	}
-	if conf, ok := template.GetConfigurationOk(); ok {
-		result["configuration"] = flattenExchPolicyTempConfigs(conf)
+	if confPtr, ok := template.GetConfigurationOk(); ok && confPtr != nil {
+		switch v := (*confPtr).(type) {
+		case []any:
+			b, _ := json.Marshal(v)
+			var typed []apim_policy.PolicyConfiguration
+			if err := json.Unmarshal(b, &typed); err == nil {
+				result["configuration"] = flattenExchPolicyTempConfigs(typed)
+			}
+		case map[string]any:
+			if b, err := json.Marshal(v); err == nil {
+				result["configuration_schema"] = string(b)
+			}
+		}
+	}
+	if val, ok := template.GetSchemaIdOk(); ok {
+		result["schema_id"] = *val
+	}
+	if val, ok := template.GetSplitAssetModelOk(); ok {
+		result["split_asset_model"] = *val
+	}
+	if val, ok := template.GetOotbUpgradeableImplOk(); ok {
+		result["ootb_upgradeable_impl"] = *val
+	}
+	if val, ok := template.GetSupportedJavaVersionsOk(); ok {
+		result["supported_java_versions"] = flattenSupportedJavaVersions(val)
+	}
+	if val, ok := template.GetInterfaceScopeOk(); ok {
+		result["interface_scope"] = val
+	}
+	if val, ok := template.GetInterfaceTransformationOk(); ok {
+		result["interface_transformation"] = flattenExchPolicyTempInterfaceTransformation(val)
 	}
 	if val, ok := template.GetAllVersionsOk(); ok {
 		result["all_versions"] = flattenExchPolicyTempAllVersions(val)
 	}
 	return result
+}
+
+func flattenSupportedJavaVersions(versions []*string) []string {
+	out := make([]string, 0, len(versions))
+	for _, v := range versions {
+		if v == nil {
+			continue
+		}
+		out = append(out, *v)
+	}
+	return out
+}
+
+func flattenExchPolicyTempInterfaceTransformation(collection []apim_policy.ExchangePolicyTemplateInterfaceTransformationInner) []any {
+	slice := make([]any, len(collection))
+	for i, item := range collection {
+		data := make(map[string]any)
+		if val, ok := item.GetLanguageOk(); ok {
+			data["language"] = *val
+		}
+		if val, ok := item.GetTransformationOk(); ok {
+			data["transformation"] = *val
+		}
+		slice[i] = data
+	}
+	return slice
 }
 
 func flattenExchPolicyTempConfigs(collection []apim_policy.PolicyConfiguration) []any {
@@ -482,6 +619,9 @@ func flattenExchPolicyTempAllVersions(collection []apim_policy.ExchangePolicyTem
 		if val, ok := version.GetVersionOk(); ok {
 			data["version"] = *val
 		}
+		if val, ok := version.GetStatusOk(); ok {
+			data["status"] = *val
+		}
 		slice[i] = data
 	}
 	return slice
@@ -510,6 +650,9 @@ func getExchPolicyTempDetailsAttributes() []string {
 		"required_characteristics", "identity_management_type",
 		"provided_characteristics", "raml_snippet", "raml_v1_snippet",
 		"oas_v2_snippet", "oas_v3_snippet", "applicable", "configuration",
+		"configuration_schema", "schema_id", "split_asset_model",
+		"ootb_upgradeable_impl", "supported_java_versions",
+		"interface_scope", "interface_transformation",
 		"all_versions",
 	}
 	return attributes[:]

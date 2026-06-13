@@ -123,7 +123,7 @@ func dataSourceApimInstancePolicyRead(ctx context.Context, d *schema.ResourceDat
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.apimpolicyclient.DefaultApi.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	res, httpr, err := pco.apimpolicyclient.DefaultAPI.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -182,6 +182,9 @@ func flattenApimInstancePolicy(policy *apim_policy.ApimPolicy) map[string]any {
 	}
 	if val, ok := policy.GetConfigurationDataOk(); ok {
 		result["configuration_data"] = []any{flattenApimInstancePolicyConfData(val)}
+	}
+	if val, ok := policy.GetUpstreamIdOk(); ok && val != nil {
+		result["upstream_id"] = *val
 	}
 	return result
 }
@@ -242,7 +245,7 @@ func getApimInstancePolicyAttributes() []string {
 	attributes := [...]string{
 		"audit", "master_organization_id", "configuration_data",
 		"order", "disabled", "policy_template_id", "asset_group_id",
-		"asset_id", "asset_version", "pointcut_data",
+		"asset_id", "asset_version", "pointcut_data", "upstream_id",
 	}
 	return attributes[:]
 }

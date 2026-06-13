@@ -646,8 +646,14 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 			}
 			defer httpr.Body.Close()
 		}
+		// Refresh upstream ids into state so the routing patch body can resolve label -> id for newly-created upstreams (#133).
+		if !diags.HasError() {
+			if diagsbis := readApimInstanceUpstreamsOnly(ctx, d, m); diagsbis.HasError() {
+				diags = append(diags, diagsbis...)
+			}
+		}
 	}
-	if d.HasChanges(getApimFlexGatewayUpdatableAttributes()...) {
+	if !diags.HasError() && d.HasChanges(getApimFlexGatewayUpdatableAttributes()...) {
 		body := newApimFlexGatewayPatchBody(d)
 		authctx := getApimAuthCtx(ctx, &pco)
 		_, httpr, err := pco.apimclient.DefaultApi.PatchApimInstance(authctx, orgid, envid, apimid).Body(body).Execute()

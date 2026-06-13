@@ -9,7 +9,7 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/ame_binding v1.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/amq v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0
-	github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.0.1
+	github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.4.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1
 	github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2 v0.1.0
@@ -41,7 +41,12 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/vpn v0.1.0
 )
 
-require github.com/mulesoft-anypoint/anypoint-client-go/exchange_assets v0.0.4
+require (
+	github.com/mulesoft-anypoint/anypoint-client-go/exchange_assets v0.0.5
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
+)
+
+require gopkg.in/validator.v2 v2.0.1 // indirect
 
 require (
 	github.com/agext/levenshtein v1.2.3 // indirect
@@ -55,7 +60,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.4.4 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
-	github.com/hashicorp/go-version v1.6.0 // indirect
+	github.com/hashicorp/go-version v1.6.0
 	github.com/hashicorp/hcl/v2 v2.14.1 // indirect
 	github.com/hashicorp/logutils v1.0.0 // indirect
 	github.com/hashicorp/terraform-plugin-go v0.14.0 // indirect

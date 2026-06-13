@@ -128,8 +128,9 @@ func resourceApimInstancePolicyRateLimiting() *schema.Resource {
 			},
 			"order": {
 				Type:        schema.TypeInt,
+				Optional:    true,
 				Computed:    true,
-				Description: "The policy order.",
+				Description: "The policy execution order. Lower values execute earlier. Leave unset to let Anypoint append at the end of the stack. Updating this value reorders the policy in place via PATCH.",
 			},
 			"disabled": {
 				Type:        schema.TypeBool,
@@ -204,7 +205,7 @@ func resourceApimInstancePolicyRateLimitingCreate(ctx context.Context, d *schema
 	//prepare body
 	body := newApimPolicyRateLimitingBody(d)
 	//perform request
-	res, httpr, err := pco.apimpolicyclient.DefaultApi.PostApimPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
+	res, httpr, err := pco.apimpolicyclient.DefaultAPI.PostApimPolicy(authctx, orgid, envid, apimid).ApimPolicyBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -243,7 +244,7 @@ func resourceApimInstancePolicyRateLimitingRead(ctx context.Context, d *schema.R
 	}
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.apimpolicyclient.DefaultApi.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	res, httpr, err := pco.apimpolicyclient.DefaultAPI.GetApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -278,8 +279,12 @@ func resourceApimInstancePolicyRateLimitingRead(ctx context.Context, d *schema.R
 
 func resourceApimInstancePolicyRateLimitingUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
 	var diags diag.Diagnostics
+	// Capture the planned `disabled` value up front — the mid-Update Read below
+	// rewrites `disabled` in state with the API-returned value, which would flip
+	// the branch in the toggle block at the bottom of this function.
+	plannedDisabled := d.Get("disabled").(bool)
 	//detect change
-	if d.HasChanges("configuration_data", "pointcut_data") {
+	if d.HasChanges("configuration_data", "pointcut_data", "order") {
 		pco := m.(ProviderConfOutput)
 		orgid := d.Get("org_id").(string)
 		envid := d.Get("env_id").(string)
@@ -289,7 +294,7 @@ func resourceApimInstancePolicyRateLimitingUpdate(ctx context.Context, d *schema
 		//prepare body
 		body := newApimPolicyRateLimitingPatchBody(d)
 		//perform request
-		_, httpr, err := pco.apimpolicyclient.DefaultApi.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
+		_, httpr, err := pco.apimpolicyclient.DefaultAPI.PatchApimPolicy(authctx, orgid, envid, apimid, id).Body(body).Execute()
 		if err != nil {
 			details := extractAPIErrorDetail(err, httpr)
 			diags = append(diags, diag.Diagnostic{
@@ -303,8 +308,7 @@ func resourceApimInstancePolicyRateLimitingUpdate(ctx context.Context, d *schema
 		diags = append(diags, resourceApimInstancePolicyRateLimitingRead(ctx, d, m)...)
 	}
 	if d.HasChange("disabled") {
-		disabled := d.Get("disabled").(bool)
-		if disabled {
+		if plannedDisabled {
 			diags = append(diags, disableApimInstancePolicyRateLimiting(ctx, d, m)...)
 		} else {
 			diags = append(diags, enableApimInstancePolicyRateLimiting(ctx, d, m)...)
@@ -323,7 +327,7 @@ func resourceApimInstancePolicyRateLimitingDelete(ctx context.Context, d *schema
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	httpr, err := pco.apimpolicyclient.DefaultApi.DeleteApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	httpr, err := pco.apimpolicyclient.DefaultAPI.DeleteApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -348,7 +352,7 @@ func enableApimInstancePolicyRateLimiting(ctx context.Context, d *schema.Resourc
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	_, httpr, err := pco.apimpolicyclient.DefaultApi.EnableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	_, httpr, err := pco.apimpolicyclient.DefaultAPI.EnableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -370,7 +374,7 @@ func disableApimInstancePolicyRateLimiting(ctx context.Context, d *schema.Resour
 	apimid := d.Get("apim_id").(string)
 	id := d.Get("id").(string)
 	authctx := getApimPolicyAuthCtx(ctx, &pco)
-	_, httpr, err := pco.apimpolicyclient.DefaultApi.DisableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
+	_, httpr, err := pco.apimpolicyclient.DefaultAPI.DisableApimPolicy(authctx, orgid, envid, apimid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -434,6 +438,9 @@ func newApimPolicyRateLimitingBody(d *schema.ResourceData) *apim_policy.ApimPoli
 	if val, ok := d.GetOk("asset_version"); ok {
 		body.SetAssetVersion(val.(string))
 	}
+	if val, ok := d.GetOk("order"); ok {
+		body.SetOrder(int32(val.(int)))
+	}
 	return body
 }
 
@@ -464,6 +471,9 @@ func newApimPolicyRateLimitingPatchBody(d *schema.ResourceData) map[string]any {
 	}
 	if val, ok := d.GetOk("asset_version"); ok {
 		body["assetVersion"] = val
+	}
+	if val, ok := d.GetOk("order"); ok {
+		body["order"] = int32(val.(int))
 	}
 	return body
 }
