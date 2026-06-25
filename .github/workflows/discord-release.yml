@@ -1,0 +1,86 @@
+name: Announce release on Discord
+
+# Posts a Discord embed whenever a GitHub release is published.
+# Setup: create a Discord channel webhook (Channel > Integrations > Webhooks)
+# and store its URL as the repository secret DISCORD_WEBHOOK.
+# If the secret is unset the job no-ops, so forks stay green.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)announce — for testing"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  discord:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post release to Discord
+        env:
+          # Untrusted release text is passed via env (never inlined into the
+          # script) to avoid shell/expression injection.
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          REL_TAG: ${{ github.event.release.tag_name }}
+          REL_URL: ${{ github.event.release.html_url }}
+          REL_PRE: ${{ github.event.release.prerelease }}
+          REL_BODY: ${{ github.event.release.body }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${WEBHOOK:-}" ]; then
+            echo "DISCORD_WEBHOOK secret not set — skipping."
+            exit 0
+          fi
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            json=$(gh api "repos/${REPO}/releases/tags/${DISPATCH_TAG}")
+            TAG="$DISPATCH_TAG"
+            URL=$(jq -r '.html_url'   <<<"$json")
+            PRE=$(jq -r '.prerelease' <<<"$json")
+            BODY=$(jq -r '.body'      <<<"$json")
+          else
+            TAG="$REL_TAG"; URL="$REL_URL"; PRE="$REL_PRE"; BODY="$REL_BODY"
+          fi
+
+          if [ "$PRE" = "true" ]; then
+            echo "Release $TAG is a prerelease — skipping."
+            exit 0
+          fi
+
+          # Discord embed description hard-caps at 4096 chars; leave headroom.
+          desc=$(printf '%s' "$BODY" | head -c 3800)
+          if [ "$(printf '%s' "$BODY" | wc -c)" -gt 3800 ]; then
+            desc="${desc}"$'\n\n…full notes → '"$URL"
+          fi
+
+          payload=$(jq -n \
+            --arg title "terraform-provider-anypoint ${TAG}" \
+            --arg url   "$URL" \
+            --arg desc  "$desc" \
+            '{
+              username: "Anypoint Provider Releases",
+              embeds: [{
+                title: $title,
+                url: $url,
+                description: $desc,
+                color: 41183
+              }]
+            }')
+
+          code=$(curl -sS -o /tmp/discord_resp -w '%{http_code}' \
+            -H "Content-Type: application/json" \
+            -d "$payload" "$WEBHOOK")
+          echo "Discord responded: HTTP $code"
+          cat /tmp/discord_resp || true
+          # Discord webhook returns 204 No Content on success.
+          [ "$code" = "204" ]
