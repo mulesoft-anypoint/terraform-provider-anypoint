@@ -88,7 +88,8 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 	ps_schema["network_reserved_cidrs"] = &schema.Schema{
 		Type:        schema.TypeList,
 		Optional:    true,
-		Description: "Reserved CIDR blocks.",
+		ForceNew:    true,
+		Description: "Reserved CIDR blocks. Can only be set at creation time; the Anypoint API rejects updates to this field once the network is created, so changing it forces a new private space.",
 		Elem: &schema.Schema{
 			Type:             schema.TypeString,
 			ValidateDiagFunc: validation.ToDiagFunc(validation.IsCIDR),
@@ -409,14 +410,10 @@ func newPrivateSpacePatchBody(d *schema.ResourceData) *private_space.PrivateSpac
 		network.SetInternalDns(*networkDnsServers)
 		networkUpdated = true
 	}
-	if network_reserved_cidrs := d.Get("network_reserved_cidrs").([]any); len(network_reserved_cidrs) > 0 {
-		var reservedCIDRs []string
-		for _, cidr := range network_reserved_cidrs {
-			reservedCIDRs = append(reservedCIDRs, cidr.(string))
-		}
-		network.SetReservedCidrs(reservedCIDRs)
-		networkUpdated = true
-	}
+	// network_reserved_cidrs is intentionally omitted from the patch body: the
+	// Anypoint API rejects any reservedCidrs in an update ("Reserved CIDR's cannot
+	// be updated once the network is created", HTTP 400). The field is ForceNew, so
+	// a change recreates the private space instead of patching it.
 	if firewall := d.Get("firewall_rules").([]any); len(firewall) > 0 {
 		var rules []private_space.FirewallRule
 		for _, rule := range firewall {
@@ -457,7 +454,6 @@ func updatablePrivateSpaceAttributes() []string {
 		"environments_business_groups",
 		"network_internal_dns_servers",
 		"network_internal_dns_special_domains",
-		"network_reserved_cidrs",
 		"firewall_rules",
 		"enable_iam_role",
 		"enable_egress",
