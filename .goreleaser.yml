@@ -53,5 +53,7 @@ signs:
 release:
   # If you want to manually examine the release before its live, use true on this line:
   draft: false
+  # Re-running the pipeline against an existing release replaces assets instead of erroring.
+  replace_existing_artifacts: true
 changelog:
   disable: true
