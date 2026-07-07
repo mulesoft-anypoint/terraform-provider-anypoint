@@ -110,9 +110,9 @@ resource "anypoint_private_space" "my_ps" {
 
 Required:
 
-- `cidr_block` (String) The CIDR block for the firewall rule.
+- `cidr_block` (String) The source/destination for the firewall rule. Either a CIDR block or the special value 'local-private-network'.
 - `from_port` (Number) The starting port for the firewall rule.
-- `protocol` (String) Specifies the network protocol used in the firewall rule. Valid options are 'tcp', 'udp', or 'icmp'.
+- `protocol` (String) Specifies the network protocol used in the firewall rule. Valid options are 'tcp', 'udp', 'icmp', or 'all'.
 - `to_port` (Number) The ending port for the firewall rule.
 - `type` (String) The type of the firewall rule. Valid values are 'inbound' for incoming traffic and 'outbound' for outgoing traffic.
 

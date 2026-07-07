@@ -102,18 +102,21 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				"cidr_block": {
-					Type:             schema.TypeString,
-					Required:         true,
-					ValidateDiagFunc: validation.ToDiagFunc(validation.IsCIDR),
-					Description:      "The CIDR block for the firewall rule.",
+					Type:     schema.TypeString,
+					Required: true,
+					ValidateDiagFunc: validation.ToDiagFunc(validation.Any(
+						validation.IsCIDR,
+						validation.StringInSlice([]string{"local-private-network"}, false),
+					)),
+					Description: "The source/destination for the firewall rule. Either a CIDR block or the special value 'local-private-network'.",
 				},
 				"protocol": {
 					Type:     schema.TypeString,
 					Required: true,
 					ValidateDiagFunc: validation.ToDiagFunc(
-						validation.StringInSlice([]string{"tcp", "udp", "icmp"}, false),
+						validation.StringInSlice([]string{"tcp", "udp", "icmp", "all"}, false),
 					),
-					Description: "Specifies the network protocol used in the firewall rule. Valid options are 'tcp', 'udp', or 'icmp'.",
+					Description: "Specifies the network protocol used in the firewall rule. Valid options are 'tcp', 'udp', 'icmp', or 'all'.",
 				},
 				"from_port": {
 					Type:             schema.TypeInt,
