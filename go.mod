@@ -1,6 +1,6 @@
 module github.com/mulesoft-anypoint/terraform-provider-anypoint
 
-go 1.20
+go 1.21
 
 require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.24.0
