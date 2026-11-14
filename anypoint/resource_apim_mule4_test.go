@@ -48,3 +48,22 @@ func TestApimMule4Schema_AssetVersionNotForceNew(t *testing.T) {
 		t.Fatal("asset_version must not be ForceNew")
 	}
 }
+
+func TestNewApimMule4PostBody_DescriptionAndProvider(t *testing.T) {
+	d := schema.TestResourceDataRaw(t, resourceApimMule4().Schema, map[string]any{
+		"description": "d",
+		"provider_id": "p",
+	})
+	body := newApimMule4PostBody(d)
+	if got := body.GetDescription(); got != "d" {
+		t.Errorf("description = %q, want d", got)
+	}
+	if got := body.GetProviderId(); got != "p" {
+		t.Errorf("provider_id = %q, want p", got)
+	}
+
+	empty := newApimMule4PostBody(schema.TestResourceDataRaw(t, resourceApimMule4().Schema, map[string]any{}))
+	if empty.HasDescription() {
+		t.Error("description must not be set when unset in config")
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/iancoleman/strcase"
@@ -23,7 +24,7 @@ func resourceApimMule4() *schema.Resource {
 		ReadContext:   resourceApimMule4Read,
 		UpdateContext: resourceApimMule4Update,
 		DeleteContext: resourceApimMule4Delete,
-		CustomizeDiff: customizeDiffAssetVersionMajor,
+		CustomizeDiff: customdiff.All(customizeDiffAssetVersionMajor, customizeDiffTagsNoCaseDuplicates),
 		Description: `
 		Create and manage an API Manager Instance of type Mule4.
 		`,
@@ -95,9 +96,10 @@ func resourceApimMule4() *schema.Resource {
 				Description: "The description of the instance",
 			},
 			"tags": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: "List of tags",
+				Type:             schema.TypeList,
+				Optional:         true,
+				Description:      "List of tags. Anypoint stores tags lowercased and de-duplicated, so tags that differ only by case are rejected.",
+				DiffSuppressFunc: diffSuppressTagsCaseInsensitive,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -220,6 +222,22 @@ func resourceApimMule4Create(ctx context.Context, d *schema.ResourceData, m any)
 	id := res.GetId()
 	d.SetId(strconv.Itoa(int(id)))
 
+	// the POST endpoints silently drop tags and deprecated: apply them with a
+	// follow-up PATCH. On failure the id stays in state so the next apply
+	// retries through Update.
+	if patch := newApimInstanceCreateFollowUpPatch(d); patch != nil {
+		_, patchr, perr := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, d.Id()).Body(patch).Execute()
+		if perr != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Unable to update api manager instance " + d.Id(),
+				Detail:   extractAPIErrorDetail(perr, patchr),
+			})
+			return diags
+		}
+		defer patchr.Body.Close()
+	}
+
 	//perform read
 	diags = append(diags, resourceApimMule4Read(ctx, d, m)...)
 	return diags
@@ -335,6 +353,12 @@ func newApimMule4PostBody(d *schema.ResourceData) *apim.ApimInstancePostBody {
 		body.SetInstanceLabel(val.(string))
 	} else {
 		body.SetInstanceLabelNil()
+	}
+	if val, ok := d.GetOk("description"); ok {
+		body.SetDescription(val.(string))
+	}
+	if val, ok := d.GetOk("provider_id"); ok {
+		body.SetProviderId(val.(string))
 	}
 	body.SetTechnology(APIM_MULE4_TECHNOLOGY)
 	body.SetEndpoint(*endpoint)

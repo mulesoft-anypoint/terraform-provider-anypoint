@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -59,4 +60,58 @@ func customizeDiffAssetVersionMajor(ctx context.Context, d *schema.ResourceDiff,
 		return d.ForceNew("asset_version")
 	}
 	return nil
+}
+
+// diffSuppressTagsCaseInsensitive hides case-only differences between tags.
+// Anypoint lowercases tags on storage, so "QA" in config reads back as "qa".
+// The list length (tags.#) is suppressed only when it is unchanged.
+func diffSuppressTagsCaseInsensitive(k, oldV, newV string, d *schema.ResourceData) bool {
+	if strings.HasSuffix(k, ".#") {
+		return oldV == newV
+	}
+	return strings.EqualFold(oldV, newV)
+}
+
+// validateTagsNoCaseDuplicates rejects tags that differ only by case, because
+// Anypoint lowercases tags and merges them, which would cause a permanent diff.
+func validateTagsNoCaseDuplicates(tags []string) error {
+	seen := make(map[string]string, len(tags))
+	for _, t := range tags {
+		key := strings.ToLower(t)
+		if prev, ok := seen[key]; ok {
+			return fmt.Errorf("tags %q and %q differ only by case; Anypoint stores tags lowercased and would merge them", prev, t)
+		}
+		seen[key] = t
+	}
+	return nil
+}
+
+// customizeDiffTagsNoCaseDuplicates runs validateTagsNoCaseDuplicates at plan
+// time (the SDK has no ValidateFunc support for TypeList).
+func customizeDiffTagsNoCaseDuplicates(ctx context.Context, d *schema.ResourceDiff, m any) error {
+	raw, _ := d.Get("tags").([]any)
+	tags := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			tags = append(tags, s)
+		}
+	}
+	return validateTagsNoCaseDuplicates(tags)
+}
+
+// newApimInstanceCreateFollowUpPatch builds the PATCH body for attributes the
+// POST endpoints silently drop (tags, deprecated). It returns nil when there is
+// nothing to send.
+func newApimInstanceCreateFollowUpPatch(d *schema.ResourceData) map[string]any {
+	body := make(map[string]any)
+	if tags, ok := d.Get("tags").([]any); ok && len(tags) > 0 {
+		body["tags"] = tags
+	}
+	if deprecated, _ := d.Get("deprecated").(bool); deprecated {
+		body["deprecated"] = true
+	}
+	if len(body) == 0 {
+		return nil
+	}
+	return body
 }
