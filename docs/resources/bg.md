@@ -3,12 +3,12 @@
 page_title: "anypoint_bg Resource - terraform-provider-anypoint"
 subcategory: ""
 description: |-
-  Creates a business group (org).
+  Creates and manages a business group (org).
 ---
 
 # anypoint_bg (Resource)
 
-Creates a business group (org).
+Creates and manages a business group (org).
 
 ## Example Usage
 

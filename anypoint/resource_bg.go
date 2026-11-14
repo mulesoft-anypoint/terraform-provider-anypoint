@@ -31,9 +31,7 @@ func resourceBG() *schema.Resource {
 		ReadContext:   resourceBGRead,
 		UpdateContext: resourceBGUpdate,
 		DeleteContext: resourceBGDelete,
-		Description: `
-		Creates a business group (org).
-		`,
+		Description:   "Creates and manages a business group (org).",
 		Schema: map[string]*schema.Schema{
 			"last_updated": {
 				Type:        schema.TypeString,
@@ -838,8 +836,26 @@ func resourceBGRead(ctx context.Context, d *schema.ResourceData, m any) diag.Dia
 		})
 		return diags
 	}
+	if err := setBGParentFromAncestors(d, res.GetParentOrganizationIds()); err != nil {
+		diags := append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Unable to set business group parent " + orgid,
+			Detail:   err.Error(),
+		})
+		return diags
+	}
 	d.SetId(orgid)
 	return diags
+}
+
+// setBGParentFromAncestors sets parent_organization_id from the API's
+// root-first ancestor list (the last element is the immediate parent). It is a
+// no-op when the list is empty (master org), leaving any existing value intact.
+func setBGParentFromAncestors(d *schema.ResourceData, ancestors []string) error {
+	if len(ancestors) == 0 {
+		return nil
+	}
+	return d.Set("parent_organization_id", ancestors[len(ancestors)-1])
 }
 
 func resourceBGUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
