@@ -205,7 +205,7 @@ func resourceApimMule4Create(ctx context.Context, d *schema.ResourceData, m any)
 	// init request body
 	body := newApimMule4PostBody(d)
 	// execute post request
-	res, httpr, err := pco.apimclient.DefaultApi.PostApimInstance(authctx, orgid, envid).ApimInstancePostBody(*body).Execute()
+	res, httpr, err := pco.apimclient.DefaultAPI.PostApimInstance(authctx, orgid, envid).ApimInstancePostBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -240,7 +240,7 @@ func resourceApimMule4Read(ctx context.Context, d *schema.ResourceData, m any) d
 		return diags
 	}
 	//perform request
-	res, httpr, err := pco.apimclient.DefaultApi.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
+	res, httpr, err := pco.apimclient.DefaultAPI.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -283,7 +283,7 @@ func resourceApimMule4Update(ctx context.Context, d *schema.ResourceData, m any)
 	if d.HasChanges(getApimMule4UpdatableAttributes()...) {
 		body := newApimMule4PatchBody(d)
 		authctx := getApimAuthCtx(ctx, &pco)
-		_, httpr, err := pco.apimclient.DefaultApi.PatchApimInstance(authctx, orgid, envid, apimid).Body(body).Execute()
+		_, httpr, err := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, apimid).Body(body).Execute()
 		if err != nil {
 			details := errors.New(extractAPIErrorDetail(err, httpr))
 			diags = append(diags, diag.Diagnostic{
@@ -308,7 +308,7 @@ func resourceApimMule4Delete(ctx context.Context, d *schema.ResourceData, m any)
 	id := d.Get("id").(string)
 	authctx := getApimAuthCtx(ctx, &pco)
 	//perform request
-	httpr, err := pco.apimclient.DefaultApi.DeleteApimInstance(authctx, orgid, envid, id).Execute()
+	httpr, err := pco.apimclient.DefaultAPI.DeleteApimInstance(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{

@@ -400,7 +400,7 @@ func dataSourceApimRead(ctx context.Context, d *schema.ResourceData, m any) diag
 	envid := d.Get("env_id").(string)
 	authctx := getApimAuthCtx(ctx, &pco)
 	//prepare request
-	req := pco.apimclient.DefaultApi.GetEnvApimInstances(authctx, orgid, envid)
+	req := pco.apimclient.DefaultAPI.GetEnvApimInstances(authctx, orgid, envid)
 	req, errDiags := parseApimSearchOpts(req, searchOpts)
 	if errDiags.HasError() {
 		diags = append(diags, errDiags...)
@@ -445,7 +445,7 @@ func dataSourceApimRead(ctx context.Context, d *schema.ResourceData, m any) diag
 Parses the api manager search options in order to check if the required search parameters are set correctly.
 Appends the parameters to the given request
 */
-func parseApimSearchOpts(req apim.DefaultApiGetEnvApimInstancesRequest, params *schema.Set) (apim.DefaultApiGetEnvApimInstancesRequest, diag.Diagnostics) {
+func parseApimSearchOpts(req apim.DefaultAPIGetEnvApimInstancesRequest, params *schema.Set) (apim.DefaultAPIGetEnvApimInstancesRequest, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if params.Len() == 0 {
 		return req, diags

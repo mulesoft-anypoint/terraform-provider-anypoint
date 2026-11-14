@@ -497,7 +497,7 @@ func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, 
 	// init request body
 	body := newApimFlexGatewayPostBody(d)
 	// execute post request
-	res, httpr, err := pco.apimclient.DefaultApi.PostApimInstance(authctx, orgid, envid).ApimInstancePostBody(*body).Execute()
+	res, httpr, err := pco.apimclient.DefaultAPI.PostApimInstance(authctx, orgid, envid).ApimInstancePostBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -569,7 +569,7 @@ func resourceApimFlexGatewayRead(ctx context.Context, d *schema.ResourceData, m 
 		return diags
 	}
 
-	res, httpr, err := pco.apimclient.DefaultApi.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
+	res, httpr, err := pco.apimclient.DefaultAPI.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -656,7 +656,7 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 	if !diags.HasError() && d.HasChanges(getApimFlexGatewayUpdatableAttributes()...) {
 		body := newApimFlexGatewayPatchBody(d)
 		authctx := getApimAuthCtx(ctx, &pco)
-		_, httpr, err := pco.apimclient.DefaultApi.PatchApimInstance(authctx, orgid, envid, apimid).Body(body).Execute()
+		_, httpr, err := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, apimid).Body(body).Execute()
 		if err != nil {
 			details := errors.New(extractAPIErrorDetail(err, httpr))
 			diags = append(diags, diag.Diagnostic{
@@ -700,7 +700,7 @@ func resourceApimFlexGatewayRoutingUpdate(ctx context.Context, d *schema.Resourc
 	if _, ok := d.GetOk("routing"); ok {
 		body := newApimFlexGatewayRoutingPostBody(d) // creating body
 		// patch
-		_, httpr, err := pco.apimclient.DefaultApi.PatchApimInstance(authctx, orgid, envid, id).Body(body).Execute()
+		_, httpr, err := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, id).Body(body).Execute()
 		if err != nil {
 			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
@@ -727,7 +727,7 @@ func resourceApimFlexGatewayDelete(ctx context.Context, d *schema.ResourceData, 
 	id := d.Get("id").(string)
 	authctx := getApimAuthCtx(ctx, &pco)
 
-	httpr, err := pco.apimclient.DefaultApi.DeleteApimInstance(authctx, orgid, envid, id).Execute()
+	httpr, err := pco.apimclient.DefaultAPI.DeleteApimInstance(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		var details string
 		if httpr != nil {
