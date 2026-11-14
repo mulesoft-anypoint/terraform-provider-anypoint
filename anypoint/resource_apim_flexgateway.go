@@ -517,19 +517,16 @@ func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, 
 	d.SetId(strconv.Itoa(int(id)))
 
 	// the POST endpoints silently drop tags and deprecated: apply them with a
-	// follow-up PATCH. On failure the id stays in state so the next apply
-	// retries through Update.
+	// follow-up PATCH. On failure emit a warning only (an error would taint the
+	// resource and force a replacement) and carry on with upstreams, routing and
+	// default-upstream removal; the next apply retries through Update.
 	if patch := newApimInstanceCreateFollowUpPatch(d); patch != nil {
 		_, patchr, perr := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, d.Id()).Body(patch).Execute()
 		if perr != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to update api manager instance " + d.Id(),
-				Detail:   extractAPIErrorDetail(perr, patchr),
-			})
-			return diags
+			diags = append(diags, followUpPatchWarning(d.Id(), extractAPIErrorDetail(perr, patchr)))
+		} else {
+			defer patchr.Body.Close()
 		}
-		defer patchr.Body.Close()
 	}
 
 	//create all upstreams if available
