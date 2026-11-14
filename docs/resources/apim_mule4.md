@@ -46,7 +46,7 @@ resource "anypoint_apim_mule4" "api" {
 - `instance_label` (String) The instance's label.
 - `last_updated` (String) The last time this resource has been updated locally.
 - `provider_id` (String) The client identity provider's id to use for this instance
-- `tags` (List of String) List of tags
+- `tags` (List of String) List of tags. Anypoint stores tags lowercased and de-duplicated, so tags that differ only by case are rejected.
 
 ### Read-Only
 
