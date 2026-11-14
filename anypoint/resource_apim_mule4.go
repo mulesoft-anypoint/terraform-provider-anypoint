@@ -23,6 +23,7 @@ func resourceApimMule4() *schema.Resource {
 		ReadContext:   resourceApimMule4Read,
 		UpdateContext: resourceApimMule4Update,
 		DeleteContext: resourceApimMule4Delete,
+		CustomizeDiff: customizeDiffAssetVersionMajor,
 		Description: `
 		Create and manage an API Manager Instance of type Mule4.
 		`,
@@ -81,7 +82,6 @@ func resourceApimMule4() *schema.Resource {
 			"asset_version": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
 				Description: "The API specification's version number in exchange",
 			},
 			"product_version": {
@@ -351,10 +351,10 @@ func newApimMule4PatchBody(d *schema.ResourceData) map[string]any {
 	})
 	for _, attr := range attributes {
 		if d.HasChange(attr) {
-			body[strcase.ToCamel(attr)] = d.Get(attr)
+			body[strcase.ToLowerCamel(attr)] = apimPatchValue(d.Get(attr))
 		}
 	}
-	maps.Copy(body, newPatchBodyMap4FlattenedAttr("endpoint", d))
+	maps.Copy(body, newPatchBodyMap4FlattenedAttr("endpoint", getApimMule4UpdatableAttributes(), d))
 	return body
 }
 
@@ -399,7 +399,7 @@ func getApimMule4DetailsAttributes() []string {
 
 func getApimMule4UpdatableAttributes() []string {
 	attributes := [...]string{
-		"instance_label", "description", "tags", "provider_id",
+		"instance_label", "description", "tags", "provider_id", "asset_version",
 		"deprecated", "endpoint_uri", "endpoint_proxy_uri", "endpoint_deployment_type",
 	}
 	return attributes[:]

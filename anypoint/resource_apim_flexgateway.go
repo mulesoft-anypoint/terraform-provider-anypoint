@@ -1026,8 +1026,8 @@ func newApimFlexGatewayPatchBody(d *schema.ResourceData) map[string]any {
 		}
 	}
 
-	//maps.Copy(body, newPatchBodyMap4FlattenedAttr("endpoint", d))
-	//maps.Copy(body, newPatchBodyMap4FlattenedAttr("deployment", d))
+	//maps.Copy(body, newPatchBodyMap4FlattenedAttr("endpoint", getApimFlexGatewayUpdatableAttributes(), d))
+	//maps.Copy(body, newPatchBodyMap4FlattenedAttr("deployment", getApimFlexGatewayUpdatableAttributes(), d))
 	body["endpoint"] = endpoint_map
 	body["deployment"] = deployment_map
 	maps.Copy(body, newApimFlexGatewayRoutingPatchBody(d))
@@ -1046,16 +1046,16 @@ func newApimFlexGatewayRoutingPatchBody(d *schema.ResourceData) map[string]any {
 // the function will get all attributes prefixed by the given prefix
 // the function will return a map with the prefix as its root attribute and all attributes transformed to caml case without the prefix as the object elements.
 // if no changes occured on the prefixed attributes, an empty map is returned
-func newPatchBodyMap4FlattenedAttr(prefix string, d *schema.ResourceData) map[string]any {
+func newPatchBodyMap4FlattenedAttr(prefix string, attributes []string, d *schema.ResourceData) map[string]any {
 	separator := "_"
 	params := make(map[string]any)
-	attributes := FilterStrList(getApimFlexGatewayUpdatableAttributes(), func(s string) bool {
+	prefixed := FilterStrList(attributes, func(s string) bool {
 		return strings.HasPrefix(s, prefix)
 	})
-	for _, attr := range attributes {
+	for _, attr := range prefixed {
 		if d.HasChange(attr) {
 			attr_without_prefix, _ := strings.CutPrefix(attr, prefix+separator)
-			params[strcase.ToCamel(attr_without_prefix)] = d.Get(attr)
+			params[strcase.ToLowerCamel(attr_without_prefix)] = apimPatchValue(d.Get(attr))
 		}
 	}
 	body := make(map[string]any)
