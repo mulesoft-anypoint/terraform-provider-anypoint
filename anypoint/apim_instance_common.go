@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/iancoleman/strcase"
 )
 
 // apimPatchValue maps an empty string to nil so that the API clears the field
@@ -79,7 +81,7 @@ func validateTagsNoCaseDuplicates(tags []string) error {
 	for _, t := range tags {
 		key := strings.ToLower(t)
 		if prev, ok := seen[key]; ok {
-			return fmt.Errorf("tags %q and %q differ only by case; Anypoint stores tags lowercased and would merge them", prev, t)
+			return fmt.Errorf("tags %q and %q are duplicates ignoring case; Anypoint stores tags lowercased and de-duplicated — remove one", prev, t)
 		}
 		seen[key] = t
 	}
@@ -114,4 +116,38 @@ func newApimInstanceCreateFollowUpPatch(d *schema.ResourceData) map[string]any {
 		return nil
 	}
 	return body
+}
+
+// returns map constructed for the given prefix of attributes (ex endpoint or deployment).
+// the function will get all attributes prefixed by the given prefix
+// the function will return a map with the prefix as its root attribute and all attributes transformed to caml case without the prefix as the object elements.
+// if no changes occured on the prefixed attributes, an empty map is returned
+func newPatchBodyMap4FlattenedAttr(prefix string, attributes []string, d *schema.ResourceData) map[string]any {
+	separator := "_"
+	params := make(map[string]any)
+	prefixed := FilterStrList(attributes, func(s string) bool {
+		return strings.HasPrefix(s, prefix)
+	})
+	for _, attr := range prefixed {
+		if d.HasChange(attr) {
+			attr_without_prefix, _ := strings.CutPrefix(attr, prefix+separator)
+			params[strcase.ToLowerCamel(attr_without_prefix)] = apimPatchValue(d.Get(attr))
+		}
+	}
+	body := make(map[string]any)
+	if len(params) > 0 {
+		body[prefix] = params
+	}
+	return body
+}
+
+// followUpPatchWarning builds the warning emitted when the follow-up PATCH that
+// applies tags/deprecated after create fails. A warning (not an error) keeps
+// the freshly created instance untainted so the next apply updates it in place.
+func followUpPatchWarning(id string, detail string) diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.Warning,
+		Summary:  "Unable to update api manager instance " + id,
+		Detail:   detail + " — tags/deprecated will be applied on the next apply",
+	}
 }

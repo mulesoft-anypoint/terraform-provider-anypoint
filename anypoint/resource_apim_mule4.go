@@ -83,7 +83,7 @@ func resourceApimMule4() *schema.Resource {
 			"asset_version": {
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "The API specification's version number in exchange",
+				Description: "The API specification's version number in exchange. Can be updated in place within the same major version; a different major version forces replacement.",
 			},
 			"product_version": {
 				Type:        schema.TypeString,
@@ -223,19 +223,15 @@ func resourceApimMule4Create(ctx context.Context, d *schema.ResourceData, m any)
 	d.SetId(strconv.Itoa(int(id)))
 
 	// the POST endpoints silently drop tags and deprecated: apply them with a
-	// follow-up PATCH. On failure the id stays in state so the next apply
-	// retries through Update.
+	// follow-up PATCH. On failure emit a warning only (an error would taint the
+	// resource and force a replacement); the next apply retries through Update.
 	if patch := newApimInstanceCreateFollowUpPatch(d); patch != nil {
 		_, patchr, perr := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, d.Id()).Body(patch).Execute()
 		if perr != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to update api manager instance " + d.Id(),
-				Detail:   extractAPIErrorDetail(perr, patchr),
-			})
-			return diags
+			diags = append(diags, followUpPatchWarning(d.Id(), extractAPIErrorDetail(perr, patchr)))
+		} else {
+			defer patchr.Body.Close()
 		}
-		defer patchr.Body.Close()
 	}
 
 	//perform read

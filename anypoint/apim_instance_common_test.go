@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -72,6 +73,9 @@ func TestValidateTagsNoCaseDuplicates(t *testing.T) {
 	if !strings.Contains(err.Error(), `"QA"`) || !strings.Contains(err.Error(), `"qa"`) {
 		t.Errorf("error should name both tags, got %q", err)
 	}
+	if want := `tags "QA" and "qa" are duplicates ignoring case; Anypoint stores tags lowercased and de-duplicated — remove one`; err.Error() != want {
+		t.Errorf("error = %q, want %q", err, want)
+	}
 	if err := validateTagsNoCaseDuplicates([]string{"a", "b"}); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -94,5 +98,18 @@ func TestNewApimInstanceCreateFollowUpPatch(t *testing.T) {
 	got = newApimInstanceCreateFollowUpPatch(build(map[string]any{"deprecated": true}))
 	if want := map[string]any{"deprecated": true}; !reflect.DeepEqual(got, want) {
 		t.Errorf("got %#v, want %#v", got, want)
+	}
+}
+
+func TestFollowUpPatchWarning(t *testing.T) {
+	w := followUpPatchWarning("42", "boom")
+	if w.Severity != diag.Warning {
+		t.Errorf("severity = %v, want Warning", w.Severity)
+	}
+	if w.Summary != "Unable to update api manager instance 42" {
+		t.Errorf("summary = %q", w.Summary)
+	}
+	if !strings.Contains(w.Detail, "boom") || !strings.Contains(w.Detail, "will be applied on the next apply") {
+		t.Errorf("detail = %q", w.Detail)
 	}
 }
