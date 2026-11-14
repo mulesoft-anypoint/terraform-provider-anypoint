@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	org "github.com/mulesoft-anypoint/anypoint-client-go/org"
 )
@@ -770,9 +771,10 @@ func resourceBG() *schema.Resource {
 				Description: "The organization owner account type.",
 			},
 			"session_timeout": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Description: "The organization's session timeout",
+				Type:             schema.TypeInt,
+				Optional:         true,
+				Description:      "The organization's session timeout in minutes (10 to 180).",
+				ValidateDiagFunc: validation.ToDiagFunc(validation.IntBetween(10, 180)),
 				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
 					return DiffSuppressFunc4OptionalPrimitives(k, old, new, d, "0") // default value of integeres if not set is 0
 				},
@@ -915,7 +917,13 @@ func newBGPutBody(d *schema.ResourceData) *org.BGPutReqBody {
 	body.SetName(d.Get("name").(string))
 	body.SetOwnerId(d.Get("owner_id").(string))
 	body.SetEntitlements(*newEntitlementsFromD(d))
-	body.SetSessionTimeout(int32(d.Get("session_timeout").(int)))
+	// NewBGPutReqBodyWithDefaults pre-sets SessionTimeout to 0, which the platform
+	// rejects (valid range is 10-180 minutes). Leave the field out when unset.
+	if timeout := d.Get("session_timeout").(int); timeout == 0 {
+		body.SessionTimeout = nil
+	} else {
+		body.SetSessionTimeout(int32(timeout))
+	}
 
 	return body
 }

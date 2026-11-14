@@ -97,7 +97,7 @@ resource "anypoint_bg" "bg" {
 - `entitlements_workerloggingoverride_enabled` (Boolean, Deprecated) Whether the logging override on workers is enabled for this organization. Read-only — tied to the organization's subscription.
 - `is_federated` (Boolean) Whether this organization is federated.
 - `last_updated` (String) The last time this resource has been updated locally.
-- `session_timeout` (Number) The organization's session timeout
+- `session_timeout` (Number) The organization's session timeout in minutes (10 to 180).
 
 ### Read-Only
 
