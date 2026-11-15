@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/iancoleman/strcase"
@@ -87,8 +88,7 @@ func resourceApimFlexGateway() *schema.Resource {
 			"asset_version": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
-				Description: "The API specification's version number in exchange",
+				Description: "The API specification's version number in exchange. Can be updated in place within the same major version; a different major version forces replacement.",
 			},
 			"product_version": {
 				Type:        schema.TypeString,
@@ -101,9 +101,10 @@ func resourceApimFlexGateway() *schema.Resource {
 				Description: "The description of the instance",
 			},
 			"tags": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: "List of tags",
+				Type:             schema.TypeList,
+				Optional:         true,
+				Description:      "List of tags. Anypoint stores tags lowercased and de-duplicated, so tags that differ only by case are rejected.",
+				DiffSuppressFunc: diffSuppressTagsCaseInsensitive,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -478,13 +479,16 @@ func resourceApimFlexGateway() *schema.Resource {
 				Description: "The instance's discovery name",
 			},
 		},
-		CustomizeDiff: func(ctx context.Context, rd *schema.ResourceDiff, i any) error {
-			return validateRoutingUpstreams(rd)
-		},
+		CustomizeDiff: customdiff.All(customizeDiffApimFlexGateway, customizeDiffAssetVersionMajor, customizeDiffTagsNoCaseDuplicates),
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 	}
+}
+
+// customizeDiffApimFlexGateway validates the routing/upstreams consistency at plan time.
+func customizeDiffApimFlexGateway(ctx context.Context, rd *schema.ResourceDiff, i any) error {
+	return validateRoutingUpstreams(rd)
 }
 
 func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
@@ -511,6 +515,19 @@ func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, 
 	//update ids following the creation
 	id := res.GetId()
 	d.SetId(strconv.Itoa(int(id)))
+
+	// the POST endpoints silently drop tags and deprecated: apply them with a
+	// follow-up PATCH. On failure emit a warning only (an error would taint the
+	// resource and force a replacement) and carry on with upstreams, routing and
+	// default-upstream removal; the next apply retries through Update.
+	if patch := newApimInstanceCreateFollowUpPatch(d); patch != nil {
+		_, patchr, perr := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, d.Id()).Body(patch).Execute()
+		if perr != nil {
+			diags = append(diags, followUpPatchWarning(d.Id(), extractAPIErrorDetail(perr, patchr)))
+		} else {
+			defer patchr.Body.Close()
+		}
+	}
 
 	//create all upstreams if available
 	diags = append(diags, resourceApimFlexGatewayUpstreamsCreate(ctx, d, m)...)
@@ -800,6 +817,12 @@ func newApimFlexGatewayPostBody(d *schema.ResourceData) *apim.ApimInstancePostBo
 	} else {
 		body.SetInstanceLabelNil()
 	}
+	if val, ok := d.GetOk("description"); ok {
+		body.SetDescription(val.(string))
+	}
+	if val, ok := d.GetOk("provider_id"); ok {
+		body.SetProviderId(val.(string))
+	}
 	body.SetTechnology(FLEX_GATEWAY_TECHNOLOGY)
 	body.SetEndpoint(*endpoint)
 	body.SetDeployment(*deployment)
@@ -1022,7 +1045,7 @@ func newApimFlexGatewayPatchBody(d *schema.ResourceData) map[string]any {
 	})
 	for _, attr := range attributes {
 		if d.HasChange(attr) {
-			body[strcase.ToLowerCamel(attr)] = d.Get(attr)
+			body[strcase.ToLowerCamel(attr)] = apimPatchValue(d.Get(attr))
 		}
 	}
 
@@ -1195,7 +1218,7 @@ func validateRoutingUpstreams(d *schema.ResourceDiff) error {
 
 func getApimFlexGatewayUpdatableAttributes() []string {
 	attributes := [...]string{
-		"instance_label", "description", "tags", "provider_id",
+		"instance_label", "description", "tags", "provider_id", "asset_version",
 		"deprecated", "endpoint_proxy_uri",
 		"endpoint_proxy_registration_uri", "endpoint_deployment_type",
 		"endpoint_tls_inbound_context", "deployment_gateway_version",
