@@ -153,10 +153,29 @@ func resourceTeamRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 		return diags
 	}
 
+	if err := setTeamParentFromAncestors(d, res.GetAncestorTeamIds()); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Unable to set team parent " + teamid,
+			Detail:   err.Error(),
+		})
+		return diags
+	}
+
 	d.SetId(teamid)
 	d.Set("org_id", orgid)
 
 	return diags
+}
+
+// setTeamParentFromAncestors sets parent_team_id from the API's root-first
+// ancestor list (the last element is the immediate parent). It is a no-op when
+// the list is empty (root team), leaving any existing value intact.
+func setTeamParentFromAncestors(d *schema.ResourceData, ancestors []string) error {
+	if len(ancestors) == 0 {
+		return nil
+	}
+	return d.Set("parent_team_id", ancestors[len(ancestors)-1])
 }
 
 func resourceTeamUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
