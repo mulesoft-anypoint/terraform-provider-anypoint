@@ -419,7 +419,7 @@ var DeplTargetDeploymentSettingsRTFDefinition = &schema.Resource{
 		},
 		"instance_type": {
 			Type:             schema.TypeString,
-			Description:      "Replica size for CloudHub 2.0 private-space deployments on usage-based pricing (e.g. `mule.nano`, `mule.micro`). Leave unset for Runtime Fabric targets.",
+			Description:      "Replica size for CloudHub 2.0 private-space deployments on usage-based pricing (e.g. `mule.nano`, `mule.micro`). Leave unset for Runtime Fabric targets. Once set, removing it from the configuration keeps the current value; set a different size to change it.",
 			Optional:         true,
 			Computed:         true,
 			ValidateDiagFunc: validation.ToDiagFunc(validation.StringIsNotEmpty),
@@ -932,7 +932,7 @@ func rtfResourcesInRawConfig(raw cty.Value) bool {
 		v = first
 	}
 	resources, ok := rtfCtyAttr(v, "resources")
-	if !ok || !resources.Type().IsListType() && !resources.Type().IsTupleType() {
+	if !ok || (!resources.Type().IsListType() && !resources.Type().IsTupleType()) {
 		return false
 	}
 	return resources.LengthInt() > 0
@@ -952,7 +952,7 @@ func rtfCtyAttr(v cty.Value, name string) (cty.Value, bool) {
 
 // rtfCtyFirst returns the first element of a known, non-empty list.
 func rtfCtyFirst(v cty.Value) (cty.Value, bool) {
-	if !v.Type().IsListType() && !v.Type().IsTupleType() || v.LengthInt() == 0 {
+	if (!v.Type().IsListType() && !v.Type().IsTupleType()) || v.LengthInt() == 0 {
 		return cty.NilVal, false
 	}
 	first := v.Index(cty.NumberIntVal(0))

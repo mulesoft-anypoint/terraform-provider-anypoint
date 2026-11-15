@@ -285,7 +285,7 @@ var DeplTargetDeploymentSettingsC2SSDefinition = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"instance_type": {
 			Type:        schema.TypeString,
-			Description: "Replica size reported by the platform for usage-based pricing (e.g. `mule.nano`). Read-only.",
+			Description: "Replica size of the deployment as reported by the platform (CloudHub 2.0 usage-based pricing), e.g. `mule.nano`.",
 			Computed:    true,
 		},
 		"clustered": {

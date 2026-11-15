@@ -398,7 +398,7 @@ var DeplTargetDeploymentSettingsReadOnlyDefinition = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"instance_type": {
 			Type:        schema.TypeString,
-			Description: "Replica size of CloudHub 2.0 private-space deployments on usage-based pricing (e.g. `mule.nano`).",
+			Description: "Replica size of the deployment as reported by the platform (CloudHub 2.0 usage-based pricing), e.g. `mule.nano`.",
 			Computed:    true,
 		},
 		"clustered": {

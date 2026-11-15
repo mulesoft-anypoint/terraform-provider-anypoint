@@ -1,11 +1,17 @@
 package anypoint
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 
 	application_manager_v2 "github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2"
 )
@@ -169,6 +175,71 @@ func TestRTFResourcesInRawConfig(t *testing.T) {
 			}
 		})
 	}
+
+	// Pin the helper to the real schema shape (CoreConfigSchema implied type),
+	// not only to hand-built objects.
+	implied := resourceRTFDeployment().CoreConfigSchema().ImpliedType()
+	for _, tc := range []struct {
+		name      string
+		resources []any
+		want      bool
+	}{
+		{"real schema, one resources element", rtfTestResources(), true},
+		{"real schema, empty resources list (absent block)", []any{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw := rtfTestRawValue(t, implied, rtfTestRawConfig(map[string]any{"resources": tc.resources}))
+			if got := rtfResourcesInRawConfig(raw); got != tc.want {
+				t.Errorf("rtfResourcesInRawConfig() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// rtfTestRawValue converts a Go config map into a cty value conforming to typ.
+// Attributes missing from cfg become null of their type.
+func rtfTestRawValue(t *testing.T, typ cty.Type, cfg any) cty.Value {
+	t.Helper()
+	if cfg == nil {
+		return cty.NullVal(typ)
+	}
+	switch {
+	case typ.IsObjectType():
+		m := cfg.(map[string]any)
+		attrs := make(map[string]cty.Value)
+		for name, at := range typ.AttributeTypes() {
+			attrs[name] = rtfTestRawValue(t, at, m[name])
+		}
+		return cty.ObjectVal(attrs)
+	case typ.IsListType():
+		items := cfg.([]any)
+		if len(items) == 0 {
+			return cty.ListValEmpty(typ.ElementType())
+		}
+		vals := make([]cty.Value, len(items))
+		for i, item := range items {
+			vals[i] = rtfTestRawValue(t, typ.ElementType(), item)
+		}
+		return cty.ListVal(vals)
+	case typ.IsMapType():
+		m := cfg.(map[string]any)
+		if len(m) == 0 {
+			return cty.MapValEmpty(typ.ElementType())
+		}
+		vals := make(map[string]cty.Value)
+		for k, v := range m {
+			vals[k] = rtfTestRawValue(t, typ.ElementType(), v)
+		}
+		return cty.MapVal(vals)
+	case typ == cty.String:
+		return cty.StringVal(cfg.(string))
+	case typ == cty.Number:
+		return cty.NumberIntVal(int64(cfg.(int)))
+	case typ == cty.Bool:
+		return cty.BoolVal(cfg.(bool))
+	}
+	t.Fatalf("unsupported type %s", typ.FriendlyName())
+	return cty.NilVal
 }
 
 func TestFlattenDeplSett_InstanceTypeSetsOnAllSchemas(t *testing.T) {
@@ -210,5 +281,133 @@ func TestRTFDeploymentSchema_InstanceTypeAndResources(t *testing.T) {
 	res := ds["resources"]
 	if !res.Optional || !res.Computed || res.Required {
 		t.Errorf("resources must be Optional+Computed, not Required: Optional=%v Computed=%v Required=%v", res.Optional, res.Computed, res.Required)
+	}
+}
+
+// rtfMockAppManager answers the Application Manager endpoints used by the RTF
+// deployment resource and records the POST/PATCH request bodies.
+type rtfMockAppManager struct {
+	mu           sync.Mutex
+	instanceType string
+	bodies       []map[string]any // POST then PATCH bodies, in order
+}
+
+func (m *rtfMockAppManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodPost, http.MethodPatch:
+		raw, _ := io.ReadAll(r.Body)
+		var body map[string]any
+		_ = json.Unmarshal(raw, &body)
+		m.bodies = append(m.bodies, body)
+		if target, ok := body["target"].(map[string]any); ok {
+			if ds, ok := target["deploymentSettings"].(map[string]any); ok {
+				if it, ok := ds["instanceType"].(string); ok {
+					m.instanceType = it
+				}
+			}
+		}
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"id":"dep-1"}`))
+	case http.MethodGet:
+		// The platform echoes resources for instance-type sizing.
+		resp := map[string]any{
+			"id":   "dep-1",
+			"name": "app",
+			"application": map[string]any{
+				"desiredState": "STARTED",
+				"ref":          map[string]any{"groupId": "g", "artifactId": "a", "version": "1.0.0", "packaging": "jar"},
+				"configuration": map[string]any{
+					"mule.agent.application.properties.service": map[string]any{
+						"applicationName":  "app",
+						"properties":       map[string]any{},
+						"secureProperties": map[string]any{},
+					},
+					"mule.agent.logging.service": map[string]any{
+						"artifactName":               "app",
+						"scopeLoggingConfigurations": []any{},
+					},
+				},
+			},
+			"target": map[string]any{
+				"provider": "MC",
+				"targetId": "ps-id",
+				"replicas": 1,
+				"deploymentSettings": map[string]any{
+					"instanceType": m.instanceType,
+					"resources": map[string]any{
+						"cpu":    map[string]any{"limit": "100m", "reserved": "20m"},
+						"memory": map[string]any{"limit": "700Mi", "reserved": "700Mi"},
+					},
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// Drives the real Create and Update through Resource.Apply against a mock API:
+// create with instance_type and no resources, then resize while state carries
+// the echoed resources. Neither request may carry a resources key.
+func TestRTFDeployment_CreateUpdateRequestBodies(t *testing.T) {
+	mock := &rtfMockAppManager{}
+	ts := httptest.NewServer(mock)
+	defer ts.Close()
+
+	cfg := application_manager_v2.NewConfiguration()
+	cfg.Servers = application_manager_v2.ServerConfigurations{{URL: ts.URL}}
+	meta := ProviderConfOutput{
+		access_token:     "x",
+		server_index:     0,
+		appmanagerclient: application_manager_v2.NewAPIClient(cfg),
+	}
+
+	r := resourceRTFDeployment()
+	implied := r.CoreConfigSchema().ImpliedType()
+	ctx := context.Background()
+
+	apply := func(state *terraform.InstanceState, instanceType string) *terraform.InstanceState {
+		t.Helper()
+		rawCfg := rtfTestRawConfig(map[string]any{"instance_type": instanceType})
+		diff, err := r.Diff(ctx, state, terraform.NewResourceConfigRaw(rawCfg), meta)
+		if err != nil {
+			t.Fatalf("diff: %v", err)
+		}
+		if diff == nil {
+			t.Fatal("expected a diff")
+		}
+		// The SDK populates this from the plan in ApplyResourceChange.
+		diff.RawConfig = rtfTestRawValue(t, implied, rawCfg)
+		newState, diags := r.Apply(ctx, state, diff, meta)
+		if diags.HasError() {
+			t.Fatalf("apply: %v", diags)
+		}
+		return newState
+	}
+
+	state := apply(nil, "mule.nano")
+	if state == nil || state.ID != "dep-1" {
+		t.Fatalf("create did not produce state with id dep-1: %+v", state)
+	}
+	if got := state.Attributes["target.0.deployment_settings.0.resources.#"]; got != "1" {
+		t.Fatalf("expected echoed resources in state after create, got resources.# = %q", got)
+	}
+	apply(state, "mule.micro")
+
+	if len(mock.bodies) != 2 {
+		t.Fatalf("expected POST and PATCH bodies, got %d", len(mock.bodies))
+	}
+	for i, want := range []string{"mule.nano", "mule.micro"} {
+		ds := mock.bodies[i]["target"].(map[string]any)["deploymentSettings"].(map[string]any)
+		if ds["instanceType"] != want {
+			t.Errorf("request %d instanceType = %v, want %s", i, ds["instanceType"], want)
+		}
+		if _, ok := ds["resources"]; ok {
+			t.Errorf("request %d must not carry resources, got %v", i, ds["resources"])
+		}
 	}
 }
