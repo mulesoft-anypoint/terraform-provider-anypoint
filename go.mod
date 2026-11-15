@@ -8,7 +8,7 @@ require (
 	github.com/mulesoft-anypoint/anypoint-client-go/ame v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/ame_binding v1.1.0
 	github.com/mulesoft-anypoint/anypoint-client-go/amq v1.0.0
-	github.com/mulesoft-anypoint/anypoint-client-go/apim v0.1.0
+	github.com/mulesoft-anypoint/anypoint-client-go/apim v0.5.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_policy v0.4.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0
 	github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1
