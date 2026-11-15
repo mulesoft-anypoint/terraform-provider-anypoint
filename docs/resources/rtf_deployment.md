@@ -219,10 +219,6 @@ Optional:
 <a id="nestedblock--target--deployment_settings"></a>
 ### Nested Schema for `target.deployment_settings`
 
-Required:
-
-- `resources` (Block List, Min: 1, Max: 1) The mule app allocated resources. (see [below for nested schema](#nestedblock--target--deployment_settings--resources))
-
 Optional:
 
 - `autoscaling` (Block List, Max: 1) Use this object to provide CPU Based Horizontal Autoscaling configuration on deployment and redeployment operations. This object is optional.
@@ -234,8 +230,10 @@ Optional:
 - `enforce_deploying_replicas_across_nodes` (Boolean) If true, forces the deployment of replicas across the RTF cluster. This option only available for Runtime Fabrics.
 - `generate_default_public_url` (Boolean) Whether default public url should be generated.
 - `http` (Block List, Max: 1) The details about http inbound or outbound configuration (see [below for nested schema](#nestedblock--target--deployment_settings--http))
+- `instance_type` (String) Replica size for CloudHub 2.0 private-space deployments on usage-based pricing (e.g. `mule.nano`, `mule.micro`). Leave unset for Runtime Fabric targets.
 - `jvm_args` (String) The java virtual machine arguments
 - `persistent_object_store` (Boolean) Whether persistent object store is enabled.
+- `resources` (Block List, Max: 1) The mule app allocated resources. Required for Runtime Fabric targets; omit on CloudHub 2.0 private spaces sized by `instance_type`. (see [below for nested schema](#nestedblock--target--deployment_settings--resources))
 - `runtime` (Block List, Max: 1) The Mule app runtime version info. (see [below for nested schema](#nestedblock--target--deployment_settings--runtime))
 - `update_strategy` (String) The mule app deployment update strategy: rolling or recreate
 
@@ -244,22 +242,6 @@ Read-Only:
 - `anypoint_monitoring_scope` (String) The anypoint moniroting scope
 - `sidecars` (List of Object) The mule app sidecars. (see [below for nested schema](#nestedatt--target--deployment_settings--sidecars))
 - `tracing_enabled` (Boolean) Whether the log tracing is enabled.
-
-<a id="nestedblock--target--deployment_settings--resources"></a>
-### Nested Schema for `target.deployment_settings.resources`
-
-Required:
-
-- `cpu_limit` (String) The CPU limit
-- `cpu_reserved` (String) The CPU reserved.
-- `memory_limit` (String) The memory limit
-- `memory_reserved` (String) The memory reserved.
-
-Read-Only:
-
-- `storage_limit` (String) The storage limit
-- `storage_reserved` (String) The storage reserved
-
 
 <a id="nestedblock--target--deployment_settings--autoscaling"></a>
 ### Nested Schema for `target.deployment_settings.autoscaling`
@@ -290,6 +272,22 @@ Read-Only:
 - `inbound_internal_url` (String) The inbound internal url.
 - `inbound_path_rewrite` (String) The inbound path rewrite. This option is only available for Cloudhub 2.0 with private spaces
 - `inbound_unique_id` (String) The inbound unique id.
+
+
+<a id="nestedblock--target--deployment_settings--resources"></a>
+### Nested Schema for `target.deployment_settings.resources`
+
+Required:
+
+- `cpu_limit` (String) The CPU limit
+- `cpu_reserved` (String) The CPU reserved.
+- `memory_limit` (String) The memory limit
+- `memory_reserved` (String) The memory reserved.
+
+Read-Only:
+
+- `storage_limit` (String) The storage limit
+- `storage_reserved` (String) The storage reserved
 
 
 <a id="nestedblock--target--deployment_settings--runtime"></a>

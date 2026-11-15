@@ -396,6 +396,11 @@ var DeplTargetDeplSettSidecarsReadOnlyDefinition = &schema.Resource{
 
 var DeplTargetDeploymentSettingsReadOnlyDefinition = &schema.Resource{
 	Schema: map[string]*schema.Schema{
+		"instance_type": {
+			Type:        schema.TypeString,
+			Description: "Replica size of CloudHub 2.0 private-space deployments on usage-based pricing (e.g. `mule.nano`).",
+			Computed:    true,
+		},
 		"clustered": {
 			Type:        schema.TypeBool,
 			Description: "Whether the application is deployed in clustered mode.",
@@ -847,6 +852,9 @@ func flattenAppDeploymentV2TargetDeplSett(deployment_settings *application_manag
 	item := make(map[string]any)
 	if val, ok := deployment_settings.GetClusteredOk(); ok {
 		item["clustered"] = *val
+	}
+	if val, ok := deployment_settings.GetInstanceTypeOk(); ok {
+		item["instance_type"] = *val
 	}
 	if val, ok := deployment_settings.GetEnforceDeployingReplicasAcrossNodesOk(); ok {
 		item["enforce_deploying_replicas_across_nodes"] = *val

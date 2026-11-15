@@ -166,6 +166,7 @@ Read-Only:
 - `forward_ssl_session` (Boolean)
 - `generate_default_public_url` (Boolean)
 - `http` (List of Object) (see [below for nested schema](#nestedobjatt--target--deployment_settings--http))
+- `instance_type` (String)
 - `jvm_args` (String)
 - `last_mile_security` (Boolean)
 - `persistent_object_store` (Boolean)

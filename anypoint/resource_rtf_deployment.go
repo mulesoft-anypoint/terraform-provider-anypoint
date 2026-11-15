@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -411,9 +412,17 @@ var DeplTargetDeploymentSettingsRTFDefinition = &schema.Resource{
 		"resources": {
 			Type:        schema.TypeList,
 			MaxItems:    1,
-			Description: "The mule app allocated resources.",
+			Description: "The mule app allocated resources. Required for Runtime Fabric targets; omit on CloudHub 2.0 private spaces sized by `instance_type`.",
 			Elem:        DeplTargetDeplSettResourcesRTFDefinition,
-			Required:    true,
+			Optional:    true,
+			Computed:    true,
+		},
+		"instance_type": {
+			Type:             schema.TypeString,
+			Description:      "Replica size for CloudHub 2.0 private-space deployments on usage-based pricing (e.g. `mule.nano`, `mule.micro`). Leave unset for Runtime Fabric targets.",
+			Optional:         true,
+			Computed:         true,
+			ValidateDiagFunc: validation.ToDiagFunc(validation.StringIsNotEmpty),
 		},
 		"disable_am_log_forwarding": {
 			Type:        schema.TypeBool,
@@ -584,7 +593,7 @@ func resourceRTFDeploymentCreate(ctx context.Context, d *schema.ResourceData, m 
 	orgid := d.Get("org_id").(string)
 	envid := d.Get("env_id").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
-	body := newRTFDeploymentBody(d)
+	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()))
 	//Execute post deployment
 	res, httpr, err := pco.appmanagerclient.DefaultAPI.PostDeployment(authctx, orgid, envid).DeploymentRequestBody(*body).Execute()
 	if err != nil {
@@ -660,7 +669,7 @@ func resourceRTFDeploymentUpdate(ctx context.Context, d *schema.ResourceData, m 
 	envid := d.Get("env_id").(string)
 	name := d.Get("name").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
-	body := newRTFDeploymentBody(d)
+	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()))
 	_, httpr, err := pco.appmanagerclient.DefaultAPI.PatchDeployment(authctx, orgid, envid, id).DeploymentRequestBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
@@ -701,7 +710,8 @@ func resourceRTFDeploymentDelete(ctx context.Context, d *schema.ResourceData, m 
 }
 
 // Prepares Deployment Post Body out of resource data input
-func newRTFDeploymentBody(d *schema.ResourceData) *application_manager_v2.DeploymentRequestBody {
+// sendResources reports whether the user's configuration contains a resources block.
+func newRTFDeploymentBody(d *schema.ResourceData, sendResources bool) *application_manager_v2.DeploymentRequestBody {
 	body := application_manager_v2.NewDeploymentRequestBody()
 	// -- Parsing Application
 	app_list_d := d.Get("application").([]any)
@@ -710,7 +720,7 @@ func newRTFDeploymentBody(d *schema.ResourceData) *application_manager_v2.Deploy
 	// -- Parsing Target
 	target_list_d := d.Get("target").([]any)
 	target_d := target_list_d[0].(map[string]any)
-	target := newRTFDeploymentTarget(target_d)
+	target := newRTFDeploymentTarget(target_d, sendResources)
 	//Set Body Data
 	body.SetName(d.Get("name").(string))
 	body.SetApplication(*application)
@@ -749,10 +759,10 @@ func newRTFDeploymentApplication(app_d map[string]any) *application_manager_v2.A
 }
 
 // Prepares Target object out of map input
-func newRTFDeploymentTarget(target_d map[string]any) *application_manager_v2.Target {
+func newRTFDeploymentTarget(target_d map[string]any, sendResources bool) *application_manager_v2.Target {
 	deployment_settings_list_d := target_d["deployment_settings"].([]any)
 	deployment_settings_d := deployment_settings_list_d[0].(map[string]any)
-	deployment_settings := newRTFDeploymentDeploymentSettings(deployment_settings_d)
+	deployment_settings := newRTFDeploymentDeploymentSettings(deployment_settings_d, sendResources)
 	//Prepare Target data
 	target := application_manager_v2.NewTarget()
 	target.SetProvider(target_d["provider"].(string))
@@ -806,15 +816,13 @@ func newRTFDeploymentConfiguration(configuration_d map[string]any) *application_
 }
 
 // Prepares DeploymentSettings object out of map input
-func newRTFDeploymentDeploymentSettings(deployment_settings_d map[string]any) *application_manager_v2.DeploymentSettings {
+func newRTFDeploymentDeploymentSettings(deployment_settings_d map[string]any, sendResources bool) *application_manager_v2.DeploymentSettings {
 	//http
 	http := newRTFDeploymentHttp(deployment_settings_d)
 	//runtime
 	runtime := newRTFDeploymentRuntime(deployment_settings_d)
 	//autoscaling
 	autoscaling := newRTFDeploymentAutoscaling(deployment_settings_d)
-	//resources
-	resources := newRTFDeploymentResources(deployment_settings_d)
 	//Prepare JVM Args data
 	jvm := application_manager_v2.NewJvm()
 	jvm.SetArgs(deployment_settings_d["jvm_args"].(string))
@@ -830,7 +838,12 @@ func newRTFDeploymentDeploymentSettings(deployment_settings_d map[string]any) *a
 	deployment_settings.SetGenerateDefaultPublicUrl(deployment_settings_d["generate_default_public_url"].(bool))
 	deployment_settings.SetRuntime(*runtime)
 	deployment_settings.SetAutoscaling(*autoscaling)
-	deployment_settings.SetResources(*resources)
+	if sendResources {
+		deployment_settings.SetResources(*newRTFDeploymentResources(deployment_settings_d))
+	}
+	if val, ok := deployment_settings_d["instance_type"].(string); ok && val != "" {
+		deployment_settings.SetInstanceType(val)
+	}
 
 	return deployment_settings
 }
@@ -899,6 +912,54 @@ func newRTFDeploymentResources(deployment_settings_d map[string]any) *applicatio
 		}
 	}
 	return resources
+}
+
+// rtfResourcesInRawConfig reports whether the configuration contains a non-empty
+// target.0.deployment_settings.0.resources block. It reads the raw config rather than
+// resource data because resources is Computed and d.Get would return the echoed state.
+// Any null, unknown or missing step on the path yields false.
+func rtfResourcesInRawConfig(raw cty.Value) bool {
+	v := raw
+	for _, step := range []string{"target", "deployment_settings"} {
+		attr, ok := rtfCtyAttr(v, step)
+		if !ok {
+			return false
+		}
+		first, ok := rtfCtyFirst(attr)
+		if !ok {
+			return false
+		}
+		v = first
+	}
+	resources, ok := rtfCtyAttr(v, "resources")
+	if !ok || !resources.Type().IsListType() && !resources.Type().IsTupleType() {
+		return false
+	}
+	return resources.LengthInt() > 0
+}
+
+// rtfCtyAttr returns the named attribute of a known, non-null object.
+func rtfCtyAttr(v cty.Value, name string) (cty.Value, bool) {
+	if v.IsNull() || !v.IsKnown() || !v.Type().IsObjectType() || !v.Type().HasAttribute(name) {
+		return cty.NilVal, false
+	}
+	attr := v.GetAttr(name)
+	if attr.IsNull() || !attr.IsKnown() {
+		return cty.NilVal, false
+	}
+	return attr, true
+}
+
+// rtfCtyFirst returns the first element of a known, non-empty list.
+func rtfCtyFirst(v cty.Value) (cty.Value, bool) {
+	if !v.Type().IsListType() && !v.Type().IsTupleType() || v.LengthInt() == 0 {
+		return cty.NilVal, false
+	}
+	first := v.Index(cty.NumberIntVal(0))
+	if first.IsNull() || !first.IsKnown() {
+		return cty.NilVal, false
+	}
+	return first, true
 }
 
 func decomposeRTFDeploymentId(d *schema.ResourceData) (string, string, string, diag.Diagnostics) {

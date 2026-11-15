@@ -283,6 +283,11 @@ var DeplTargetDeplSettAutoscalingC2SSDefinition = &schema.Resource{
 
 var DeplTargetDeploymentSettingsC2SSDefinition = &schema.Resource{
 	Schema: map[string]*schema.Schema{
+		"instance_type": {
+			Type:        schema.TypeString,
+			Description: "Replica size reported by the platform for usage-based pricing (e.g. `mule.nano`). Read-only.",
+			Computed:    true,
+		},
 		"clustered": {
 			Type:        schema.TypeBool,
 			Description: "Whether the application is deployed in clustered mode.",
