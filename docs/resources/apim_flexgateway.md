@@ -61,7 +61,7 @@ resource "anypoint_apim_flexgateway" "fg" {
 
 - `asset_group_id` (String) The API specification's business group id
 - `asset_id` (String) The API specification's asset id in exchange
-- `asset_version` (String) The API specification's version number in exchange
+- `asset_version` (String) The API specification's version number in exchange. Can be updated in place within the same major version; a different major version forces replacement.
 - `deployment_target_id` (String) The instance's deployment flex gateway target id
 - `deployment_target_name` (String) The instance's deployment flex gateway target name
 - `env_id` (String) The environment id where the flex gateway instance is defined.
@@ -84,7 +84,7 @@ resource "anypoint_apim_flexgateway" "fg" {
 - `instance_label` (String) The Instance's label
 - `last_updated` (String) The last time this resource has been updated locally.
 - `provider_id` (String) The client identity provider's id to use for this instance
-- `tags` (List of String) List of tags
+- `tags` (List of String) List of tags. Anypoint stores tags lowercased and de-duplicated, so tags that differ only by case are rejected.
 
 ### Read-Only
 

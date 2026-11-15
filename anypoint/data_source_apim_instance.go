@@ -414,7 +414,7 @@ func dataSourceApimInstanceRead(ctx context.Context, d *schema.ResourceData, m a
 	id := d.Get("id").(string)
 	authctx := getApimAuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.apimclient.DefaultApi.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
+	res, httpr, err := pco.apimclient.DefaultAPI.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{

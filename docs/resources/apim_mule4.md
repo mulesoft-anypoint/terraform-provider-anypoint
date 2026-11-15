@@ -32,7 +32,7 @@ resource "anypoint_apim_mule4" "api" {
 
 - `asset_group_id` (String) The API specification's business group id
 - `asset_id` (String) The API specification's asset id in exchange
-- `asset_version` (String) The API specification's version number in exchange
+- `asset_version` (String) The API specification's version number in exchange. Can be updated in place within the same major version; a different major version forces replacement.
 - `env_id` (String) The environment id where the api manager instance is defined.
 - `org_id` (String) The organization id where the api manager instance is defined.
 
@@ -46,7 +46,7 @@ resource "anypoint_apim_mule4" "api" {
 - `instance_label` (String) The instance's label.
 - `last_updated` (String) The last time this resource has been updated locally.
 - `provider_id` (String) The client identity provider's id to use for this instance
-- `tags` (List of String) List of tags
+- `tags` (List of String) List of tags. Anypoint stores tags lowercased and de-duplicated, so tags that differ only by case are rejected.
 
 ### Read-Only
 

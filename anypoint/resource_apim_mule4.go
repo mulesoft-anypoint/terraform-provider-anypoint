@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/iancoleman/strcase"
@@ -23,6 +24,7 @@ func resourceApimMule4() *schema.Resource {
 		ReadContext:   resourceApimMule4Read,
 		UpdateContext: resourceApimMule4Update,
 		DeleteContext: resourceApimMule4Delete,
+		CustomizeDiff: customdiff.All(customizeDiffAssetVersionMajor, customizeDiffTagsNoCaseDuplicates),
 		Description: `
 		Create and manage an API Manager Instance of type Mule4.
 		`,
@@ -81,8 +83,7 @@ func resourceApimMule4() *schema.Resource {
 			"asset_version": {
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
-				Description: "The API specification's version number in exchange",
+				Description: "The API specification's version number in exchange. Can be updated in place within the same major version; a different major version forces replacement.",
 			},
 			"product_version": {
 				Type:        schema.TypeString,
@@ -95,9 +96,10 @@ func resourceApimMule4() *schema.Resource {
 				Description: "The description of the instance",
 			},
 			"tags": {
-				Type:        schema.TypeList,
-				Optional:    true,
-				Description: "List of tags",
+				Type:             schema.TypeList,
+				Optional:         true,
+				Description:      "List of tags. Anypoint stores tags lowercased and de-duplicated, so tags that differ only by case are rejected.",
+				DiffSuppressFunc: diffSuppressTagsCaseInsensitive,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -205,7 +207,7 @@ func resourceApimMule4Create(ctx context.Context, d *schema.ResourceData, m any)
 	// init request body
 	body := newApimMule4PostBody(d)
 	// execute post request
-	res, httpr, err := pco.apimclient.DefaultApi.PostApimInstance(authctx, orgid, envid).ApimInstancePostBody(*body).Execute()
+	res, httpr, err := pco.apimclient.DefaultAPI.PostApimInstance(authctx, orgid, envid).ApimInstancePostBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -219,6 +221,18 @@ func resourceApimMule4Create(ctx context.Context, d *schema.ResourceData, m any)
 	//update ids following the creation
 	id := res.GetId()
 	d.SetId(strconv.Itoa(int(id)))
+
+	// the POST endpoints silently drop tags and deprecated: apply them with a
+	// follow-up PATCH. On failure emit a warning only (an error would taint the
+	// resource and force a replacement); the next apply retries through Update.
+	if patch := newApimInstanceCreateFollowUpPatch(d); patch != nil {
+		_, patchr, perr := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, d.Id()).Body(patch).Execute()
+		if perr != nil {
+			diags = append(diags, followUpPatchWarning(d.Id(), extractAPIErrorDetail(perr, patchr)))
+		} else {
+			defer patchr.Body.Close()
+		}
+	}
 
 	//perform read
 	diags = append(diags, resourceApimMule4Read(ctx, d, m)...)
@@ -240,7 +254,7 @@ func resourceApimMule4Read(ctx context.Context, d *schema.ResourceData, m any) d
 		return diags
 	}
 	//perform request
-	res, httpr, err := pco.apimclient.DefaultApi.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
+	res, httpr, err := pco.apimclient.DefaultAPI.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -283,7 +297,7 @@ func resourceApimMule4Update(ctx context.Context, d *schema.ResourceData, m any)
 	if d.HasChanges(getApimMule4UpdatableAttributes()...) {
 		body := newApimMule4PatchBody(d)
 		authctx := getApimAuthCtx(ctx, &pco)
-		_, httpr, err := pco.apimclient.DefaultApi.PatchApimInstance(authctx, orgid, envid, apimid).Body(body).Execute()
+		_, httpr, err := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, apimid).Body(body).Execute()
 		if err != nil {
 			details := errors.New(extractAPIErrorDetail(err, httpr))
 			diags = append(diags, diag.Diagnostic{
@@ -308,7 +322,7 @@ func resourceApimMule4Delete(ctx context.Context, d *schema.ResourceData, m any)
 	id := d.Get("id").(string)
 	authctx := getApimAuthCtx(ctx, &pco)
 	//perform request
-	httpr, err := pco.apimclient.DefaultApi.DeleteApimInstance(authctx, orgid, envid, id).Execute()
+	httpr, err := pco.apimclient.DefaultAPI.DeleteApimInstance(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -336,6 +350,12 @@ func newApimMule4PostBody(d *schema.ResourceData) *apim.ApimInstancePostBody {
 	} else {
 		body.SetInstanceLabelNil()
 	}
+	if val, ok := d.GetOk("description"); ok {
+		body.SetDescription(val.(string))
+	}
+	if val, ok := d.GetOk("provider_id"); ok {
+		body.SetProviderId(val.(string))
+	}
 	body.SetTechnology(APIM_MULE4_TECHNOLOGY)
 	body.SetEndpoint(*endpoint)
 	body.SetSpec(*spec)
@@ -351,10 +371,10 @@ func newApimMule4PatchBody(d *schema.ResourceData) map[string]any {
 	})
 	for _, attr := range attributes {
 		if d.HasChange(attr) {
-			body[strcase.ToCamel(attr)] = d.Get(attr)
+			body[strcase.ToLowerCamel(attr)] = apimPatchValue(d.Get(attr))
 		}
 	}
-	maps.Copy(body, newPatchBodyMap4FlattenedAttr("endpoint", d))
+	maps.Copy(body, newPatchBodyMap4FlattenedAttr("endpoint", getApimMule4UpdatableAttributes(), d))
 	return body
 }
 
@@ -399,7 +419,7 @@ func getApimMule4DetailsAttributes() []string {
 
 func getApimMule4UpdatableAttributes() []string {
 	attributes := [...]string{
-		"instance_label", "description", "tags", "provider_id",
+		"instance_label", "description", "tags", "provider_id", "asset_version",
 		"deprecated", "endpoint_uri", "endpoint_proxy_uri", "endpoint_deployment_type",
 	}
 	return attributes[:]

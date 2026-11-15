@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 
 	org "github.com/mulesoft-anypoint/anypoint-client-go/org"
 )
@@ -31,9 +32,7 @@ func resourceBG() *schema.Resource {
 		ReadContext:   resourceBGRead,
 		UpdateContext: resourceBGUpdate,
 		DeleteContext: resourceBGDelete,
-		Description: `
-		Creates a business group (org).
-		`,
+		Description:   "Creates and manages a business group (org).",
 		Schema: map[string]*schema.Schema{
 			"last_updated": {
 				Type:        schema.TypeString,
@@ -216,9 +215,6 @@ func resourceBG() *schema.Resource {
 				Optional:    true,
 				Default:     true,
 				Description: "Whether this organization can create sub organizations (descendants).",
-				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
-					return DiffSuppressFunc4OptionalPrimitives(k, old, new, d, "true")
-				},
 			},
 			"entitlements_hybridenabled": {
 				Type:        schema.TypeBool,
@@ -770,9 +766,10 @@ func resourceBG() *schema.Resource {
 				Description: "The organization owner account type.",
 			},
 			"session_timeout": {
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Description: "The organization's session timeout",
+				Type:             schema.TypeInt,
+				Optional:         true,
+				Description:      "The organization's session timeout in minutes (10 to 180).",
+				ValidateDiagFunc: validation.ToDiagFunc(validation.IntBetween(10, 180)),
 				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
 					return DiffSuppressFunc4OptionalPrimitives(k, old, new, d, "0") // default value of integeres if not set is 0
 				},
@@ -838,8 +835,26 @@ func resourceBGRead(ctx context.Context, d *schema.ResourceData, m any) diag.Dia
 		})
 		return diags
 	}
+	if err := setBGParentFromAncestors(d, res.GetParentOrganizationIds()); err != nil {
+		diags := append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Unable to set business group parent " + orgid,
+			Detail:   err.Error(),
+		})
+		return diags
+	}
 	d.SetId(orgid)
 	return diags
+}
+
+// setBGParentFromAncestors sets parent_organization_id from the API's
+// root-first ancestor list (the last element is the immediate parent). It is a
+// no-op when the list is empty (master org), leaving any existing value intact.
+func setBGParentFromAncestors(d *schema.ResourceData, ancestors []string) error {
+	if len(ancestors) == 0 {
+		return nil
+	}
+	return d.Set("parent_organization_id", ancestors[len(ancestors)-1])
 }
 
 func resourceBGUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
@@ -915,7 +930,13 @@ func newBGPutBody(d *schema.ResourceData) *org.BGPutReqBody {
 	body.SetName(d.Get("name").(string))
 	body.SetOwnerId(d.Get("owner_id").(string))
 	body.SetEntitlements(*newEntitlementsFromD(d))
-	body.SetSessionTimeout(int32(d.Get("session_timeout").(int)))
+	// NewBGPutReqBodyWithDefaults pre-sets SessionTimeout to 0, which the platform
+	// rejects (valid range is 10-180 minutes). Leave the field out when unset.
+	if timeout := d.Get("session_timeout").(int); timeout == 0 {
+		body.SessionTimeout = nil
+	} else {
+		body.SetSessionTimeout(int32(timeout))
+	}
 
 	return body
 }
