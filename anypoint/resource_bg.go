@@ -215,9 +215,6 @@ func resourceBG() *schema.Resource {
 				Optional:    true,
 				Default:     true,
 				Description: "Whether this organization can create sub organizations (descendants).",
-				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
-					return DiffSuppressFunc4OptionalPrimitives(k, old, new, d, "true")
-				},
 			},
 			"entitlements_hybridenabled": {
 				Type:        schema.TypeBool,
