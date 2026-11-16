@@ -214,8 +214,8 @@ github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0 h1:fbtUh0xjk+Ir
 github.com/mulesoft-anypoint/anypoint-client-go/apim_tier v1.0.0/go.mod h1:sO7Ob8yVYav3uO6zgpY3c25B8XLG2u6M8C8w1504MXU=
 github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1 h1:EAn805cAB8REdbuOVzER/n8F7t8yXMLfJIfyGq94qQ0=
 github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream v0.0.1/go.mod h1:RC9wgWhUwqB4ZKWZYE9R/NfFz1yCoss9bJDdTDPYQhI=
-github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2 v0.1.0 h1:NDuGf1JJZlBdJ4Av9YDSZgiZGtJGXPjzwBha4qMtUFM=
-github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2 v0.1.0/go.mod h1:aUuFZxGl5fO6FIB9KdO+wE+TrljdcHcjpxMqHlWJ21g=
+github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2 v0.2.0 h1:SVGnrTSAyOHMgpT8qdPyDP3A2kmZFts7kmnOhAUQFDE=
+github.com/mulesoft-anypoint/anypoint-client-go/application_manager_v2 v0.2.0/go.mod h1:aUuFZxGl5fO6FIB9KdO+wE+TrljdcHcjpxMqHlWJ21g=
 github.com/mulesoft-anypoint/anypoint-client-go/authorization v0.3.0 h1:9CmX/n8KHR0DpK0WBYt4kO8youq2TYZ8r3XLqmRtJFY=
 github.com/mulesoft-anypoint/anypoint-client-go/authorization v0.3.0/go.mod h1:V5QUMbu/p3eKOCwjpkhEH4uYDEg3f0/u9H8PLz1R060=
 github.com/mulesoft-anypoint/anypoint-client-go/connected_app v1.2.0 h1:7gJiext/MQAEPLCQbiPA3GOKbF5gIc5Ql+JFuvLH6J4=
