@@ -151,7 +151,7 @@ func dataSourceAppDeploymentsV2Read(ctx context.Context, d *schema.ResourceData,
 	envid := d.Get("env_id").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
 	//prepare request
-	req := pco.appmanagerclient.DefaultApi.GetAllDeployments(authctx, orgid, envid)
+	req := pco.appmanagerclient.DefaultAPI.GetAllDeployments(authctx, orgid, envid)
 	req, errDiags := parseAppDeploymentSearchOpts(req, searchOpts)
 	if errDiags.HasError() {
 		diags = append(diags, errDiags...)
@@ -196,7 +196,7 @@ func dataSourceAppDeploymentsV2Read(ctx context.Context, d *schema.ResourceData,
 Parses the api manager search options in order to check if the required search parameters are set correctly.
 Appends the parameters to the given request
 */
-func parseAppDeploymentSearchOpts(req application_manager_v2.DefaultApiGetAllDeploymentsRequest, params *schema.Set) (application_manager_v2.DefaultApiGetAllDeploymentsRequest, diag.Diagnostics) {
+func parseAppDeploymentSearchOpts(req application_manager_v2.DefaultAPIGetAllDeploymentsRequest, params *schema.Set) (application_manager_v2.DefaultAPIGetAllDeploymentsRequest, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	if params.Len() == 0 {
 		return req, diags

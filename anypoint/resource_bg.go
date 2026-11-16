@@ -768,11 +768,9 @@ func resourceBG() *schema.Resource {
 			"session_timeout": {
 				Type:             schema.TypeInt,
 				Optional:         true,
+				Computed:         true,
 				Description:      "The organization's session timeout in minutes (10 to 180).",
 				ValidateDiagFunc: validation.ToDiagFunc(validation.IntBetween(10, 180)),
-				DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool {
-					return DiffSuppressFunc4OptionalPrimitives(k, old, new, d, "0") // default value of integeres if not set is 0
-				},
 			},
 		},
 		Importer: &schema.ResourceImporter{
@@ -801,6 +799,12 @@ func resourceBGCreate(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	defer httpr.Body.Close()
 
 	d.SetId(res.GetId())
+	// The create endpoint has no session timeout field: apply it with a follow-up PUT.
+	if d.Get("session_timeout").(int) != 0 {
+		if diags := putBG(ctx, &pco, d.Id(), d); diags.HasError() {
+			return diags
+		}
+	}
 	return resourceBGRead(ctx, d, m)
 }
 
@@ -835,6 +839,14 @@ func resourceBGRead(ctx context.Context, d *schema.ResourceData, m any) diag.Dia
 		})
 		return diags
 	}
+	if err := setBGSessionTimeout(d, &res, true); err != nil {
+		diags := append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Unable to set business group session timeout " + orgid,
+			Detail:   err.Error(),
+		})
+		return diags
+	}
 	if err := setBGParentFromAncestors(d, res.GetParentOrganizationIds()); err != nil {
 		diags := append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -861,25 +873,34 @@ func resourceBGUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.D
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Id()
-	authctx := getBGAuthCtx(ctx, &pco)
 	//check for updates
 	if d.HasChanges(getBGUpdatableAttributes()...) {
-		body := newBGPutBody(d)
-		_, httpr, err := retryTransient(ctx, "bg update "+orgid, func() (org.BGCore, *http.Response, error) {
-			return pco.orgclient.DefaultApi.OrganizationsOrgIdPut(authctx, orgid).BGPutReqBody(*body).Execute()
-		})
-		if err != nil {
-			diags := append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to update business group " + orgid,
-				Detail:   extractAPIErrorDetail(err, httpr),
-			})
+		if diags := putBG(ctx, &pco, orgid, d); diags.HasError() {
 			return diags
 		}
-		defer httpr.Body.Close()
 		d.Set("last_updated", time.Now().Format(time.RFC850))
 		return resourceBGRead(ctx, d, m)
 	}
+	return diags
+}
+
+// putBG sends the business group PUT built from the resource data.
+func putBG(ctx context.Context, pco *ProviderConfOutput, orgid string, d *schema.ResourceData) diag.Diagnostics {
+	var diags diag.Diagnostics
+	authctx := getBGAuthCtx(ctx, pco)
+	body := newBGPutBody(d)
+	_, httpr, err := retryTransient(ctx, "bg update "+orgid, func() (org.BGCore, *http.Response, error) {
+		return pco.orgclient.DefaultApi.OrganizationsOrgIdPut(authctx, orgid).BGPutReqBody(*body).Execute()
+	})
+	if err != nil {
+		diags := append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Unable to update business group " + orgid,
+			Detail:   extractAPIErrorDetail(err, httpr),
+		})
+		return diags
+	}
+	defer httpr.Body.Close()
 	return diags
 }
 

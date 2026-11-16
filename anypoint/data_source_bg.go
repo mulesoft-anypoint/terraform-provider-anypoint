@@ -600,9 +600,28 @@ func dataSourceBGRead(ctx context.Context, d *schema.ResourceData, m any) diag.D
 		return diags
 	}
 
+	if err := setBGSessionTimeout(d, &res, false); err != nil {
+		diags := append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Unable to set business group session timeout " + orgid,
+			Detail:   err.Error(),
+		})
+		return diags
+	}
+
 	d.SetId(orgid)
 
 	return diags
+}
+
+// setBGSessionTimeout writes session_timeout from the API response. The platform
+// omits the key while a sub-org has no explicit timeout (and ignores a PUT of it),
+// so with keepWhenAbsent the configured/state value is kept instead of reset to 0.
+func setBGSessionTimeout(d *schema.ResourceData, res *org.MasterBGDetail, keepWhenAbsent bool) error {
+	if keepWhenAbsent && !res.HasSessionTimeout() {
+		return nil
+	}
+	return d.Set("session_timeout", int(res.GetSessionTimeout()))
 }
 
 func setBGCoreAttributesToResourceData(d *schema.ResourceData, bg map[string]any) error {
@@ -783,8 +802,6 @@ func flattenBGData(bg *org.MasterBGDetail) map[string]any {
 		item["owner_mfaverifiers_configured"] = owner.GetMfaVerifiersConfigured()
 		item["owner_type"] = owner.GetType()
 
-		item["session_timeout"] = bg.GetSessionTimeout()
-
 		return item
 
 	}
@@ -823,7 +840,7 @@ func getBGCoreAttributes() []string {
 		"entitlements_workerclouds_reassigned", "owner_created_at", "owner_updated_at", "owner_organization_id",
 		"owner_firstname", "owner_lastname", "owner_email", "owner_phonenumber", "owner_username", "owner_idprovider_id",
 		"owner_enabled", "owner_deleted", "owner_lastlogin", "owner_mfaverification_excluded", "owner_mfaverifiers_configured",
-		"owner_type", "session_timeout",
+		"owner_type",
 	}
 	return attributes[:]
 }

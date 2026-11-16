@@ -283,6 +283,11 @@ var DeplTargetDeplSettAutoscalingC2SSDefinition = &schema.Resource{
 
 var DeplTargetDeploymentSettingsC2SSDefinition = &schema.Resource{
 	Schema: map[string]*schema.Schema{
+		"instance_type": {
+			Type:        schema.TypeString,
+			Description: "Replica size of the deployment as reported by the platform (CloudHub 2.0 usage-based pricing), e.g. `mule.nano`.",
+			Computed:    true,
+		},
 		"clustered": {
 			Type:        schema.TypeBool,
 			Description: "Whether the application is deployed in clustered mode.",
@@ -535,7 +540,7 @@ func resourceCloudhub2SharedSpaceDeploymentCreate(ctx context.Context, d *schema
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
 	body := newCloudhub2SharedSpaceDeploymentBody(d)
 	//Execute post deployment
-	res, httpr, err := pco.appmanagerclient.DefaultApi.PostDeployment(authctx, orgid, envid).DeploymentRequestBody(*body).Execute()
+	res, httpr, err := pco.appmanagerclient.DefaultAPI.PostDeployment(authctx, orgid, envid).DeploymentRequestBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -564,7 +569,7 @@ func resourceCloudhub2SharedSpaceDeploymentRead(ctx context.Context, d *schema.R
 	}
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.appmanagerclient.DefaultApi.GetDeploymentById(authctx, orgid, envid, id).Execute()
+	res, httpr, err := pco.appmanagerclient.DefaultAPI.GetDeploymentById(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -610,7 +615,7 @@ func resourceCloudhub2SharedSpaceDeploymentUpdate(ctx context.Context, d *schema
 	name := d.Get("name").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
 	body := newCloudhub2SharedSpaceDeploymentBody(d)
-	_, httpr, err := pco.appmanagerclient.DefaultApi.PatchDeployment(authctx, orgid, envid, id).DeploymentRequestBody(*body).Execute()
+	_, httpr, err := pco.appmanagerclient.DefaultAPI.PatchDeployment(authctx, orgid, envid, id).DeploymentRequestBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -632,7 +637,7 @@ func resourceCloudhub2SharedSpaceDeploymentDelete(ctx context.Context, d *schema
 	envid := d.Get("env_id").(string)
 	name := d.Get("name").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
-	httpr, err := pco.appmanagerclient.DefaultApi.DeleteDeployment(authctx, orgid, envid, id).Execute()
+	httpr, err := pco.appmanagerclient.DefaultAPI.DeleteDeployment(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
