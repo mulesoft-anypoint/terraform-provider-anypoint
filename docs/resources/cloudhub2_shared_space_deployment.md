@@ -229,6 +229,7 @@ Optional:
 Read-Only:
 
 - `anypoint_monitoring_scope` (String) The anypoint moniroting scope
+- `instance_type` (String) Replica size of the deployment as reported by the platform (CloudHub 2.0 usage-based pricing), e.g. `mule.nano`.
 - `persistent_object_store` (Boolean) Whether persistent object store is enabled. Only for RTF
 - `resources` (List of Object) The mule app allocated resources (see [below for nested schema](#nestedatt--target--deployment_settings--resources))
 - `sidecars` (List of Object) The mule app sidecars. (see [below for nested schema](#nestedatt--target--deployment_settings--sidecars))

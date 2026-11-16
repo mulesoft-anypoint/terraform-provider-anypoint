@@ -396,6 +396,11 @@ var DeplTargetDeplSettSidecarsReadOnlyDefinition = &schema.Resource{
 
 var DeplTargetDeploymentSettingsReadOnlyDefinition = &schema.Resource{
 	Schema: map[string]*schema.Schema{
+		"instance_type": {
+			Type:        schema.TypeString,
+			Description: "Replica size of the deployment as reported by the platform (CloudHub 2.0 usage-based pricing), e.g. `mule.nano`.",
+			Computed:    true,
+		},
 		"clustered": {
 			Type:        schema.TypeBool,
 			Description: "Whether the application is deployed in clustered mode.",
@@ -602,7 +607,7 @@ func dataSourceAppDeploymentV2Read(ctx context.Context, d *schema.ResourceData, 
 	envid := d.Get("env_id").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
 	//execut request
-	res, httpr, err := pco.appmanagerclient.DefaultApi.GetDeploymentById(authctx, orgid, envid, id).Execute()
+	res, httpr, err := pco.appmanagerclient.DefaultAPI.GetDeploymentById(authctx, orgid, envid, id).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags = append(diags, diag.Diagnostic{
@@ -847,6 +852,9 @@ func flattenAppDeploymentV2TargetDeplSett(deployment_settings *application_manag
 	item := make(map[string]any)
 	if val, ok := deployment_settings.GetClusteredOk(); ok {
 		item["clustered"] = *val
+	}
+	if val, ok := deployment_settings.GetInstanceTypeOk(); ok {
+		item["instance_type"] = *val
 	}
 	if val, ok := deployment_settings.GetEnforceDeployingReplicasAcrossNodesOk(); ok {
 		item["enforce_deploying_replicas_across_nodes"] = *val
