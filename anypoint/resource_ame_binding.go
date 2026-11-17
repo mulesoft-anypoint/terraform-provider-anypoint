@@ -3,6 +3,7 @@ package anypoint
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -300,7 +301,9 @@ func resourceAMEBindingCreate(ctx context.Context, d *schema.ResourceData, m any
 	authctx := getAMEBindingAuthCtx(ctx, &pco)
 
 	//request resource creation
-	_, httpr, err := pco.amebindingclient.DefaultApi.CreateAMEBinding(authctx, orgid, envid, regionid, exchangeid, queueid).Execute()
+	_, httpr, err := retryTransientWith(ctx, "ame binding create "+exchangeid+" "+queueid, mqRetryPolicy, func() (*ame_binding.ExchangeBinding, *http.Response, error) {
+		return pco.amebindingclient.DefaultApi.CreateAMEBinding(authctx, orgid, envid, regionid, exchangeid, queueid).Execute()
+	})
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -320,11 +323,17 @@ func resourceAMEBindingCreate(ctx context.Context, d *schema.ResourceData, m any
 		return diags
 	}
 
-	return resourceAMEBindingRead(ctx, d, m)
+	// a failed post-create read taints the resource, so it gets the full MQ policy
+	return resourceAMEBindingReadWithPolicy(ctx, d, m, mqRetryPolicy)
 }
 
-// resourceAMEBindingRead reads the AME Binding
+// resourceAMEBindingRead reads the AME Binding: the plain refresh read is
+// single-shot except for 429.
 func resourceAMEBindingRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+	return resourceAMEBindingReadWithPolicy(ctx, d, m, mqReadRetryPolicy)
+}
+
+func resourceAMEBindingReadWithPolicy(ctx context.Context, d *schema.ResourceData, m any, policy retryPolicy) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -341,7 +350,9 @@ func resourceAMEBindingRead(ctx context.Context, d *schema.ResourceData, m any) 
 	}
 	authctx := getAMEBindingAuthCtx(ctx, &pco)
 	//request resource
-	res, httpr, err := pco.amebindingclient.DefaultApi.GetAMEBinding(authctx, orgid, envid, regionid, exchangeid, queueid).Inclusion("ALL").Execute()
+	res, httpr, err := retryTransientWith(ctx, "ame binding read "+exchangeid+" "+queueid, policy, func() (*ame_binding.ExchangeBindingWithRules, *http.Response, error) {
+		return pco.amebindingclient.DefaultApi.GetAMEBinding(authctx, orgid, envid, regionid, exchangeid, queueid).Inclusion("ALL").Execute()
+	})
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -385,7 +396,7 @@ func resourceAMEBindingUpdate(ctx context.Context, d *schema.ResourceData, m any
 			}
 		}
 		d.Set("last_updated", time.Now().Format(time.RFC850))
-		return resourceAMEBindingRead(ctx, d, m)
+		return resourceAMEBindingReadWithPolicy(ctx, d, m, mqRetryPolicy)
 	}
 	return diags
 }
@@ -401,7 +412,9 @@ func resourceAMEBindingDelete(ctx context.Context, d *schema.ResourceData, m any
 	queueid := d.Get("queue_id").(string)
 	authctx := getAMEBindingAuthCtx(ctx, &pco)
 	//perform request
-	httpr, err := pco.amebindingclient.DefaultApi.DeleteAMEBinding(authctx, orgid, envid, regionid, exchangeid, queueid).Execute()
+	httpr, err := retryMQDelete(ctx, "ame binding delete "+exchangeid+" "+queueid, func() (*http.Response, error) {
+		return pco.amebindingclient.DefaultApi.DeleteAMEBinding(authctx, orgid, envid, regionid, exchangeid, queueid).Execute()
+	})
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -450,7 +463,9 @@ func resourceAMEBindingRulesCreate(ctx context.Context, d *schema.ResourceData, 
 		return diags
 	}
 	//request resource creation
-	_, httpr, err := pco.amebindingclient.DefaultApi.CreateAMEBindingRule(authctx, orgid, envid, regionid, exchangeid, queueid).AMEBindingRuleBody(*body).Execute()
+	_, httpr, err := retryTransientWith(ctx, "ame binding rules create "+exchangeid+" "+queueid, mqRetryPolicy, func() (*ame_binding.ExchangeBindingRules, *http.Response, error) {
+		return pco.amebindingclient.DefaultApi.CreateAMEBindingRule(authctx, orgid, envid, regionid, exchangeid, queueid).AMEBindingRuleBody(*body).Execute()
+	})
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -476,7 +491,9 @@ func resourceAMEBindingRulesDelete(ctx context.Context, d *schema.ResourceData, 
 	queueid := d.Get("queue_id").(string)
 	authctx := getAMEBindingAuthCtx(ctx, &pco)
 	//request resource creation
-	httpr, err := pco.amebindingclient.DefaultApi.DeleteAMEBindingRule(authctx, orgid, envid, regionid, exchangeid, queueid).Execute()
+	httpr, err := retryMQDelete(ctx, "ame binding rules delete "+exchangeid+" "+queueid, func() (*http.Response, error) {
+		return pco.amebindingclient.DefaultApi.DeleteAMEBindingRule(authctx, orgid, envid, regionid, exchangeid, queueid).Execute()
+	})
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{

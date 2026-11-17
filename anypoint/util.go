@@ -368,9 +368,56 @@ func isRetryableStatus(httpr *http.Response) bool {
 	if httpr == nil {
 		return false
 	}
-	s := httpr.StatusCode
+	return isRetryableBGStatus(httpr.StatusCode)
+}
+
+func isRetryableBGStatus(s int) bool {
 	return s == http.StatusConflict || s == http.StatusTooManyRequests || s >= 500
 }
+
+// isRetryableMQStatus is the retry predicate for Anypoint MQ broker calls:
+// rate limit (429) and upstream failure (5xx) only. 403 is never transient
+// (#151) and 409 means the values really differ, since an identical retry of
+// an idempotent PUT returns 201.
+func isRetryableMQStatus(s int) bool {
+	return s == http.StatusTooManyRequests || s >= 500
+}
+
+func isRetryableMQReadStatus(s int) bool {
+	return s == http.StatusTooManyRequests
+}
+
+// retryPolicy bounds a retry loop: up to maxAttempts calls, sleeping
+// base, 2*base, ... capped at cap between them, plus up to 50% jitter.
+type retryPolicy struct {
+	maxAttempts int
+	base, cap   time.Duration
+	retryable   func(status int) bool
+}
+
+// backoff returns the sleep range after the given zero-based attempt: the
+// capped exponential step and that step plus its 50% jitter ceiling.
+func (p retryPolicy) backoff(attempt int) (min, max time.Duration) {
+	b := p.base
+	for i := 0; i < attempt && b < p.cap; i++ {
+		b *= 2
+	}
+	if b > p.cap {
+		b = p.cap
+	}
+	return b, b + b/2
+}
+
+var (
+	// bgRetryPolicy is the historical Business Group policy (issue #54).
+	bgRetryPolicy = retryPolicy{maxAttempts: 5, base: 250 * time.Millisecond, cap: 4 * time.Second, retryable: isRetryableBGStatus}
+	// mqRetryPolicy covers mutating Anypoint MQ broker calls (issue #158):
+	// 31.5s of sleep at minimum, under 47.25s with jitter.
+	mqRetryPolicy = retryPolicy{maxAttempts: 8, base: 500 * time.Millisecond, cap: 8 * time.Second, retryable: isRetryableMQStatus}
+	// mqReadRetryPolicy shares the MQ budget but retries rate limits only, so
+	// plain refresh reads keep surfacing 5xx while a 429 does not fail an apply.
+	mqReadRetryPolicy = retryPolicy{maxAttempts: 8, base: 500 * time.Millisecond, cap: 8 * time.Second, retryable: isRetryableMQReadStatus}
+)
 
 // retryTransient retries an Anypoint API call on transient server-side
 // errors. The Anypoint Accounts API in particular serializes mutations
@@ -379,33 +426,59 @@ func isRetryableStatus(httpr *http.Response) bool {
 // backoff 250ms → 4s with 50% jitter, capped at 5 attempts. Honors ctx
 // cancellation.
 func retryTransient[T any](ctx context.Context, op string, fn func() (T, *http.Response, error)) (T, *http.Response, error) {
-	const maxAttempts = 5
+	return retryTransientWith(ctx, op, bgRetryPolicy, fn)
+}
+
+// retryTransientWith runs fn until it succeeds, returns a status the policy
+// does not retry, or the attempt budget is spent. The last result is
+// returned. Honors ctx cancellation between attempts.
+func retryTransientWith[T any](ctx context.Context, op string, p retryPolicy, fn func() (T, *http.Response, error)) (T, *http.Response, error) {
 	var (
 		zero  T
 		httpr *http.Response
 		err   error
 	)
-	backoff := 250 * time.Millisecond
-	for attempt := 0; attempt < maxAttempts; attempt++ {
+	for attempt := 0; attempt < p.maxAttempts; attempt++ {
 		zero, httpr, err = fn()
-		if err == nil || !isRetryableStatus(httpr) {
+		if err == nil || httpr == nil || !p.retryable(httpr.StatusCode) {
 			if attempt > 0 {
 				log.Printf("[DEBUG] retryTransient %s: succeeded on attempt %d", op, attempt+1)
 			}
 			return zero, httpr, err
 		}
-		if attempt == maxAttempts-1 {
-			log.Printf("[WARN] retryTransient %s: giving up after %d attempts, last status=%d", op, maxAttempts, httpr.StatusCode)
+		if attempt == p.maxAttempts-1 {
+			log.Printf("[WARN] retryTransient %s: giving up after %d attempts, last status=%d", op, p.maxAttempts, httpr.StatusCode)
 			break
 		}
-		sleep := backoff + time.Duration(rand.Int63n(int64(backoff/2)))
+		step, _ := p.backoff(attempt)
+		sleep := step
+		if half := int64(step / 2); half > 0 {
+			sleep += time.Duration(rand.Int63n(half))
+		}
 		log.Printf("[DEBUG] retryTransient %s: attempt %d got status=%d, sleeping %s", op, attempt+1, httpr.StatusCode, sleep)
 		select {
 		case <-ctx.Done():
 			return zero, httpr, err
 		case <-time.After(sleep):
 		}
-		backoff *= 2
 	}
 	return zero, httpr, err
+}
+
+// retryMQDelete deletes with the MQ policy. A 404 on a retry (attempt >= 2)
+// means an earlier attempt already deleted the object, so it is reported as
+// success: nil error with the 404 response. A 404 on the first attempt stays
+// an error.
+func retryMQDelete(ctx context.Context, op string, fn func() (*http.Response, error)) (*http.Response, error) {
+	attempt := 0
+	_, httpr, err := retryTransientWith(ctx, op, mqRetryPolicy, func() (struct{}, *http.Response, error) {
+		attempt++
+		r, e := fn()
+		if e != nil && attempt > 1 && r != nil && r.StatusCode == http.StatusNotFound {
+			log.Printf("[DEBUG] retryTransient %s: 404 on attempt %d, treating as deleted", op, attempt)
+			return struct{}{}, r, nil
+		}
+		return struct{}{}, r, e
+	})
+	return httpr, err
 }
