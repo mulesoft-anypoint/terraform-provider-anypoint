@@ -3,19 +3,18 @@
 page_title: "anypoint_private_space Resource - terraform-provider-anypoint"
 subcategory: ""
 description: |-
-  Manages a `private space` in your business group.
+  Manages a private space in your business group. Creating a private space blocks until the platform has provisioned its network (about 25 minutes); the wait is bounded by the timeouts block. After an update, the platform may briefly reprovision the private space a few minutes later; resources that depend on it may need to retry.
 ---
 
 # anypoint_private_space (Resource)
 
-Manages a `private space` in your business group.
+Manages a `private space` in your business group. Creating a private space blocks until the platform has provisioned its network (about 25 minutes); the wait is bounded by the `timeouts` block. After an update, the platform may briefly reprovision the private space a few minutes later; resources that depend on it may need to retry.
 
 ## Example Usage
 
 ```terraform
 resource "anypoint_private_space" "my_ps" {
   org_id = var.root_org
-  region = "eu-west-1"
   name = "cat-private-space"
   environments_business_groups = [ "all" ]
   environments_type = "sandbox"
@@ -78,14 +77,14 @@ resource "anypoint_private_space" "my_ps" {
 - `enable_egress` (Boolean) Indicates whether egress is enabled for the private space. Default is false.
 		This argument takes some time to be applied.
 - `enable_iam_role` (Boolean) Indicates whether IAM roles are enabled for the private space. Default is false.
-- `enable_network_isolation` (Boolean) Indicates whether network isolation is enabled for the private space. Default is true.
-		This argument takes some time to be applied.
+- `enable_network_isolation` (Boolean, Deprecated) Deprecated and ignored: network isolation is managed by the platform (enabled once the private space is provisioned) and cannot be changed through the API. Reports the value returned by the API.
 - `environments_business_groups` (List of String) Business groups associated with the associated environments. Valid values are 'all' or business units uuids.
 - `environments_type` (String) The type of associated environments. Valid values are 'all', 'sandbox', 'production'.
 - `firewall_rules` (Block List) Firewall rules for the private space. (see [below for nested schema](#nestedblock--firewall_rules))
 - `network_internal_dns_servers` (List of String) List of DNS servers. Values should be valid IP addresses (v4 or v6)
 - `network_internal_dns_special_domains` (List of String) List of domains to be used for internal DNS resolution.
 - `network_reserved_cidrs` (List of String) Reserved CIDR blocks. Can only be set at creation time; the Anypoint API rejects updates to this field once the network is created, so changing it forces a new private space.
+- `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 
 ### Read-Only
 
@@ -115,6 +114,15 @@ Required:
 - `protocol` (String) Specifies the network protocol used in the firewall rule. Valid options are 'tcp', 'udp', 'icmp', or 'all'.
 - `to_port` (Number) The ending port for the firewall rule.
 - `type` (String) The type of the firewall rule. Valid values are 'inbound' for incoming traffic and 'outbound' for outgoing traffic.
+
+
+<a id="nestedblock--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String)
+- `update` (String)
 
 ## Import
 
