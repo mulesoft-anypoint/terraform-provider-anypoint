@@ -234,6 +234,9 @@ func rtfTestRawValue(t *testing.T, typ cty.Type, cfg any) cty.Value {
 	case typ == cty.String:
 		return cty.StringVal(cfg.(string))
 	case typ == cty.Number:
+		if f, ok := cfg.(float64); ok {
+			return cty.NumberFloatVal(f)
+		}
 		return cty.NumberIntVal(int64(cfg.(int)))
 	case typ == cty.Bool:
 		return cty.BoolVal(cfg.(bool))

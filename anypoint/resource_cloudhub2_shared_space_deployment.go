@@ -54,13 +54,13 @@ var DeplApplicationConfigPropsC2SSDefinition = &schema.Resource{
 			Type:        schema.TypeMap,
 			Description: "The mule application properties.",
 			Optional:    true,
-			DefaultFunc: func() (any, error) { return make(map[string]string), nil },
+			DefaultFunc: func() (any, error) { return map[string]any{}, nil },
 		},
 		"secure_properties": {
 			Type:        schema.TypeMap,
 			Description: "The mule application secured properties.",
 			Optional:    true,
-			DefaultFunc: func() (any, error) { return make(map[string]string), nil },
+			DefaultFunc: func() (any, error) { return map[string]any{}, nil },
 		},
 	},
 }
@@ -77,9 +77,10 @@ var DeplApplicationConfigC2SSDefinition = &schema.Resource{
 		"mule_agent_logging_service": {
 			Type:        schema.TypeList,
 			MaxItems:    1,
-			Description: "The mule app logging props",
+			Description: "The mule app logging props. When omitted, the current logging configuration is kept; an empty block clears the additional scope log levels.",
 			Elem:        DeplApplicationConfigLoggingC2SSDefinition,
 			Optional:    true,
+			Computed:    true,
 		},
 		"mule_agent_scheduling_service": {
 			Type:        schema.TypeList,
@@ -740,24 +741,26 @@ func newCloudhub2SharedSpaceDeploymentConfiguration(configuration_d map[string]a
 	mule_agent_app_props_service := application_manager_v2.NewMuleAgentAppPropService()
 	mule_agent_app_props_service.SetProperties(mule_agent_app_props_service_properties)
 	mule_agent_app_props_service.SetSecureProperties(mule_agent_app_props_service_secure_properties)
-	mule_agent_logging_service_list_d := configuration_d["mule_agent_logging_service"].([]any)
-	mule_agent_logging_service_d := mule_agent_logging_service_list_d[0].(map[string]any)
-	//Scope logging configuration
-	scope_logging_configurations_list_d := mule_agent_logging_service_d["scope_logging_configurations"].([]any)
-	scope_logging_configurations := make([]application_manager_v2.ScopeLoggingConfiguration, len(scope_logging_configurations_list_d))
-	for i, item := range scope_logging_configurations_list_d {
-		data := item.(map[string]any)
-		conf := application_manager_v2.NewScopeLoggingConfiguration()
-		conf.SetScope(data["scope"].(string))
-		conf.SetLogLevel(data["log_level"].(string))
-		scope_logging_configurations[i] = *conf
-	}
-	//Mule Agent Logging Service
-	mule_agent_logging_service := application_manager_v2.NewMuleAgentLoggingService()
-	mule_agent_logging_service.SetScopeLoggingConfigurations(scope_logging_configurations)
 	configuration := application_manager_v2.NewAppConfiguration()
 	configuration.SetMuleAgentApplicationPropertiesService(*mule_agent_app_props_service)
-	configuration.SetMuleAgentLoggingService(*mule_agent_logging_service)
+	// The logging block is Optional: send the service only when it is present.
+	if mule_agent_logging_service_list_d, ok := configuration_d["mule_agent_logging_service"].([]any); ok && len(mule_agent_logging_service_list_d) > 0 && mule_agent_logging_service_list_d[0] != nil {
+		mule_agent_logging_service_d := mule_agent_logging_service_list_d[0].(map[string]any)
+		//Scope logging configuration
+		scope_logging_configurations_list_d, _ := mule_agent_logging_service_d["scope_logging_configurations"].([]any)
+		scope_logging_configurations := make([]application_manager_v2.ScopeLoggingConfiguration, len(scope_logging_configurations_list_d))
+		for i, item := range scope_logging_configurations_list_d {
+			data := item.(map[string]any)
+			conf := application_manager_v2.NewScopeLoggingConfiguration()
+			conf.SetScope(data["scope"].(string))
+			conf.SetLogLevel(data["log_level"].(string))
+			scope_logging_configurations[i] = *conf
+		}
+		//Mule Agent Logging Service
+		mule_agent_logging_service := application_manager_v2.NewMuleAgentLoggingService()
+		mule_agent_logging_service.SetScopeLoggingConfigurations(scope_logging_configurations)
+		configuration.SetMuleAgentLoggingService(*mule_agent_logging_service)
+	}
 
 	return configuration
 }
