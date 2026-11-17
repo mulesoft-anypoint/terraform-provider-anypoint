@@ -32,7 +32,7 @@ func resourcePrivateSpaceTransitGateway() *schema.Resource {
 			"with the MuleSoft AWS account whitelisted as principal and the TGW associated with the share; " +
 			"attach mode (`transit_gateway_id`) attaches an existing organization transit gateway, for example the one created by another resource, to this private space. " +
 			"Deleting the resource only detaches the private space. The organization-level transit gateway stays listed after its last attachment is removed. " +
-			"Re-attaching a private space shortly after a detach can take several minutes; the provider retries for up to 15 minutes. " +
+			"Re-attaching a private space shortly after a detach can take several minutes; the provider retries for up to 15 minutes, unless the private space is already attached to that transit gateway, which fails at once with an import hint. " +
 			"Create mode re-attaches an organization transit gateway left by an earlier detach when no other private space uses it. " +
 			"Two create-mode resources on one resource share are an error: give the second one `transit_gateway_id` instead. " +
 			"Replacing a create-mode resource replaces the attach-mode resources that reference its `transit_gateway_id`. " +
@@ -193,12 +193,12 @@ func resourcePrivateSpaceTransitGatewayCreate(ctx context.Context, d *schema.Res
 // createTGWAttachMode attaches the existing organization transit gateway
 // tgwID to the private space. The caller holds the org lock.
 func createTGWAttachMode(ctx context.Context, d *schema.ResourceData, pco *ProviderConfOutput, org, ps, tgwID string) diag.Diagnostics {
-	list, httpr, err := attachTGWWithRetry(ctx, pco, org, ps, tgwID, tgwRoutes(d))
+	list, httpr, alreadyAttached, err := attachTGWWithRetry(ctx, pco, org, ps, tgwID, tgwRoutes(d))
 	if err != nil {
 		return diag.Diagnostics{{
 			Severity: diag.Error,
 			Summary:  "Unable to attach transit gateway " + tgwID + " to private space " + ps,
-			Detail:   tgwAttachErrorDetail(err, httpr, tgwID),
+			Detail:   tgwAttachErrorDetail(err, httpr, org, ps, tgwID, alreadyAttached),
 		}}
 	}
 	defer httpr.Body.Close()
@@ -306,12 +306,12 @@ func rescueTGWAttach(ctx context.Context, d *schema.ResourceData, pco *ProviderC
 		return withDetail(tgwShareConflictHint(again, ps)), false
 	}
 
-	list, httpr, err := attachTGWWithRetry(ctx, pco, org, ps, tgwID, tgwRoutes(d))
+	list, httpr, alreadyAttached, err := attachTGWWithRetry(ctx, pco, org, ps, tgwID, tgwRoutes(d))
 	if err != nil {
 		return diag.Diagnostics{createErr, {
 			Severity: diag.Error,
 			Summary:  "Unable to attach transit gateway " + tgwID + " to private space " + ps,
-			Detail:   tgwAttachErrorDetail(err, httpr, tgwID),
+			Detail:   tgwAttachErrorDetail(err, httpr, org, ps, tgwID, alreadyAttached),
 		}}, false
 	}
 	defer httpr.Body.Close()
@@ -365,19 +365,29 @@ func tgwAttachedToSpace(authctx context.Context, pco *ProviderConfOutput, org, p
 // attachTGWWithRetry posts the attach request, retrying 409 and 403 "not ready"
 // answers with exponential backoff (capped at tgwAttachRetryMaxDelay) within
 // tgwAttachRetryBudget and ctx.
-func attachTGWWithRetry(ctx context.Context, pco *ProviderConfOutput, org, ps, tgwID string, routes []string) ([]private_space.TransitGateway, *http.Response, error) {
+// A 409 "already associated" is not retried when the private space lists tgwID
+// with a live attachment: the space is attached outside this resource's state
+// and waiting cannot change that. alreadyAttached reports this case. A failed
+// or inconclusive list read keeps the bounded retry.
+func attachTGWWithRetry(ctx context.Context, pco *ProviderConfOutput, org, ps, tgwID string, routes []string) (list []private_space.TransitGateway, httpr *http.Response, alreadyAttached bool, err error) {
 	authctx := getPrivateSpaceAuthCtx(ctx, pco)
 	deadline := time.Now().Add(tgwAttachRetryBudget)
 	delay := tgwAttachRetryBase
 	for {
-		list, httpr, err := pco.privatespaceclient.DefaultAPI.AttachPrivateSpaceTransitGateway(authctx, org, ps, tgwID).RequestBody(routes).Execute()
-		if err == nil || !tgwNotReady(err, httpr) || time.Now().Add(delay).After(deadline) {
-			return list, httpr, err
+		list, httpr, err = pco.privatespaceclient.DefaultAPI.AttachPrivateSpaceTransitGateway(authctx, org, ps, tgwID).RequestBody(routes).Execute()
+		if err == nil || !tgwNotReady(err, httpr) {
+			return list, httpr, false, err
+		}
+		if tgwAlreadyAssociated(err, httpr) && tgwAttachedToSpace(authctx, pco, org, ps, tgwID) {
+			return list, httpr, true, err
+		}
+		if time.Now().Add(delay).After(deadline) {
+			return list, httpr, false, err
 		}
 		log.Printf("[WARN] attach of transit gateway %s to private space %s answered %s; retrying in %s", tgwID, ps, extractAPIErrorDetail(err, httpr), delay)
 		select {
 		case <-ctx.Done():
-			return list, httpr, err
+			return list, httpr, false, err
 		case <-time.After(delay):
 		}
 		delay *= 2
@@ -387,16 +397,29 @@ func attachTGWWithRetry(ctx context.Context, pco *ProviderConfOutput, org, ps, t
 	}
 }
 
+// tgwAlreadyAssociated reports whether a failed attach is the 409 "already
+// associated with this space" answer. The platform sends it both while the
+// space is live-attached and during the lockout after a detach.
+func tgwAlreadyAssociated(err error, httpr *http.Response) bool {
+	return httpr != nil && httpr.StatusCode == http.StatusConflict &&
+		strings.Contains(strings.ToLower(extractAPIErrorDetail(err, httpr)), "already associated")
+}
+
 // tgwAttachErrorDetail is the API error detail of a failed attach, followed
-// by a hint for the two known causes: a transit gateway id the org does not
-// know yet, and the re-attach lockout after a detach.
-func tgwAttachErrorDetail(err error, httpr *http.Response, tgwID string) string {
+// by a hint for the known causes: a transit gateway id the org does not know
+// yet, a space that is already attached (alreadyAttached, see
+// attachTGWWithRetry), and the re-attach lockout after a detach.
+func tgwAttachErrorDetail(err error, httpr *http.Response, org, ps, tgwID string, alreadyAttached bool) string {
 	detail := extractAPIErrorDetail(err, httpr)
 	if httpr == nil {
 		return detail
 	}
 	lower := strings.ToLower(detail)
 	switch {
+	case alreadyAttached:
+		detail += "\n\nPrivate space " + ps + " is already attached to transit gateway " + tgwID + " outside this resource's state. " +
+			"Import it with: terraform import <resource address> " + ComposeResourceId([]string{org, ps, tgwID}) +
+			" (then apply to reconcile its routes), or detach it first."
 	case (httpr.StatusCode == http.StatusBadRequest || httpr.StatusCode == http.StatusNotFound) && strings.Contains(lower, "not found"):
 		detail += "\n\nTransit gateway " + tgwID + " is not known to this Anypoint organization yet. " +
 			"If another anypoint_private_space_transit_gateway creates it, reference that resource's transit_gateway_id " +
