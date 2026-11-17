@@ -367,16 +367,11 @@ var DeplTargetDeploymentSettingsRTFDefinition = &schema.Resource{
 		},
 		"http": {
 			Type:        schema.TypeList,
-			Description: "The details about http inbound or outbound configuration",
+			Description: "The details about http inbound or outbound configuration. When omitted, the current http configuration is kept.",
 			Optional:    true,
+			Computed:    true,
 			MaxItems:    1,
-			DefaultFunc: func() (any, error) {
-				dict := make(map[string]any)
-				dict["inbound_last_mile_security"] = false
-				dict["inbound_forward_ssl_session"] = false
-				return []any{dict}, nil
-			},
-			Elem: DeplTargetDeplSettHttpRTFDefinition,
+			Elem:        DeplTargetDeplSettHttpRTFDefinition,
 		},
 		"jvm_args": {
 			Type:        schema.TypeString,
@@ -677,6 +672,7 @@ func resourceRTFDeploymentUpdate(ctx context.Context, d *schema.ResourceData, m 
 	envid := d.Get("env_id").(string)
 	name := d.Get("name").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
+	// Omitted Optional+Computed blocks (logging, http) are re-sent from state: "keep" semantics.
 	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()), rtfVCoresInRawConfig(d.GetRawConfig()))
 	_, httpr, err := pco.appmanagerclient.DefaultAPI.PatchDeployment(authctx, orgid, envid, id).DeploymentRequestBody(*body).Execute()
 	if err != nil {

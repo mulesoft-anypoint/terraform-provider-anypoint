@@ -292,7 +292,8 @@ func TestRTFDeploymentSchema_InstanceTypeAndResources(t *testing.T) {
 type rtfMockAppManager struct {
 	mu           sync.Mutex
 	instanceType string
-	vcores       float64          // echoed as application.vCores when > 0; sticky across a PATCH that omits it
+	vcores       float64 // echoed as application.vCores when > 0; sticky across a PATCH that omits it
+	jvmArgs      string
 	targetID     string           // echoed target.targetId; defaults to "ps-id"
 	scopes       []any            // echoed logging scopes
 	bodies       []map[string]any // POST then PATCH bodies, in order
@@ -322,6 +323,11 @@ func (m *rtfMockAppManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if ds, ok := target["deploymentSettings"].(map[string]any); ok {
 				if it, ok := ds["instanceType"].(string); ok {
 					m.instanceType = it
+				}
+			}
+			if ds, ok := target["deploymentSettings"].(map[string]any); ok {
+				if jvm, ok := ds["jvm"].(map[string]any); ok {
+					m.jvmArgs, _ = jvm["args"].(string)
 				}
 			}
 			if id, ok := target["targetId"].(string); ok {
@@ -364,6 +370,11 @@ func (m *rtfMockAppManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				"targetId": targetID,
 				"replicas": 1,
 				"deploymentSettings": map[string]any{
+					"http": map[string]any{"inbound": map[string]any{
+						"publicUrl": "", "lastMileSecurity": false, "forwardSslSession": false,
+						"internalUrl": "https://app.internal.example", "uniqueId": "uid-1",
+					}},
+					"jvm":            map[string]any{"args": m.jvmArgs},
 					"instanceType":   m.instanceType,
 					"updateStrategy": "rolling",
 					"resources": map[string]any{

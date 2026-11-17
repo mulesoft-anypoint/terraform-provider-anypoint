@@ -221,7 +221,7 @@ Optional:
 - `disable_am_log_forwarding` (Boolean) Whether log forwarding is disabled.
 - `disable_external_log_forwarding` (Boolean) Whether the log forwarding is disabled.
 - `generate_default_public_url` (Boolean) Whether default public url should be generated.
-- `http` (Block List, Max: 1) The details about http inbound or outbound configuration (see [below for nested schema](#nestedblock--target--deployment_settings--http))
+- `http` (Block List, Max: 1) The details about http inbound or outbound configuration. When omitted, the current http configuration is kept. (see [below for nested schema](#nestedblock--target--deployment_settings--http))
 - `jvm_args` (String) The java virtual machine arguments
 - `runtime` (Block List, Max: 1) The Mule app runtime version info. (see [below for nested schema](#nestedblock--target--deployment_settings--runtime))
 - `update_strategy` (String) The mule app deployment update strategy: rolling or recreate

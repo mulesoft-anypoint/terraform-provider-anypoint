@@ -108,7 +108,6 @@ resource "anypoint_rtf_deployment" "private_space_deployment" {
     target_id = var.private_space_id
     replicas  = 1
     deployment_settings {
-      http {}
       instance_type = "mule.nano"
       runtime {
         version         = "4.9.24:10-java17"
@@ -148,7 +147,6 @@ resource "anypoint_rtf_deployment" "private_space_vcores_deployment" {
     target_id = var.private_space_id
     replicas  = 1
     deployment_settings {
-      http {}
       runtime {
         version         = "4.9.24:10-java17"
         release_channel = "LTS"
@@ -312,7 +310,7 @@ Optional:
 - `disable_external_log_forwarding` (Boolean) Whether the log forwarding is disabled.
 - `enforce_deploying_replicas_across_nodes` (Boolean) If true, forces the deployment of replicas across the RTF cluster. This option only available for Runtime Fabrics.
 - `generate_default_public_url` (Boolean) Whether default public url should be generated.
-- `http` (Block List, Max: 1) The details about http inbound or outbound configuration (see [below for nested schema](#nestedblock--target--deployment_settings--http))
+- `http` (Block List, Max: 1) The details about http inbound or outbound configuration. When omitted, the current http configuration is kept. (see [below for nested schema](#nestedblock--target--deployment_settings--http))
 - `instance_type` (String) Replica size for CloudHub 2.0 private-space deployments on usage-based pricing (e.g. `mule.nano`, `mule.micro`). Leave unset for Runtime Fabric targets. Once set, removing it from the configuration keeps the current value; set a different size to change it.
 - `jvm_args` (String) The java virtual machine arguments
 - `persistent_object_store` (Boolean) Whether persistent object store is enabled.

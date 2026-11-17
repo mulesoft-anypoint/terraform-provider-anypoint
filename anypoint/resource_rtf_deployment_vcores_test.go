@@ -297,11 +297,10 @@ func TestRTFDeployment_EchoNoWire(t *testing.T) {
 	if _, paths := h.diff(state, cfg); len(paths) > 0 {
 		t.Errorf("expected empty diff after create, got %v", paths)
 	}
-	state = h.apply(state, rtfVCoresRawConfig(0, map[string]any{"resources": res, "jvm_args": "-Xmx64m"}))
+	h.apply(state, rtfVCoresRawConfig(0, map[string]any{"resources": res, "jvm_args": "-Xmx64m"}))
 	if _, ok := bodyApp(h.mock.bodies[1])["vCores"]; ok {
 		t.Errorf("PATCH must not carry vCores")
 	}
-	_ = state
 }
 
 // With the logging block omitted, the echoed logging service must not produce a diff.
@@ -350,5 +349,123 @@ func TestFlattenApplication_VCoresRounding(t *testing.T) {
 		if got := flattenAppDeploymentV2Application(app)["vcores"]; got != tc.want {
 			t.Errorf("vcores %v flattened to %v, want %v", tc.in, got, tc.want)
 		}
+	}
+}
+
+// With the http block omitted, the echoed http configuration (internal url, unique id,
+// default flags) must not produce a diff, after create and after an unrelated update.
+func TestDeployments_HTTPOmitted_EmptyDiff(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		r    func() *schema.Resource
+		cfg  func(extra map[string]any) map[string]any
+	}{
+		{"anypoint_rtf_deployment", resourceRTFDeployment, func(extra map[string]any) map[string]any {
+			return rtfVCoresRawConfig(0.1, extra)
+		}},
+		{"anypoint_cloudhub2_shared_space_deployment", resourceCloudhub2SharedSpaceDeployment, func(extra map[string]any) map[string]any {
+			cfg := rtfVCoresRawConfig(0.1, extra)
+			cfg["target"].([]any)[0].(map[string]any)["target_id"] = "cloudhub-us-east-1"
+			return cfg
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newRTFApplyHarness(t, tc.r())
+			cfg := tc.cfg(map[string]any{})
+			state := h.apply(nil, cfg)
+			if got := state.Attributes["target.0.deployment_settings.0.http.#"]; got != "1" {
+				t.Fatalf("echoed http block not in state: # = %q", got)
+			}
+			if _, paths := h.diff(state, cfg); len(paths) > 0 {
+				t.Errorf("expected empty diff after create, got %v", paths)
+			}
+			state = h.apply(state, tc.cfg(map[string]any{"jvm_args": "-Xmx64m"}))
+			if _, paths := h.diff(state, tc.cfg(map[string]any{"jvm_args": "-Xmx64m"})); len(paths) > 0 {
+				t.Errorf("expected empty diff after update, got %v", paths)
+			}
+		})
+	}
+}
+
+// Import then plan: state rebuilt from the flattener for a vCore private-space
+// deployment (vCores echoed, no resources/instanceType/http/logging configured) must
+// not diff against a config that only sets vcores.
+func TestRTFDeployment_ImportedState_EmptyDiff(t *testing.T) {
+	r := resourceRTFDeployment()
+	deployment := application_manager_v2.NewDeployment()
+	deployment.SetId("dep-1")
+	deployment.SetReplicas([]application_manager_v2.Replicas{})
+	deployment.SetName("app")
+	ref := application_manager_v2.NewRef()
+	ref.SetGroupId("g")
+	ref.SetArtifactId("a")
+	ref.SetVersion("1.0.0")
+	ref.SetPackaging("jar")
+	props := application_manager_v2.NewMuleAgentAppPropService()
+	props.SetProperties(map[string]any{})
+	props.SetSecureProperties(map[string]any{})
+	logging := application_manager_v2.NewMuleAgentLoggingService()
+	logging.SetScopeLoggingConfigurations([]application_manager_v2.ScopeLoggingConfiguration{})
+	conf := application_manager_v2.NewAppConfiguration()
+	conf.SetMuleAgentApplicationPropertiesService(*props)
+	conf.SetMuleAgentLoggingService(*logging)
+	app := application_manager_v2.NewApplication()
+	app.SetDesiredState("STARTED")
+	app.SetRef(*ref)
+	app.SetConfiguration(*conf)
+	app.SetVCores(0.1)
+	inbound := application_manager_v2.NewHttpInbound()
+	inbound.SetPublicUrl("")
+	inbound.SetLastMileSecurity(false)
+	inbound.SetForwardSslSession(false)
+	inbound.SetInternalUrl("https://app.internal.example")
+	inbound.SetUniqueId("uid-1")
+	httpCfg := application_manager_v2.NewHttp()
+	httpCfg.SetInbound(*inbound)
+	runtime := application_manager_v2.NewRuntime()
+	runtime.SetVersion("4.9.24:10-java17")
+	runtime.SetReleaseChannel("LTS")
+	runtime.SetJava("17")
+	settings := application_manager_v2.NewDeploymentSettings()
+	settings.SetHttp(*httpCfg)
+	settings.SetRuntime(*runtime)
+	settings.SetUpdateStrategy("rolling")
+	target := application_manager_v2.NewTarget()
+	target.SetProvider("MC")
+	target.SetTargetId("ps-id")
+	target.SetReplicas(1)
+	target.SetDeploymentSettings(*settings)
+	deployment.SetApplication(*app)
+	deployment.SetTarget(*target)
+
+	d := r.Data(nil)
+	d.SetId("dep-1")
+	if err := setAppDeploymentV2AttributesToResourceData(d, flattenAppDeploymentV2(deployment)); err != nil {
+		t.Fatalf("set attributes: %v", err)
+	}
+	for k, v := range map[string]string{"org_id": "org", "env_id": "env"} {
+		if err := d.Set(k, v); err != nil {
+			t.Fatalf("set %s: %v", k, err)
+		}
+	}
+	state := d.State()
+
+	cfg := rtfVCoresRawConfig(0.1, map[string]any{"runtime": []any{map[string]any{
+		"version": "4.9.24:10-java17", "release_channel": "LTS", "java": "17",
+	}}})
+	cfg["target"].([]any)[0].(map[string]any)["replicas"] = 1
+	cfg["target"].([]any)[0].(map[string]any)["provider"] = "MC"
+	delete(cfg["application"].([]any)[0].(map[string]any)["configuration"].([]any)[0].(map[string]any), "mule_agent_logging_service")
+	diff, err := r.Diff(context.Background(), state, terraform.NewResourceConfigRaw(cfg), nil)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if diff != nil && len(diff.Attributes) > 0 {
+		var paths []string
+		for k, v := range diff.Attributes {
+			paths = append(paths, k+": "+v.Old+" -> "+v.New)
+		}
+		sort.Strings(paths)
+		t.Errorf("expected empty diff on imported state, got %v", paths)
 	}
 }

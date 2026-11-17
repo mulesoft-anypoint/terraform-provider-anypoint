@@ -302,15 +302,11 @@ var DeplTargetDeploymentSettingsC2SSDefinition = &schema.Resource{
 		// },
 		"http": {
 			Type:        schema.TypeList,
-			Description: "The details about http inbound or outbound configuration",
+			Description: "The details about http inbound or outbound configuration. When omitted, the current http configuration is kept.",
 			Optional:    true,
+			Computed:    true,
 			MaxItems:    1,
-			DefaultFunc: func() (any, error) {
-				dict := make(map[string]any)
-				dict["inbound_last_mile_security"] = false
-				return []any{dict}, nil
-			},
-			Elem: DeplTargetDeplSettHttpC2SSDefinition,
+			Elem:        DeplTargetDeplSettHttpC2SSDefinition,
 		},
 		"jvm_args": {
 			Type:        schema.TypeString,
