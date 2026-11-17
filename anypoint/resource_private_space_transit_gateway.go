@@ -3,7 +3,10 @@ package anypoint
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -28,7 +31,13 @@ func resourcePrivateSpaceTransitGateway() *schema.Resource {
 			"Two modes: create mode (`name`, `resource_share_id`, `resource_share_account`) creates the transit gateway connection from a RAM resource share owned by your AWS account, " +
 			"with the MuleSoft AWS account whitelisted as principal and the TGW associated with the share; " +
 			"attach mode (`transit_gateway_id`) attaches an existing organization transit gateway, for example the one created by another resource, to this private space. " +
-			"Deleting the resource only detaches the private space: the organization transit gateway stays listed after its last detach.",
+			"Deleting the resource only detaches the private space: the organization transit gateway stays listed after its last detach; " +
+			"per the Anypoint UI, delete the RAM resource share in AWS to remove it from the organization. " +
+			"Create mode re-attaches an organization transit gateway left by an earlier detach when no other private space uses it. " +
+			"Two create-mode resources on one resource share are an error: give the second one `transit_gateway_id` instead. " +
+			"Replacing a create-mode resource replaces the attach-mode resources that reference its `transit_gateway_id`. " +
+			"`create_before_destroy` on create-mode resources across private spaces is not supported; use attach mode. " +
+			"An existing create-mode resource moves to attach mode without replacement: set `transit_gateway_id` to its current value and remove `name`, `resource_share_id` and `resource_share_account`.",
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:        schema.TypeString,
@@ -131,27 +140,306 @@ func resourcePrivateSpaceTransitGateway() *schema.Resource {
 }
 
 func resourcePrivateSpaceTransitGatewayCreate(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
-	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
 	psid := d.Get("private_space_id").(string)
-	authctx := getPrivateSpaceAuthCtx(ctx, &pco)
-	body := newPrivateSpaceTransitGatewayPostBody(d)
-	res, httpr, err := pco.privatespaceclient.DefaultAPI.CreatePrivateSpaceTransitGateway(authctx, orgid, psid).TransitGatewayPostBody(*body).Execute()
-	if err != nil {
-		details := extractAPIErrorDetail(err, httpr)
-		diags = append(diags, diag.Diagnostic{
+	summary := "Unable to create transit gateway for private space " + psid
+
+	// The SDK skips unknown values in ConflictsWith / ExactlyOneOf, so a
+	// transit_gateway_id that was unknown at plan time can arrive here
+	// together with create-mode attributes. At apply the raw config is known.
+	attach, tgwID, conflicting := tgwModeFromRawConfig(d.GetRawConfig())
+	if d.GetRawConfig().IsNull() {
+		tgwID = d.Get("transit_gateway_id").(string)
+		attach = tgwID != ""
+	}
+	if attach && len(conflicting) > 0 {
+		return diag.Diagnostics{{
 			Severity: diag.Error,
-			Summary:  "Unable to Create transit gateway " + d.Get("name").(string) + " for private space " + psid,
-			Detail:   details,
-		})
+			Summary:  summary,
+			Detail: "transit_gateway_id cannot be combined with name, resource_share_id or resource_share_account (set: " +
+				strings.Join(conflicting, ", ") + ").",
+		}}
+	}
+	if attach && tgwID == "" {
+		tgwID = d.Get("transit_gateway_id").(string)
+		if tgwID == "" {
+			return diag.Diagnostics{{
+				Severity: diag.Error,
+				Summary:  summary,
+				Detail:   "transit_gateway_id is unknown at apply time.",
+			}}
+		}
+	}
+
+	lock, err := acquireTGWOrgLock(ctx, orgid)
+	if err != nil {
+		return diag.Diagnostics{{
+			Severity: diag.Error,
+			Summary:  summary,
+			Detail:   "Gave up waiting for another transit gateway create in organization " + orgid + ": " + err.Error(),
+		}}
+	}
+	defer lock.Unlock()
+
+	if attach {
+		return createTGWAttachMode(ctx, d, &pco, orgid, psid, tgwID)
+	}
+	return createTGWCreateMode(ctx, d, &pco, orgid, psid, lock)
+}
+
+// createTGWAttachMode attaches the existing organization transit gateway
+// tgwID to the private space. The caller holds the org lock.
+func createTGWAttachMode(ctx context.Context, d *schema.ResourceData, pco *ProviderConfOutput, org, ps, tgwID string) diag.Diagnostics {
+	list, httpr, err := attachTGWWithRetry(ctx, pco, org, ps, tgwID, tgwRoutes(d))
+	if err != nil {
+		return diag.Diagnostics{{
+			Severity: diag.Error,
+			Summary:  "Unable to attach transit gateway " + tgwID + " to private space " + ps,
+			Detail:   extractAPIErrorDetail(err, httpr),
+		}}
+	}
+	defer httpr.Body.Close()
+	d.SetId(ComposeResourceId([]string{org, ps, tgwID}))
+	return tgwStateFromResponseDiags(d, list, tgwID)
+}
+
+// createTGWCreateMode creates the transit gateway connection from the RAM
+// share and, when the share is already known to the organization, falls back
+// to rescueTGWAttach. The caller holds lock.
+func createTGWCreateMode(ctx context.Context, d *schema.ResourceData, pco *ProviderConfOutput, org, ps string, lock *tgwOrgLock) diag.Diagnostics {
+	authctx := getPrivateSpaceAuthCtx(ctx, pco)
+	share := d.Get("resource_share_id").(string)
+	body := newPrivateSpaceTransitGatewayPostBody(d)
+	res, httpr, err := pco.privatespaceclient.DefaultAPI.CreatePrivateSpaceTransitGateway(authctx, org, ps).TransitGatewayPostBody(*body).Execute()
+	if err != nil {
+		createErr := diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Unable to create transit gateway for private space " + ps,
+			Detail:   extractAPIErrorDetail(err, httpr),
+		}
+		if httpr == nil || httpr.StatusCode != http.StatusBadRequest {
+			return diag.Diagnostics{createErr}
+		}
+		diags, attached := rescueTGWAttach(ctx, d, pco, org, ps, createErr)
+		if attached {
+			lock.Claim(share, d.Id())
+		}
 		return diags
 	}
 	defer httpr.Body.Close()
-	tgwid := res.GetId()
-	d.SetId(ComposeResourceId([]string{orgid, psid, tgwid}))
-	d.Set("transit_gateway_id", tgwid)
-	return resourcePrivateSpaceTransitGatewayRead(ctx, d, m)
+	tgwID := res.GetId()
+	d.SetId(ComposeResourceId([]string{org, ps, tgwID}))
+	lock.Claim(share, d.Id())
+	return tgwStateFromResponseDiags(d, []private_space.TransitGateway{*res}, tgwID)
+}
+
+// rescueTGWAttach handles a 400 on the create POST. When the organization
+// already holds a transit gateway for this resource share and no private
+// space has a live attachment to it, it attaches that transit gateway with
+// this resource's routes and takes over its name. attached reports whether
+// the id was set. The caller holds the org lock.
+func rescueTGWAttach(ctx context.Context, d *schema.ResourceData, pco *ProviderConfOutput, org, ps string, createErr diag.Diagnostic) (diag.Diagnostics, bool) {
+	authctx := getPrivateSpaceAuthCtx(ctx, pco)
+	share := d.Get("resource_share_id").(string)
+	account := d.Get("resource_share_account").(string)
+	name := d.Get("name").(string)
+	withDetail := func(extra string) diag.Diagnostics {
+		e := createErr
+		e.Detail = extra + "\n\nOriginal error: " + createErr.Detail
+		return diag.Diagnostics{e}
+	}
+
+	entry, ok := lookupOrgTGWByShare(authctx, pco, org, share)
+	if !ok {
+		return diag.Diagnostics{createErr}, false
+	}
+	tgwID := entry.GetId()
+
+	if len(tgwLiveAttachments(entry)) > 0 {
+		if tgwAttachedToSpace(authctx, pco, org, ps, tgwID) {
+			return withDetail(fmt.Sprintf(
+				"Transit gateway %s is already attached to private space %s. Import it instead: terraform import <resource address> %s",
+				tgwID, ps, ComposeResourceId([]string{org, ps, tgwID}),
+			)), false
+		}
+		return withDetail(tgwShareConflictHint(entry, ps)), false
+	}
+	// Another resource of this apply owns the share; the org list is
+	// eventually consistent and may not show its attachment yet.
+	if tgwOrgLockFor(org).Claimed(share) {
+		return withDetail(tgwShareClaimedHint(entry, ps)), false
+	}
+	shareSpec := entry.GetSpec()
+	shareRef := shareSpec.GetResourceShare()
+	if got := shareRef.GetAccount(); got != account {
+		return diag.Diagnostics{{
+			Severity: diag.Error,
+			Summary:  createErr.Summary,
+			Detail: createErr.Detail + fmt.Sprintf(
+				"\n\nTransit gateway %s uses this resource share with account %q, but resource_share_account is %q. "+
+					"Set resource_share_account to the account that owns the share.",
+				tgwID, got, account,
+			),
+		}}, false
+	}
+
+	// Detached attachments flicker in the org list: only attach when two
+	// reads some seconds apart agree that nothing is live.
+	select {
+	case <-ctx.Done():
+		return diag.Diagnostics{createErr}, false
+	case <-time.After(tgwRescueRecheckDelay):
+	}
+	again, ok := lookupOrgTGWByShare(authctx, pco, org, share)
+	if !ok || again.GetId() != tgwID {
+		return diag.Diagnostics{createErr}, false
+	}
+	if len(tgwLiveAttachments(again)) > 0 {
+		return withDetail(tgwShareConflictHint(again, ps)), false
+	}
+
+	list, httpr, err := attachTGWWithRetry(ctx, pco, org, ps, tgwID, tgwRoutes(d))
+	if err != nil {
+		return diag.Diagnostics{createErr, {
+			Severity: diag.Error,
+			Summary:  "Unable to attach transit gateway " + tgwID + " to private space " + ps,
+			Detail:   extractAPIErrorDetail(err, httpr),
+		}}, false
+	}
+	defer httpr.Body.Close()
+	log.Printf("[INFO] re-attached organization transit gateway %s to private space %s", tgwID, ps)
+	d.SetId(ComposeResourceId([]string{org, ps, tgwID}))
+	diags := tgwStateFromResponseDiags(d, list, tgwID)
+
+	if entry.GetName() != name {
+		if pd := patchTGWNameWithRetry(ctx, pco, org, tgwID, name); pd != nil {
+			pd.Severity = diag.Warning
+			pd.Detail += " The transit gateway is attached; the next plan shows an in-place name update that retries it."
+			return append(diags, *pd), true
+		}
+		d.Set("name", name)
+	}
+	return diags, true
+}
+
+// lookupOrgTGWByShare reads the organization transit gateways and returns the
+// one using share. A failed read counts as no match.
+func lookupOrgTGWByShare(authctx context.Context, pco *ProviderConfOutput, org, share string) (private_space.TransitGateway, bool) {
+	list, httpr, err := pco.privatespaceclient.DefaultAPI.GetOrgTransitGateways(authctx, org).Execute()
+	if err != nil {
+		log.Printf("[WARN] unable to list organization transit gateways of %s: %s", org, extractAPIErrorDetail(err, httpr))
+		return private_space.TransitGateway{}, false
+	}
+	defer httpr.Body.Close()
+	return findOrgTGWByShare(list, share)
+}
+
+// tgwAttachedToSpace reports whether the private space lists tgwID with an
+// attachment that is not detached. A failed read counts as not attached.
+func tgwAttachedToSpace(authctx context.Context, pco *ProviderConfOutput, org, ps, tgwID string) bool {
+	list, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpaceTransitGateways(authctx, org, ps).Execute()
+	if err != nil {
+		log.Printf("[WARN] unable to list transit gateways of private space %s: %s", ps, extractAPIErrorDetail(err, httpr))
+		return false
+	}
+	defer httpr.Body.Close()
+	for _, tgw := range list {
+		status := tgw.GetStatus()
+		if tgw.GetId() == tgwID && status.GetAttachment() != "detached" {
+			return true
+		}
+	}
+	return false
+}
+
+// attachTGWWithRetry posts the attach request, retrying 403/409 "not ready"
+// answers with exponential backoff within tgwAttachRetryBudget and ctx.
+func attachTGWWithRetry(ctx context.Context, pco *ProviderConfOutput, org, ps, tgwID string, routes []string) ([]private_space.TransitGateway, *http.Response, error) {
+	authctx := getPrivateSpaceAuthCtx(ctx, pco)
+	deadline := time.Now().Add(tgwAttachRetryBudget)
+	delay := tgwAttachRetryBase
+	for {
+		list, httpr, err := pco.privatespaceclient.DefaultAPI.AttachPrivateSpaceTransitGateway(authctx, org, ps, tgwID).RequestBody(routes).Execute()
+		if err == nil || !tgwNotReady(httpr) || time.Now().Add(delay).After(deadline) {
+			return list, httpr, err
+		}
+		log.Printf("[DEBUG] attach of transit gateway %s to private space %s answered %d; retrying in %s", tgwID, ps, httpr.StatusCode, delay)
+		select {
+		case <-ctx.Done():
+			return list, httpr, err
+		case <-time.After(delay):
+		}
+		delay *= 2
+	}
+}
+
+// patchTGWNameWithRetry renames the organization transit gateway, retrying
+// 403/409 up to three attempts. It returns the error diagnostic of the last
+// attempt, or nil on success.
+func patchTGWNameWithRetry(ctx context.Context, pco *ProviderConfOutput, org, tgwID, name string) *diag.Diagnostic {
+	authctx := getPrivateSpaceAuthCtx(ctx, pco)
+	body := private_space.NewTransitGatewayPatchNameBody(name)
+	const attempts = 3
+	for i := 1; ; i++ {
+		_, httpr, err := pco.privatespaceclient.DefaultAPI.UpdateOrgTransitGatewayName(authctx, org, tgwID).TransitGatewayPatchNameBody(*body).Execute()
+		if err == nil {
+			defer httpr.Body.Close()
+			return nil
+		}
+		if i == attempts || !tgwNotReady(httpr) {
+			return &diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Unable to update name for transit gateway " + tgwID,
+				Detail:   extractAPIErrorDetail(err, httpr),
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return &diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Unable to update name for transit gateway " + tgwID,
+				Detail:   extractAPIErrorDetail(err, httpr),
+			}
+		case <-time.After(tgwAttachRetryBase):
+		}
+	}
+}
+
+func tgwNotReady(httpr *http.Response) bool {
+	return httpr != nil && (httpr.StatusCode == http.StatusForbidden || httpr.StatusCode == http.StatusConflict)
+}
+
+func tgwRoutes(d *schema.ResourceData) []string {
+	return ListInterface2ListStrings(d.Get("routes").(*schema.Set).List())
+}
+
+// setTGWStateFromResponse writes the attributes of tgwID from a create or
+// attach response, so that Create does not depend on the per-space list
+// being read-your-writes.
+func setTGWStateFromResponse(d *schema.ResourceData, list []private_space.TransitGateway, tgwID string) error {
+	if err := d.Set("transit_gateway_id", tgwID); err != nil {
+		return err
+	}
+	for i := range list {
+		if list[i].GetId() == tgwID {
+			return setPrivateSpaceTransitGatewayAttrs(d, &list[i])
+		}
+	}
+	return fmt.Errorf("transit gateway %s missing from the response; attributes are refreshed on the next plan", tgwID)
+}
+
+// tgwStateFromResponseDiags wraps setTGWStateFromResponse: the object exists,
+// so a failure is only a warning and the id is kept.
+func tgwStateFromResponseDiags(d *schema.ResourceData, list []private_space.TransitGateway, tgwID string) diag.Diagnostics {
+	if err := setTGWStateFromResponse(d, list, tgwID); err != nil {
+		return diag.Diagnostics{{
+			Severity: diag.Warning,
+			Summary:  "Unable to read transit gateway " + tgwID + " after create",
+			Detail:   err.Error(),
+		}}
+	}
+	return nil
 }
 
 func resourcePrivateSpaceTransitGatewayRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
@@ -224,7 +512,12 @@ func resourcePrivateSpaceTransitGatewayUpdate(ctx context.Context, d *schema.Res
 		}
 		defer httpr.Body.Close()
 	}
-	if d.HasChange("name") {
+	// In attach mode the org-level name belongs to the creating resource.
+	attach, _, _ := tgwModeFromRawConfig(d.GetRawConfig())
+	if d.HasChange("name") && attach {
+		log.Printf("[DEBUG] transit gateway %s is in attach mode; not renaming it", tgwid)
+	}
+	if d.HasChange("name") && !attach {
 		body := private_space.NewTransitGatewayPatchNameBody(d.Get("name").(string))
 		_, httpr, err := pco.privatespaceclient.DefaultAPI.UpdateOrgTransitGatewayName(authctx, orgid, tgwid).TransitGatewayPatchNameBody(*body).Execute()
 		if err != nil {
@@ -261,6 +554,9 @@ func resourcePrivateSpaceTransitGatewayDelete(ctx context.Context, d *schema.Res
 		return diags
 	}
 	defer httpr.Body.Close()
+	if share, ok := d.Get("resource_share_id").(string); ok && share != "" {
+		tgwOrgLockFor(orgid).Release(share, d.Id())
+	}
 	d.SetId("")
 	return diags
 }
@@ -324,3 +620,10 @@ func splitPrivateSpaceTransitGatewayId(d *schema.ResourceData) (string, string, 
 	}
 	return s[0], s[1], s[2], diags
 }
+
+// Test seams for the create-mode rescue and the attach retry.
+var (
+	tgwRescueRecheckDelay = 3 * time.Second
+	tgwAttachRetryBudget  = 5 * time.Minute
+	tgwAttachRetryBase    = 5 * time.Second
+)

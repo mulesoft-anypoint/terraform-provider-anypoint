@@ -2,6 +2,7 @@ package anypoint
 
 import (
 	"context"
+	"log"
 	"sync"
 )
 
@@ -12,12 +13,13 @@ import (
 var tgwOrgLocks sync.Map // org -> *tgwOrgLock
 
 // tgwOrgLock serialises transit gateway creates for one organization and
-// remembers which resource shares this process has already claimed.
+// remembers which resource shares this process has already claimed, and by
+// which resource.
 type tgwOrgLock struct {
 	ch chan struct{} // capacity 1; a token in the channel means "held"
 
-	mu     sync.Mutex // guards claims
-	claims map[string]struct{}
+	mu     sync.Mutex        // guards claims
+	claims map[string]string // share -> owning resource id
 }
 
 // tgwOrgLockFor returns the lock entry of org without acquiring it, so that
@@ -28,7 +30,7 @@ func tgwOrgLockFor(org string) *tgwOrgLock {
 	}
 	v, _ := tgwOrgLocks.LoadOrStore(org, &tgwOrgLock{
 		ch:     make(chan struct{}, 1),
-		claims: map[string]struct{}{},
+		claims: map[string]string{},
 	})
 	return v.(*tgwOrgLock)
 }
@@ -48,12 +50,16 @@ func acquireTGWOrgLock(ctx context.Context, org string) (*tgwOrgLock, error) {
 	}
 }
 
-// Unlock releases the org lock.
+// Unlock releases the org lock. Unlocking a lock that is not held is a no-op.
 func (l *tgwOrgLock) Unlock() {
-	<-l.ch
+	select {
+	case <-l.ch:
+	default:
+		log.Println("[WARN] transit gateway org lock released while not held; ignoring")
+	}
 }
 
-// Claimed reports whether share was claimed by this process.
+// Claimed reports whether share was claimed by a resource of this process.
 func (l *tgwOrgLock) Claimed(share string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -61,16 +67,20 @@ func (l *tgwOrgLock) Claimed(share string) bool {
 	return ok
 }
 
-// Claim records that a resource in this process owns share.
-func (l *tgwOrgLock) Claim(share string) {
+// Claim records that the resource with id owner owns share.
+func (l *tgwOrgLock) Claim(share, owner string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.claims[share] = struct{}{}
+	l.claims[share] = owner
 }
 
-// Release drops the claim on share. It does not require holding the org lock.
-func (l *tgwOrgLock) Release(share string) {
+// Release drops the claim on share when owner holds it, so that an
+// attach-mode resource that reads the same share back cannot drop the
+// creating resource's claim. It does not require holding the org lock.
+func (l *tgwOrgLock) Release(share, owner string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	delete(l.claims, share)
+	if l.claims[share] == owner {
+		delete(l.claims, share)
+	}
 }

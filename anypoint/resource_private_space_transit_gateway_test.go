@@ -263,7 +263,7 @@ func TestTGWOrgLock(t *testing.T) {
 		if l.Claimed("share") {
 			t.Fatal("share claimed before Claim")
 		}
-		l.Claim("share")
+		l.Claim("share", "owner-a")
 		if !l.Claimed("share") {
 			t.Fatal("share not claimed after Claim")
 		}
@@ -272,10 +272,40 @@ func TestTGWOrgLock(t *testing.T) {
 		if !other.Claimed("share") {
 			t.Fatal("claim lost after Unlock")
 		}
-		other.Release("share")
+		other.Release("share", "owner-b")
+		if !other.Claimed("share") {
+			t.Fatal("Release by a non-owner dropped the claim")
+		}
+		other.Release("share", "owner-a")
 		if other.Claimed("share") {
 			t.Fatal("share still claimed after Release")
 		}
+	})
+
+	t.Run("unlock when not held is a no-op", func(t *testing.T) {
+		l := tgwOrgLockFor("org-unheld")
+		done := make(chan struct{})
+		go func() {
+			l.Unlock()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("Unlock of a free lock blocked")
+		}
+		cctx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		l2, err := acquireTGWOrgLock(cctx, "org-unheld")
+		if err != nil {
+			t.Fatalf("acquire after stray Unlock: %v", err)
+		}
+		cctx2, cancel2 := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel2()
+		if _, err := acquireTGWOrgLock(cctx2, "org-unheld"); err != context.DeadlineExceeded {
+			t.Errorf("stray Unlock must not leave a spare token: err = %v", err)
+		}
+		l2.Unlock()
 	})
 
 	t.Run("orgs are independent", func(t *testing.T) {
