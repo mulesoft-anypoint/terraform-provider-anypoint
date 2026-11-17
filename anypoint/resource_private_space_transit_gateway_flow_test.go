@@ -120,10 +120,10 @@ var tgwTestOrgSeq int64
 // seams. Each env gets a fresh org id so lock claims never leak across tests.
 func newTGWFlowEnv(t *testing.T) *tgwFlowEnv {
 	t.Helper()
-	oldDelay, oldBudget, oldBase := tgwRescueRecheckDelay, tgwAttachRetryBudget, tgwAttachRetryBase
-	tgwRescueRecheckDelay, tgwAttachRetryBudget, tgwAttachRetryBase = 5*time.Millisecond, 500*time.Millisecond, 2*time.Millisecond
+	oldDelay, oldBudget, oldBase, oldMax := tgwRescueRecheckDelay, tgwAttachRetryBudget, tgwAttachRetryBase, tgwAttachRetryMaxDelay
+	tgwRescueRecheckDelay, tgwAttachRetryBudget, tgwAttachRetryBase, tgwAttachRetryMaxDelay = 5*time.Millisecond, 500*time.Millisecond, 2*time.Millisecond, 10*time.Millisecond
 	t.Cleanup(func() {
-		tgwRescueRecheckDelay, tgwAttachRetryBudget, tgwAttachRetryBase = oldDelay, oldBudget, oldBase
+		tgwRescueRecheckDelay, tgwAttachRetryBudget, tgwAttachRetryBase, tgwAttachRetryMaxDelay = oldDelay, oldBudget, oldBase, oldMax
 	})
 	mock := &tgwMock{routes: map[string][]tgwMockResp{}, hits: map[string]int{}}
 	ts := httptest.NewServer(mock)
@@ -356,18 +356,145 @@ func TestTGWCreate_AttachMode_RetryOn409(t *testing.T) {
 
 func TestTGWCreate_AttachMode_RetryHonoursCtx(t *testing.T) {
 	e := newTGWFlowEnv(t)
-	tgwAttachRetryBase = time.Second
-	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{409, `{"message":"transit gateway is not ready"}`})
+	// The budget outlives ctx, so only ctx can end the wait.
+	tgwAttachRetryBudget, tgwAttachRetryBase, tgwAttachRetryMaxDelay = time.Hour, time.Second, time.Second
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{409, tgwAssociatedMsg})
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	start := time.Now()
 	_, diags := e.apply(ctx, nil, e.attachModeRaw("ps-b", tgwTestID))
-	if el := time.Since(start); el > 500*time.Millisecond {
-		t.Fatalf("returned after %v, want prompt return on ctx deadline", el)
+	if el := time.Since(start); el < 90*time.Millisecond || el > 500*time.Millisecond {
+		t.Fatalf("returned after %v, want a return on the 100ms ctx deadline", el)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 1 {
+		t.Errorf("attach POSTs = %d, want 1 (cancelled during the first wait)", n)
 	}
 	errs := tgwErrors(diags)
 	if len(errs) != 1 || errs[0].Summary != "Unable to attach transit gateway "+tgwTestID+" to private space ps-b" {
 		t.Fatalf("diags = %v", diags)
+	}
+}
+
+const (
+	tgwAssociatedMsg  = `{"message":"Transit gateway attachment is already associated with this space, try another space or detach and reattach"}`
+	tgwDetachHint     = "The platform keeps a detached attachment on this private space for several minutes after a detach; retry the apply in a few minutes."
+	tgwUnknownTGWHint = "Transit gateway " + tgwTestID + " is not known to this Anypoint organization yet. If another anypoint_private_space_transit_gateway creates it, " +
+		"reference that resource's transit_gateway_id instead of the literal id so Terraform creates it first."
+)
+
+func TestTGWRetryDefaults(t *testing.T) {
+	if tgwAttachRetryBudget != 15*time.Minute {
+		t.Errorf("tgwAttachRetryBudget = %v, want 15m (re-attach lockout after a detach lasts ~11 min)", tgwAttachRetryBudget)
+	}
+	if tgwAttachRetryMaxDelay > time.Minute {
+		t.Errorf("tgwAttachRetryMaxDelay = %v, want <= 1m so the budget is used", tgwAttachRetryMaxDelay)
+	}
+}
+
+func TestTGWCreate_AttachMode_RetryOn409x3(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	busy := tgwMockResp{409, tgwAssociatedMsg}
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), busy, busy, busy,
+		tgwMockResp{200, []any{tgwPerSpace(tgwTestID, "org-name", "space-b", "refreshing")}})
+	state, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+	if diags.HasError() {
+		t.Fatalf("apply: %v", diags)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 4 {
+		t.Fatalf("attach POSTs = %d, want 4", n)
+	}
+	if state == nil || state.ID != e.org+"/ps-b/"+tgwTestID {
+		t.Fatalf("id not set: %v", state)
+	}
+}
+
+func TestTGWCreate_AttachMode_BudgetExhausted_DetachHint(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	tgwAttachRetryBudget = 30 * time.Millisecond
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{409, tgwAssociatedMsg})
+	_, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+	errs := tgwErrors(diags)
+	if len(errs) != 1 {
+		t.Fatalf("want one error, got %v", diags)
+	}
+	if !strings.Contains(errs[0].Detail, tgwDetachHint) || !strings.Contains(errs[0].Detail, "already associated with this space") {
+		t.Errorf("detail must carry the API body and the detach hint:\n%s", errs[0].Detail)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n < 2 {
+		t.Errorf("attach POSTs = %d, want retries within the budget", n)
+	}
+}
+
+func TestTGWCreate_AttachMode_UnknownTGW_Hint(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		body   string
+	}{
+		{400, `{"status":"FAILURE","message":"Transit gateway attachment not found"}`},
+		{404, `{"message":"Transit gateway Not Found"}`},
+	} {
+		t.Run(strconv.Itoa(tc.status), func(t *testing.T) {
+			e := newTGWFlowEnv(t)
+			e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{tc.status, tc.body})
+			_, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+			errs := tgwErrors(diags)
+			if len(errs) != 1 {
+				t.Fatalf("want one error, got %v", diags)
+			}
+			if !strings.Contains(errs[0].Detail, tgwUnknownTGWHint) || !strings.Contains(errs[0].Detail, tc.body) {
+				t.Errorf("detail must carry the API body and the unknown-tgw hint:\n%s", errs[0].Detail)
+			}
+			if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 1 {
+				t.Errorf("attach POSTs = %d, want 1 (not retried)", n)
+			}
+		})
+	}
+}
+
+func TestTGWCreate_AttachMode_OtherError_NoHint(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{400, `{"message":"routes overlap"}`})
+	_, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+	errs := tgwErrors(diags)
+	if len(errs) != 1 || errs[0].Detail != `HTTP 400: {"message":"routes overlap"}` {
+		t.Fatalf("want the raw API error only, got %v", diags)
+	}
+}
+
+func TestTGWCreate_Rescue_AttachRetryOn409(t *testing.T) {
+	zero := tgwOrgList(tgwTestID, tgwTestName, tgwTestAccount, tgwOrgAtt("space-b", "detached"))
+	e := rescueEnv(t, tgwTestName, zero, zero)
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID),
+		tgwMockResp{409, tgwAssociatedMsg},
+		tgwMockResp{200, []any{tgwPerSpace(tgwTestID, tgwTestName, "space-b", "refreshing")}})
+	state, diags := e.apply(context.Background(), nil, e.createModeRaw("ps-b"))
+	if len(diags) != 0 {
+		t.Fatalf("diags: %v", diags)
+	}
+	assertTGWRequests(t, e.mock.requests(), []tgwReq{
+		{"POST", e.spacePath("ps-b"), tgwCreateBody()},
+		{"GET", e.orgPath(), ""},
+		{"GET", e.orgPath(), ""},
+		{"POST", e.attachPath("ps-b", tgwTestID), `["` + tgwTestRoute + `"]`},
+		{"POST", e.attachPath("ps-b", tgwTestID), `["` + tgwTestRoute + `"]`},
+	})
+	if state == nil || state.ID != e.org+"/ps-b/"+tgwTestID {
+		t.Fatalf("id not set: %v", state)
+	}
+}
+
+func TestTGWCreate_Rescue_AttachBudgetExhausted_BothErrorsAndHint(t *testing.T) {
+	zero := tgwOrgList(tgwTestID, tgwTestName, tgwTestAccount)
+	e := rescueEnv(t, tgwTestName, zero, zero)
+	tgwAttachRetryBudget = 30 * time.Millisecond
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{409, tgwAssociatedMsg})
+	_, diags := e.apply(context.Background(), nil, e.createModeRaw("ps-b"))
+	errs := tgwErrors(diags)
+	if len(errs) != 2 || errs[0].Detail != tgwOriginalCreateDetail() || !strings.Contains(errs[1].Detail, tgwDetachHint) {
+		t.Fatalf("want the original error and the attach error with the detach hint, got %v", diags)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n < 2 {
+		t.Errorf("rescue attach POSTs = %d, want retries", n)
 	}
 }
 

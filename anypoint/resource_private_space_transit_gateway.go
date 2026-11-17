@@ -31,8 +31,8 @@ func resourcePrivateSpaceTransitGateway() *schema.Resource {
 			"Two modes: create mode (`name`, `resource_share_id`, `resource_share_account`) creates the transit gateway connection from a RAM resource share owned by your AWS account, " +
 			"with the MuleSoft AWS account whitelisted as principal and the TGW associated with the share; " +
 			"attach mode (`transit_gateway_id`) attaches an existing organization transit gateway, for example the one created by another resource, to this private space. " +
-			"Deleting the resource only detaches the private space: the organization transit gateway stays listed after its last detach; " +
-			"per the Anypoint UI, delete the RAM resource share in AWS to remove it from the organization. " +
+			"Deleting the resource only detaches the private space. The organization-level transit gateway stays listed after its last attachment is removed. " +
+			"Re-attaching a private space shortly after a detach can take several minutes; the provider retries for up to 15 minutes. " +
 			"Create mode re-attaches an organization transit gateway left by an earlier detach when no other private space uses it. " +
 			"Two create-mode resources on one resource share are an error: give the second one `transit_gateway_id` instead. " +
 			"Replacing a create-mode resource replaces the attach-mode resources that reference its `transit_gateway_id`. " +
@@ -198,7 +198,7 @@ func createTGWAttachMode(ctx context.Context, d *schema.ResourceData, pco *Provi
 		return diag.Diagnostics{{
 			Severity: diag.Error,
 			Summary:  "Unable to attach transit gateway " + tgwID + " to private space " + ps,
-			Detail:   extractAPIErrorDetail(err, httpr),
+			Detail:   tgwAttachErrorDetail(err, httpr, tgwID),
 		}}
 	}
 	defer httpr.Body.Close()
@@ -311,7 +311,7 @@ func rescueTGWAttach(ctx context.Context, d *schema.ResourceData, pco *ProviderC
 		return diag.Diagnostics{createErr, {
 			Severity: diag.Error,
 			Summary:  "Unable to attach transit gateway " + tgwID + " to private space " + ps,
-			Detail:   extractAPIErrorDetail(err, httpr),
+			Detail:   tgwAttachErrorDetail(err, httpr, tgwID),
 		}}, false
 	}
 	defer httpr.Body.Close()
@@ -363,7 +363,8 @@ func tgwAttachedToSpace(authctx context.Context, pco *ProviderConfOutput, org, p
 }
 
 // attachTGWWithRetry posts the attach request, retrying 403/409 "not ready"
-// answers with exponential backoff within tgwAttachRetryBudget and ctx.
+// answers with exponential backoff (capped at tgwAttachRetryMaxDelay) within
+// tgwAttachRetryBudget and ctx.
 func attachTGWWithRetry(ctx context.Context, pco *ProviderConfOutput, org, ps, tgwID string, routes []string) ([]private_space.TransitGateway, *http.Response, error) {
 	authctx := getPrivateSpaceAuthCtx(ctx, pco)
 	deadline := time.Now().Add(tgwAttachRetryBudget)
@@ -380,7 +381,31 @@ func attachTGWWithRetry(ctx context.Context, pco *ProviderConfOutput, org, ps, t
 		case <-time.After(delay):
 		}
 		delay *= 2
+		if delay > tgwAttachRetryMaxDelay {
+			delay = tgwAttachRetryMaxDelay
+		}
 	}
+}
+
+// tgwAttachErrorDetail is the API error detail of a failed attach, followed
+// by a hint for the two known causes: a transit gateway id the org does not
+// know yet, and the re-attach lockout after a detach.
+func tgwAttachErrorDetail(err error, httpr *http.Response, tgwID string) string {
+	detail := extractAPIErrorDetail(err, httpr)
+	if httpr == nil {
+		return detail
+	}
+	lower := strings.ToLower(detail)
+	switch {
+	case (httpr.StatusCode == http.StatusBadRequest || httpr.StatusCode == http.StatusNotFound) && strings.Contains(lower, "not found"):
+		detail += "\n\nTransit gateway " + tgwID + " is not known to this Anypoint organization yet. " +
+			"If another anypoint_private_space_transit_gateway creates it, reference that resource's transit_gateway_id " +
+			"instead of the literal id so Terraform creates it first."
+	case httpr.StatusCode == http.StatusConflict && strings.Contains(lower, "already associated"):
+		detail += "\n\nThe platform keeps a detached attachment on this private space for several minutes after a detach; " +
+			"retry the apply in a few minutes."
+	}
+	return detail
 }
 
 // patchTGWNameWithRetry renames the organization transit gateway, retrying
@@ -630,6 +655,9 @@ func splitPrivateSpaceTransitGatewayId(d *schema.ResourceData) (string, string, 
 // Test seams for the create-mode rescue and the attach retry.
 var (
 	tgwRescueRecheckDelay = 3 * time.Second
-	tgwAttachRetryBudget  = 5 * time.Minute
-	tgwAttachRetryBase    = 5 * time.Second
+	// After a detach the platform answers 409 "already associated" to a
+	// re-attach of the same space for about 11 minutes.
+	tgwAttachRetryBudget   = 15 * time.Minute
+	tgwAttachRetryBase     = 5 * time.Second
+	tgwAttachRetryMaxDelay = 30 * time.Second
 )
