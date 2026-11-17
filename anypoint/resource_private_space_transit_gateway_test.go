@@ -136,6 +136,9 @@ func TestTGWLiveAttachments(t *testing.T) {
 		{"detached only", []private_space.TransitGateway{tgwTestAttachment("detached", "a")}, 0},
 		{"refreshing", []private_space.TransitGateway{tgwTestAttachment("refreshing", "a")}, 1},
 		{"pending", []private_space.TransitGateway{tgwTestAttachment("pending", "a")}, 1},
+		{"deleted only", []private_space.TransitGateway{tgwTestAttachment("deleted", "a")}, 0},
+		{"detached and deleted", []private_space.TransitGateway{tgwTestAttachment("detached", "a"), tgwTestAttachment("deleted", "b")}, 0},
+		{"unknown status stays live", []private_space.TransitGateway{tgwTestAttachment("Deleted", "a")}, 1},
 		{"empty status", []private_space.TransitGateway{tgwTestAttachment("", "a")}, 1},
 		{"available and detached", []private_space.TransitGateway{tgwTestAttachment("available", "a"), tgwTestAttachment("detached", "b")}, 1},
 	}

@@ -55,14 +55,20 @@ func findOrgTGWByShare(list []private_space.TransitGateway, shareID string) (pri
 	return private_space.TransitGateway{}, false
 }
 
+// tgwAttachmentGone reports whether an attachment status marks a tombstone.
+// After a detach the platform keeps the entry as "detached" and later as
+// "deleted". Any other value, including an empty or unknown one, is live.
+func tgwAttachmentGone(status string) bool {
+	return status == "detached" || status == "deleted"
+}
+
 // tgwLiveAttachments returns the attachments of an org-level transit gateway
-// that are not detached. The org list keeps "ghost" entries with status
-// "detached" after a detach; an unknown or empty status counts as live.
+// that are not tombstones (see tgwAttachmentGone).
 func tgwLiveAttachments(tgw private_space.TransitGateway) []private_space.TransitGateway {
 	var live []private_space.TransitGateway
 	for _, att := range tgw.GetAttachments() {
 		status := att.GetStatus()
-		if status.GetAttachment() != "detached" {
+		if !tgwAttachmentGone(status.GetAttachment()) {
 			live = append(live, att)
 		}
 	}

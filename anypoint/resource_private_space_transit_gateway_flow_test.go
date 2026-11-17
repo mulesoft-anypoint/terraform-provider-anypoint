@@ -382,6 +382,37 @@ const (
 		"reference that resource's transit_gateway_id instead of the literal id so Terraform creates it first."
 )
 
+func TestTGWCreate_AttachMode_RetryOn403NotReady(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID),
+		tgwMockResp{403, `{"message":"Space is not ready to attach a transit gateway"}`},
+		tgwMockResp{200, []any{tgwPerSpace(tgwTestID, "org-name", "space-b", "refreshing")}},
+	)
+	state, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+	if diags.HasError() {
+		t.Fatalf("apply: %v", diags)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 2 {
+		t.Fatalf("attach POSTs = %d, want 2", n)
+	}
+	if state == nil || state.ID == "" {
+		t.Fatal("id not set")
+	}
+}
+
+func TestTGWCreate_AttachMode_403Permission_FailsFast(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{403, `{"message":"Forbidden"}`})
+	_, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+	errs := tgwErrors(diags)
+	if len(errs) != 1 || errs[0].Detail != `HTTP 403: {"message":"Forbidden"}` {
+		t.Fatalf("want the raw 403 error only, got %v", diags)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 1 {
+		t.Fatalf("attach POSTs = %d, want exactly 1", n)
+	}
+}
+
 func TestTGWRetryDefaults(t *testing.T) {
 	if tgwAttachRetryBudget != 15*time.Minute {
 		t.Errorf("tgwAttachRetryBudget = %v, want 15m (re-attach lockout after a detach lasts ~11 min)", tgwAttachRetryBudget)
@@ -603,6 +634,40 @@ func TestTGWCreate_Rescue_ZeroLive(t *testing.T) {
 	}
 	if !tgwOrgLockFor(e.org).Claimed(tgwTestShare) {
 		t.Error("share not claimed after rescue")
+	}
+}
+
+func TestTGWCreate_Rescue_DeletedTombstone_Attaches(t *testing.T) {
+	tomb := tgwOrgList(tgwTestID, tgwTestName, tgwTestAccount, tgwOrgAtt("space-b", "deleted"))
+	e := rescueEnv(t, tgwTestName, tomb, tomb)
+	e.mock.on("GET", e.spacePath("ps-b"), tgwMockResp{200, []any{tgwPerSpace(tgwTestID, tgwTestName, "space-b", "deleted")}})
+
+	state, diags := e.apply(context.Background(), nil, e.createModeRaw("ps-b"))
+	if len(diags) != 0 {
+		t.Fatalf("diags: %v", diags)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 1 {
+		t.Fatalf("attach POSTs = %d, want 1", n)
+	}
+	if want := e.org + "/ps-b/" + tgwTestID; state == nil || state.ID != want {
+		t.Fatalf("id = %v, want %q", state, want)
+	}
+}
+
+func TestTGWCreate_Rescue_LiveElsewhere_DeletedTombstoneHere_NoImportHint(t *testing.T) {
+	live := tgwOrgList(tgwTestID, tgwTestName, tgwTestAccount, tgwOrgAtt("space-a", "available"), tgwOrgAtt("space-b", "deleted"))
+	e := rescueEnv(t, tgwTestName, live)
+	e.mock.on("GET", e.spacePath("ps-b"), tgwMockResp{200, []any{tgwPerSpace(tgwTestID, tgwTestName, "space-b", "deleted")}})
+	_, diags := e.apply(context.Background(), nil, e.createModeRaw("ps-b"))
+	errs := tgwErrors(diags)
+	if len(errs) != 1 {
+		t.Fatalf("want one error, got %v", diags)
+	}
+	if strings.Contains(errs[0].Detail, "terraform import") {
+		t.Errorf("import hint given for a deleted tombstone:\n%s", errs[0].Detail)
+	}
+	if e.mock.count("POST", e.attachPath("ps-b", tgwTestID)) != 0 {
+		t.Error("must not attach")
 	}
 }
 

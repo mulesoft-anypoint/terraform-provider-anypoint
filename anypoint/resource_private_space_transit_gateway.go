@@ -345,7 +345,7 @@ func lookupOrgTGWByShare(authctx context.Context, pco *ProviderConfOutput, org, 
 }
 
 // tgwAttachedToSpace reports whether the private space lists tgwID with an
-// attachment that is not detached. A failed read counts as not attached.
+// attachment that is live (not a tombstone). A failed read counts as not attached.
 func tgwAttachedToSpace(authctx context.Context, pco *ProviderConfOutput, org, ps, tgwID string) bool {
 	list, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpaceTransitGateways(authctx, org, ps).Execute()
 	if err != nil {
@@ -355,14 +355,14 @@ func tgwAttachedToSpace(authctx context.Context, pco *ProviderConfOutput, org, p
 	defer httpr.Body.Close()
 	for _, tgw := range list {
 		status := tgw.GetStatus()
-		if tgw.GetId() == tgwID && status.GetAttachment() != "detached" {
+		if tgw.GetId() == tgwID && !tgwAttachmentGone(status.GetAttachment()) {
 			return true
 		}
 	}
 	return false
 }
 
-// attachTGWWithRetry posts the attach request, retrying 403/409 "not ready"
+// attachTGWWithRetry posts the attach request, retrying 409 and 403 "not ready"
 // answers with exponential backoff (capped at tgwAttachRetryMaxDelay) within
 // tgwAttachRetryBudget and ctx.
 func attachTGWWithRetry(ctx context.Context, pco *ProviderConfOutput, org, ps, tgwID string, routes []string) ([]private_space.TransitGateway, *http.Response, error) {
@@ -371,7 +371,7 @@ func attachTGWWithRetry(ctx context.Context, pco *ProviderConfOutput, org, ps, t
 	delay := tgwAttachRetryBase
 	for {
 		list, httpr, err := pco.privatespaceclient.DefaultAPI.AttachPrivateSpaceTransitGateway(authctx, org, ps, tgwID).RequestBody(routes).Execute()
-		if err == nil || !tgwNotReady(httpr) || time.Now().Add(delay).After(deadline) {
+		if err == nil || !tgwNotReady(err, httpr) || time.Now().Add(delay).After(deadline) {
 			return list, httpr, err
 		}
 		log.Printf("[WARN] attach of transit gateway %s to private space %s answered %s; retrying in %s", tgwID, ps, extractAPIErrorDetail(err, httpr), delay)
@@ -426,7 +426,7 @@ func patchTGWNameWithRetry(ctx context.Context, pco *ProviderConfOutput, org, tg
 			Summary:  "Unable to update name for transit gateway " + tgwID,
 			Detail:   extractAPIErrorDetail(err, httpr),
 		}
-		if i == attempts || !tgwNotReady(httpr) {
+		if i == attempts || !tgwNotReady(err, httpr) {
 			return failed
 		}
 		select {
@@ -437,8 +437,20 @@ func patchTGWNameWithRetry(ctx context.Context, pco *ProviderConfOutput, org, tg
 	}
 }
 
-func tgwNotReady(httpr *http.Response) bool {
-	return httpr != nil && (httpr.StatusCode == http.StatusForbidden || httpr.StatusCode == http.StatusConflict)
+// tgwNotReady reports whether a failed call is worth retrying: any 409, and a
+// 403 only when its body says the space is not ready. Any other 403 is a
+// permission error that retrying cannot fix.
+func tgwNotReady(err error, httpr *http.Response) bool {
+	if httpr == nil {
+		return false
+	}
+	switch httpr.StatusCode {
+	case http.StatusConflict:
+		return true
+	case http.StatusForbidden:
+		return strings.Contains(strings.ToLower(extractAPIErrorDetail(err, httpr)), "not ready")
+	}
+	return false
 }
 
 func tgwRoutes(d *schema.ResourceData) []string {
