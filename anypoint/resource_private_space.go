@@ -157,13 +157,13 @@ func preparePrivateSpaceResourceSchema() map[string]*schema.Schema {
 		`,
 	}
 	ps_schema["enable_network_isolation"] = &schema.Schema{
-		Type:     schema.TypeBool,
-		Optional: true,
-		Default:  true,
-		Description: `
-		Indicates whether network isolation is enabled for the private space. Default is true.
-		This argument takes some time to be applied.
-		`,
+		Type:       schema.TypeBool,
+		Optional:   true,
+		Computed:   true,
+		Deprecated: "Network isolation is managed by the platform (enabled once the private space is provisioned) and cannot be changed through the API; this argument is ignored and will be removed in v2.0.0.",
+		Description: "Deprecated and ignored: network isolation is managed by the platform (enabled once the private space is provisioned) " +
+			"and cannot be changed through the API. Reports the value returned by the API.",
+		DiffSuppressFunc: func(k, old, new string, d *schema.ResourceData) bool { return true },
 	}
 	return ps_schema
 }
@@ -177,9 +177,14 @@ func resourcePrivateSpace() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
-		Description: `
-		Manages a ` + "`" + `private space` + "`" + ` in your business group.
-		`,
+		Description: "Manages a `private space` in your business group. " +
+			"Creating a private space blocks until the platform has provisioned its network (about 25 minutes); " +
+			"the wait is bounded by the `timeouts` block. " +
+			"After an update, the platform may briefly reprovision the private space a few minutes later; resources that depend on it may need to retry.",
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(60 * time.Minute),
+			Update: schema.DefaultTimeout(60 * time.Minute),
+		},
 		Schema: preparePrivateSpaceResourceSchema(),
 	}
 }
@@ -202,13 +207,32 @@ func resourcePrivateSpaceCreate(ctx context.Context, d *schema.ResourceData, m a
 		return diags
 	}
 	defer httpr.Body.Close()
+	// Keep the id before waiting: a timeout must not orphan the space.
 	d.SetId(res.GetId())
-	diags = append(diags, resourcePrivateSpaceRead(ctx, d, m)...)
+	ps, wdiags := waitPrivateSpaceProvisioned(ctx, &pco, orgid, res.GetId())
+	diags = append(diags, wdiags...)
 	if diags.HasError() {
 		return diags
 	}
-	//NOTE: update the resource for arguments that cannot be set at creation time
-	return resourcePrivateSpaceUpdate(ctx, d, m)
+	// NOTE: arguments that cannot be set at creation time are patched from the
+	// planned values (nothing has been read into d yet), and only when the API
+	// object shows a difference.
+	if privateSpacePlannedDiffers(d, ps) {
+		pdiags := patchPrivateSpace(ctx, d, &pco, orgid, res.GetId())
+		if pdiags.HasError() {
+			for i := range pdiags {
+				pdiags[i].Detail += fmt.Sprintf("\n\nThe private space %s exists. To keep it instead of replacing it, run `terraform untaint <resource address>` and apply again.", res.GetId())
+			}
+			return append(diags, pdiags...)
+		}
+		diags = append(diags, pdiags...)
+		// A single Success GET proves nothing right after a PATCH: wait out the settle window.
+		if wdiags := waitPrivateSpaceSettled(ctx, &pco, orgid, res.GetId()); wdiags.HasError() {
+			return append(diags, wdiags...)
+		}
+		d.Set("last_updated", time.Now().Format(time.RFC850))
+	}
+	return append(diags, resourcePrivateSpaceRead(ctx, d, m)...)
 }
 
 func resourcePrivateSpaceRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
@@ -262,30 +286,47 @@ func resourcePrivateSpaceUpdate(ctx context.Context, d *schema.ResourceData, m a
 		pco := m.(ProviderConfOutput)
 		orgid := d.Get("org_id").(string)
 		id := d.Id()
-		authctx := getPrivateSpaceAuthCtx(ctx, &pco)
-		body := newPrivateSpacePatchBody(d)
-		bodyMap, err := body.MarshalJSON()
-		if err != nil {
-			log.Printf("[ERROR] Failed to convert Private Space Patch Body to map: %v", err)
-		} else {
-			log.Printf("[DEBUG] Private Space Patch Body: %s \n", bodyMap)
-		}
-		//request
-		_, httpr, err := pco.privatespaceclient.DefaultAPI.UpdatePrivateSpace(authctx, orgid, id).PrivateSpacePatchBody(*body).Execute()
-		if err != nil {
-			details := extractAPIErrorDetail(err, httpr)
-			diags := append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to Update Private Space " + id + " for org " + orgid,
-				Detail:   details,
-			})
+		diags = append(diags, patchPrivateSpace(ctx, d, &pco, orgid, id)...)
+		if diags.HasError() {
 			return diags
 		}
-		defer httpr.Body.Close()
+		wdiags := waitPrivateSpaceAfterUpdate(ctx, &pco, orgid, id)
+		diags = append(diags, wdiags...)
 		d.Set("last_updated", time.Now().Format(time.RFC850))
-		return resourcePrivateSpaceRead(ctx, d, m)
+		if ctx.Err() != nil {
+			// The PATCH was applied but the deadline (or Ctrl-C) ended the wait: the
+			// context is dead, so a Read would fail. Keep the planned state; the next
+			// refresh reconciles it.
+			return diags
+		}
+		return append(diags, resourcePrivateSpaceRead(ctx, d, m)...)
 	}
 
+	return diags
+}
+
+// patchPrivateSpace sends the PATCH built from the values currently in d.
+func patchPrivateSpace(ctx context.Context, d *schema.ResourceData, pco *ProviderConfOutput, orgid, id string) diag.Diagnostics {
+	var diags diag.Diagnostics
+	authctx := getPrivateSpaceAuthCtx(ctx, pco)
+	body := newPrivateSpacePatchBody(d)
+	bodyMap, err := body.MarshalJSON()
+	if err != nil {
+		log.Printf("[ERROR] Failed to convert Private Space Patch Body to map: %v", err)
+	} else {
+		log.Printf("[DEBUG] Private Space Patch Body: %s \n", bodyMap)
+	}
+	//request
+	_, httpr, err := pco.privatespaceclient.DefaultAPI.UpdatePrivateSpace(authctx, orgid, id).PrivateSpacePatchBody(*body).Execute()
+	if err != nil {
+		details := extractAPIErrorDetail(err, httpr)
+		return append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Unable to Update Private Space " + id + " for org " + orgid,
+			Detail:   details,
+		})
+	}
+	defer httpr.Body.Close()
 	return diags
 }
 
@@ -439,9 +480,7 @@ func newPrivateSpacePatchBody(d *schema.ResourceData) *private_space.PrivateSpac
 	if enable_egress := d.Get("enable_egress").(bool); enable_egress {
 		body.SetEnableEgress(enable_egress)
 	}
-	if enable_network_isolation := d.Get("enable_network_isolation").(bool); enable_network_isolation {
-		body.SetEnableNetworkIsolation(enable_network_isolation)
-	}
+	// enable_network_isolation is platform-managed and ignored by PATCH: never sent.
 	if environmentsUpdated {
 		body.SetEnvironments(*environments)
 	}
@@ -460,7 +499,6 @@ func updatablePrivateSpaceAttributes() []string {
 		"firewall_rules",
 		"enable_iam_role",
 		"enable_egress",
-		"enable_network_isolation",
 	}
 }
 

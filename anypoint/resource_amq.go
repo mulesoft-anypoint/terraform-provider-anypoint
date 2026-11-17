@@ -3,6 +3,7 @@ package anypoint
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -127,7 +128,9 @@ func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	authctx := getAMQAuthCtx(ctx, &pco)
 	body := newAMQCreateBody(d)
 	//request resource creation
-	_, httpr, err := pco.amqclient.DefaultApi.CreateAMQ(authctx, orgid, envid, regionid, queueid).QueueBody(*body).Execute()
+	_, httpr, err := retryTransientWith(ctx, "amq create "+queueid, mqRetryPolicy, func() (amq.Queue, *http.Response, error) {
+		return pco.amqclient.DefaultApi.CreateAMQ(authctx, orgid, envid, regionid, queueid).QueueBody(*body).Execute()
+	})
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -141,10 +144,16 @@ func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 
 	d.SetId(ComposeResourceId([]string{orgid, envid, regionid, queueid}))
 
-	return resourceAMQRead(ctx, d, m)
+	// a failed post-create read taints the resource, so it gets the full MQ policy
+	return resourceAMQReadWithPolicy(ctx, d, m, mqRetryPolicy)
 }
 
+// resourceAMQRead is the plain refresh read: single-shot except for 429.
 func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+	return resourceAMQReadWithPolicy(ctx, d, m, mqReadRetryPolicy)
+}
+
+func resourceAMQReadWithPolicy(ctx context.Context, d *schema.ResourceData, m any, policy retryPolicy) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -160,7 +169,9 @@ func resourceAMQRead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	}
 	authctx := getAMQAuthCtx(ctx, &pco)
 	//request resource
-	res, httpr, err := pco.amqclient.DefaultApi.GetAMQ(authctx, orgid, envid, regionid, queueid).Execute()
+	res, httpr, err := retryTransientWith(ctx, "amq read "+queueid, policy, func() (amq.Queue, *http.Response, error) {
+		return pco.amqclient.DefaultApi.GetAMQ(authctx, orgid, envid, regionid, queueid).Execute()
+	})
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -209,7 +220,9 @@ func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	if d.HasChanges(getAMQPatchWatchAttributes()...) {
 		body := newAMQCreateBody(d)
 		//request user creation
-		_, httpr, err := pco.amqclient.DefaultApi.UpdateAMQ(authctx, orgid, envid, regionid, queueid).QueueBody(*body).Execute()
+		_, httpr, err := retryTransientWith(ctx, "amq update "+queueid, mqRetryPolicy, func() (amq.Queue, *http.Response, error) {
+			return pco.amqclient.DefaultApi.UpdateAMQ(authctx, orgid, envid, regionid, queueid).QueueBody(*body).Execute()
+		})
 		if err != nil {
 			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
@@ -222,7 +235,7 @@ func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.
 		defer httpr.Body.Close()
 
 		d.Set("last_updated", time.Now().Format(time.RFC850))
-		return resourceAMQRead(ctx, d, m)
+		return resourceAMQReadWithPolicy(ctx, d, m, mqRetryPolicy)
 	}
 	return diags
 }
@@ -237,7 +250,9 @@ func resourceAMQDelete(ctx context.Context, d *schema.ResourceData, m any) diag.
 	queueid := d.Get("queue_id").(string)
 	authctx := getAMQAuthCtx(ctx, &pco)
 	//perform request
-	httpr, err := pco.amqclient.DefaultApi.DeleteAMQ(authctx, orgid, envid, regionid, queueid).Execute()
+	httpr, err := retryMQDelete(ctx, "amq delete "+queueid, func() (*http.Response, error) {
+		return pco.amqclient.DefaultApi.DeleteAMQ(authctx, orgid, envid, regionid, queueid).Execute()
+	})
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{

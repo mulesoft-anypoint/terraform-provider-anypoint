@@ -55,7 +55,7 @@ func rtfTestResources() []any {
 func rtfTestDeploymentSettingsJSON(t *testing.T, ds map[string]any, sendResources bool) map[string]any {
 	t.Helper()
 	d := schema.TestResourceDataRaw(t, resourceRTFDeployment().Schema, rtfTestRawConfig(ds))
-	body := newRTFDeploymentBody(d, sendResources)
+	body := newRTFDeploymentBody(d, sendResources, false)
 	raw, err := json.Marshal(body)
 	if err != nil {
 		t.Fatalf("marshal body: %v", err)
@@ -234,6 +234,9 @@ func rtfTestRawValue(t *testing.T, typ cty.Type, cfg any) cty.Value {
 	case typ == cty.String:
 		return cty.StringVal(cfg.(string))
 	case typ == cty.Number:
+		if f, ok := cfg.(float64); ok {
+			return cty.NumberFloatVal(f)
+		}
 		return cty.NumberIntVal(int64(cfg.(int)))
 	case typ == cty.Bool:
 		return cty.BoolVal(cfg.(bool))
@@ -289,6 +292,10 @@ func TestRTFDeploymentSchema_InstanceTypeAndResources(t *testing.T) {
 type rtfMockAppManager struct {
 	mu           sync.Mutex
 	instanceType string
+	vcores       float64 // echoed as application.vCores when > 0; sticky across a PATCH that omits it
+	jvmArgs      string
+	targetID     string           // echoed target.targetId; defaults to "ps-id"
+	scopes       []any            // echoed logging scopes
 	bodies       []map[string]any // POST then PATCH bodies, in order
 }
 
@@ -302,20 +309,47 @@ func (m *rtfMockAppManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		_ = json.Unmarshal(raw, &body)
 		m.bodies = append(m.bodies, body)
+		if app, ok := body["application"].(map[string]any); ok {
+			if v, ok := app["vCores"].(float64); ok {
+				m.vcores = v
+			}
+			if cfg, ok := app["configuration"].(map[string]any); ok {
+				if svc, ok := cfg["mule.agent.logging.service"].(map[string]any); ok {
+					m.scopes, _ = svc["scopeLoggingConfigurations"].([]any)
+				}
+			}
+		}
 		if target, ok := body["target"].(map[string]any); ok {
 			if ds, ok := target["deploymentSettings"].(map[string]any); ok {
 				if it, ok := ds["instanceType"].(string); ok {
 					m.instanceType = it
 				}
 			}
+			if ds, ok := target["deploymentSettings"].(map[string]any); ok {
+				if jvm, ok := ds["jvm"].(map[string]any); ok {
+					m.jvmArgs, _ = jvm["args"].(string)
+				}
+			}
+			if id, ok := target["targetId"].(string); ok {
+				m.targetID = id
+			}
 		}
 		w.WriteHeader(http.StatusAccepted)
 		_, _ = w.Write([]byte(`{"id":"dep-1"}`))
 	case http.MethodGet:
-		// The platform echoes resources for instance-type sizing.
+		// The platform echoes resources for instance-type sizing, and vCores once set.
+		scopes := m.scopes
+		if scopes == nil {
+			scopes = []any{}
+		}
+		targetID := m.targetID
+		if targetID == "" {
+			targetID = "ps-id"
+		}
 		resp := map[string]any{
-			"id":   "dep-1",
-			"name": "app",
+			"id":       "dep-1",
+			"name":     "app",
+			"replicas": []any{},
 			"application": map[string]any{
 				"desiredState": "STARTED",
 				"ref":          map[string]any{"groupId": "g", "artifactId": "a", "version": "1.0.0", "packaging": "jar"},
@@ -327,22 +361,31 @@ func (m *rtfMockAppManager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					},
 					"mule.agent.logging.service": map[string]any{
 						"artifactName":               "app",
-						"scopeLoggingConfigurations": []any{},
+						"scopeLoggingConfigurations": scopes,
 					},
 				},
 			},
 			"target": map[string]any{
 				"provider": "MC",
-				"targetId": "ps-id",
+				"targetId": targetID,
 				"replicas": 1,
 				"deploymentSettings": map[string]any{
-					"instanceType": m.instanceType,
+					"http": map[string]any{"inbound": map[string]any{
+						"publicUrl": "", "lastMileSecurity": false, "forwardSslSession": false,
+						"internalUrl": "https://app.internal.example", "uniqueId": "uid-1",
+					}},
+					"jvm":            map[string]any{"args": m.jvmArgs},
+					"instanceType":   m.instanceType,
+					"updateStrategy": "rolling",
 					"resources": map[string]any{
 						"cpu":    map[string]any{"limit": "100m", "reserved": "20m"},
 						"memory": map[string]any{"limit": "700Mi", "reserved": "700Mi"},
 					},
 				},
 			},
+		}
+		if m.vcores > 0 {
+			resp["application"].(map[string]any)["vCores"] = m.vcores
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	default:

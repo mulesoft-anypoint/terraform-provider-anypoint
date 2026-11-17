@@ -102,3 +102,41 @@ resource "anypoint_rtf_deployment" "private_space_deployment" {
     }
   }
 }
+
+# CloudHub 2.0 private space on vCore-based pricing: size replicas with
+# application.vcores and omit both the resources block and instance_type.
+resource "anypoint_rtf_deployment" "private_space_vcores_deployment" {
+  org_id = var.root_org
+  env_id = var.env_id
+  name   = "your-awesome-app"
+  application {
+    desired_state = "STARTED"
+    vcores        = 0.1
+    ref {
+      group_id    = var.root_org
+      artifact_id = "your-artifact-id"
+      version     = "1.0.2"
+      packaging   = "jar"
+    }
+    configuration {
+      mule_agent_app_props_service {
+        properties = {
+          props1 = "value01"
+        }
+      }
+    }
+  }
+
+  target {
+    provider  = "MC"
+    target_id = var.private_space_id
+    replicas  = 1
+    deployment_settings {
+      runtime {
+        version         = "4.9.24:10-java17"
+        release_channel = "LTS"
+        java            = "17"
+      }
+    }
+  }
+}
