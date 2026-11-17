@@ -55,13 +55,13 @@ var DeplApplicationConfigPropsRTFDefinition = &schema.Resource{
 			Type:        schema.TypeMap,
 			Description: "The mule application properties.",
 			Optional:    true,
-			DefaultFunc: func() (any, error) { return make(map[string]string), nil },
+			DefaultFunc: func() (any, error) { return map[string]any{}, nil },
 		},
 		"secure_properties": {
 			Type:        schema.TypeMap,
 			Description: "The mule application secured properties.",
 			Optional:    true,
-			DefaultFunc: func() (any, error) { return make(map[string]string), nil },
+			DefaultFunc: func() (any, error) { return map[string]any{}, nil },
 		},
 	},
 }
@@ -78,9 +78,10 @@ var DeplApplicationConfigRTFDefinition = &schema.Resource{
 		"mule_agent_logging_service": {
 			Type:        schema.TypeList,
 			MaxItems:    1,
-			Description: "The mule app logging props",
+			Description: "The mule app logging props. When omitted, the current logging configuration is kept; an empty block clears the additional scope log levels.",
 			Elem:        DeplApplicationConfigLoggingRTFDefinition,
 			Optional:    true,
+			Computed:    true,
 		},
 		"mule_agent_scheduling_service": {
 			Type:        schema.TypeList,
@@ -159,9 +160,15 @@ var DeplApplicationRTFDefinition = &schema.Resource{
 			Elem:        DeplApplicationConfigRTFDefinition,
 		},
 		"vcores": {
-			Type:        schema.TypeFloat,
-			Description: "The allocated virtual cores.",
-			Computed:    true,
+			Type:             schema.TypeFloat,
+			Description:      "vCores per replica for CloudHub 2.0 private spaces on vCore-based pricing (e.g. 0.1, 0.2, 0.5, 1). Leave unset for Runtime Fabric targets (size with `resources`) and for usage-based pricing (size with `instance_type`). Removing it from the configuration keeps the current size.",
+			Optional:         true,
+			Computed:         true,
+			ValidateDiagFunc: VCoresValidatorDiag,
+			ConflictsWith: []string{
+				"target.0.deployment_settings.0.resources",
+				"target.0.deployment_settings.0.instance_type",
+			},
 		},
 		"object_store_v2_enabled": {
 			Type:        schema.TypeBool,
@@ -360,16 +367,11 @@ var DeplTargetDeploymentSettingsRTFDefinition = &schema.Resource{
 		},
 		"http": {
 			Type:        schema.TypeList,
-			Description: "The details about http inbound or outbound configuration",
+			Description: "The details about http inbound or outbound configuration. When omitted, the current http configuration is kept.",
 			Optional:    true,
+			Computed:    true,
 			MaxItems:    1,
-			DefaultFunc: func() (any, error) {
-				dict := make(map[string]any)
-				dict["inbound_last_mile_security"] = false
-				dict["inbound_forward_ssl_session"] = false
-				return []any{dict}, nil
-			},
-			Elem: DeplTargetDeplSettHttpRTFDefinition,
+			Elem:        DeplTargetDeplSettHttpRTFDefinition,
 		},
 		"jvm_args": {
 			Type:        schema.TypeString,
@@ -412,7 +414,7 @@ var DeplTargetDeploymentSettingsRTFDefinition = &schema.Resource{
 		"resources": {
 			Type:        schema.TypeList,
 			MaxItems:    1,
-			Description: "The mule app allocated resources. Required for Runtime Fabric targets; omit on CloudHub 2.0 private spaces sized by `instance_type`.",
+			Description: "The mule app allocated resources. Runtime Fabric targets are sized with `resources`; omit it on CloudHub 2.0 private spaces, which are sized with `application.vcores` (vCore-priced) or `instance_type` (usage-based).",
 			Elem:        DeplTargetDeplSettResourcesRTFDefinition,
 			Optional:    true,
 			Computed:    true,
@@ -507,9 +509,10 @@ func resourceRTFDeployment() *schema.Resource {
 		ReadContext:   resourceRTFDeploymentRead,
 		UpdateContext: resourceRTFDeploymentUpdate,
 		DeleteContext: resourceRTFDeploymentDelete,
-		Description: `
-		Creates and manages a ` + "`" + `deployment` + "`" + ` of a mule app on Runtime Fabrics only.
-		`,
+		Description: "Creates and manages a `deployment` of a mule app on Runtime Fabric and on CloudHub 2.0 private spaces. " +
+			"Size the replicas with `target.deployment_settings.resources` (Runtime Fabric), " +
+			"`application.vcores` (private space on vCore-based pricing) or " +
+			"`target.deployment_settings.instance_type` (private space on usage-based pricing).",
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:        schema.TypeString,
@@ -593,7 +596,7 @@ func resourceRTFDeploymentCreate(ctx context.Context, d *schema.ResourceData, m 
 	orgid := d.Get("org_id").(string)
 	envid := d.Get("env_id").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
-	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()))
+	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()), rtfVCoresInRawConfig(d.GetRawConfig()))
 	//Execute post deployment
 	res, httpr, err := pco.appmanagerclient.DefaultAPI.PostDeployment(authctx, orgid, envid).DeploymentRequestBody(*body).Execute()
 	if err != nil {
@@ -669,7 +672,8 @@ func resourceRTFDeploymentUpdate(ctx context.Context, d *schema.ResourceData, m 
 	envid := d.Get("env_id").(string)
 	name := d.Get("name").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
-	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()))
+	// Omitted Optional+Computed blocks (logging, http) are re-sent from state: "keep" semantics.
+	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()), rtfVCoresInRawConfig(d.GetRawConfig()))
 	_, httpr, err := pco.appmanagerclient.DefaultAPI.PatchDeployment(authctx, orgid, envid, id).DeploymentRequestBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
@@ -710,17 +714,19 @@ func resourceRTFDeploymentDelete(ctx context.Context, d *schema.ResourceData, m 
 }
 
 // Prepares Deployment Post Body out of resource data input
-// sendResources reports whether the user's configuration contains a resources block.
-func newRTFDeploymentBody(d *schema.ResourceData, sendResources bool) *application_manager_v2.DeploymentRequestBody {
+// sendResources reports whether the user's configuration contains a resources block,
+// sendVCores whether it sets application.vcores. Both are Computed, so state alone
+// cannot tell a user value from an echoed one.
+func newRTFDeploymentBody(d *schema.ResourceData, sendResources, sendVCores bool) *application_manager_v2.DeploymentRequestBody {
 	body := application_manager_v2.NewDeploymentRequestBody()
 	// -- Parsing Application
 	app_list_d := d.Get("application").([]any)
 	app_d := app_list_d[0].(map[string]any)
-	application := newRTFDeploymentApplication(app_d)
+	application := newRTFDeploymentApplication(app_d, sendVCores)
 	// -- Parsing Target
 	target_list_d := d.Get("target").([]any)
 	target_d := target_list_d[0].(map[string]any)
-	target := newRTFDeploymentTarget(target_d, sendResources)
+	target := newRTFDeploymentTarget(target_d, sendResources, sendVCores)
 	//Set Body Data
 	body.SetName(d.Get("name").(string))
 	body.SetApplication(*application)
@@ -730,7 +736,7 @@ func newRTFDeploymentBody(d *schema.ResourceData, sendResources bool) *applicati
 }
 
 // Prepares Application object out of map input
-func newRTFDeploymentApplication(app_d map[string]any) *application_manager_v2.Application {
+func newRTFDeploymentApplication(app_d map[string]any, sendVCores bool) *application_manager_v2.Application {
 	ref_list_d := app_d["ref"].([]any)
 	ref_d := ref_list_d[0].(map[string]any)
 	// Ref
@@ -754,15 +760,20 @@ func newRTFDeploymentApplication(app_d map[string]any) *application_manager_v2.A
 	application.SetConfiguration(*configuration)
 	// application.SetIntegrations(*integrations)
 	application.SetRef(*ref)
+	if sendVCores {
+		if v, ok := app_d["vcores"].(float64); ok {
+			application.SetVCores(float32(v))
+		}
+	}
 
 	return application
 }
 
 // Prepares Target object out of map input
-func newRTFDeploymentTarget(target_d map[string]any, sendResources bool) *application_manager_v2.Target {
+func newRTFDeploymentTarget(target_d map[string]any, sendResources, sendVCores bool) *application_manager_v2.Target {
 	deployment_settings_list_d := target_d["deployment_settings"].([]any)
 	deployment_settings_d := deployment_settings_list_d[0].(map[string]any)
-	deployment_settings := newRTFDeploymentDeploymentSettings(deployment_settings_d, sendResources)
+	deployment_settings := newRTFDeploymentDeploymentSettings(deployment_settings_d, sendResources, sendVCores)
 	//Prepare Target data
 	target := application_manager_v2.NewTarget()
 	target.SetProvider(target_d["provider"].(string))
@@ -793,30 +804,32 @@ func newRTFDeploymentConfiguration(configuration_d map[string]any) *application_
 	mule_agent_app_props_service := application_manager_v2.NewMuleAgentAppPropService()
 	mule_agent_app_props_service.SetProperties(mule_agent_app_props_service_properties)
 	mule_agent_app_props_service.SetSecureProperties(mule_agent_app_props_service_secure_properties)
-	mule_agent_logging_service_list_d := configuration_d["mule_agent_logging_service"].([]any)
-	mule_agent_logging_service_d := mule_agent_logging_service_list_d[0].(map[string]any)
-	//Scope logging configuration
-	scope_logging_configurations_list_d := mule_agent_logging_service_d["scope_logging_configurations"].([]any)
-	scope_logging_configurations := make([]application_manager_v2.ScopeLoggingConfiguration, len(scope_logging_configurations_list_d))
-	for i, item := range scope_logging_configurations_list_d {
-		data := item.(map[string]any)
-		conf := application_manager_v2.NewScopeLoggingConfiguration()
-		conf.SetScope(data["scope"].(string))
-		conf.SetLogLevel(data["log_level"].(string))
-		scope_logging_configurations[i] = *conf
-	}
-	//Mule Agent Logging Service
-	mule_agent_logging_service := application_manager_v2.NewMuleAgentLoggingService()
-	mule_agent_logging_service.SetScopeLoggingConfigurations(scope_logging_configurations)
 	configuration := application_manager_v2.NewAppConfiguration()
 	configuration.SetMuleAgentApplicationPropertiesService(*mule_agent_app_props_service)
-	configuration.SetMuleAgentLoggingService(*mule_agent_logging_service)
+	// The logging block is Optional: send the service only when it is present.
+	if mule_agent_logging_service_list_d, ok := configuration_d["mule_agent_logging_service"].([]any); ok && len(mule_agent_logging_service_list_d) > 0 && mule_agent_logging_service_list_d[0] != nil {
+		mule_agent_logging_service_d := mule_agent_logging_service_list_d[0].(map[string]any)
+		//Scope logging configuration
+		scope_logging_configurations_list_d, _ := mule_agent_logging_service_d["scope_logging_configurations"].([]any)
+		scope_logging_configurations := make([]application_manager_v2.ScopeLoggingConfiguration, len(scope_logging_configurations_list_d))
+		for i, item := range scope_logging_configurations_list_d {
+			data := item.(map[string]any)
+			conf := application_manager_v2.NewScopeLoggingConfiguration()
+			conf.SetScope(data["scope"].(string))
+			conf.SetLogLevel(data["log_level"].(string))
+			scope_logging_configurations[i] = *conf
+		}
+		//Mule Agent Logging Service
+		mule_agent_logging_service := application_manager_v2.NewMuleAgentLoggingService()
+		mule_agent_logging_service.SetScopeLoggingConfigurations(scope_logging_configurations)
+		configuration.SetMuleAgentLoggingService(*mule_agent_logging_service)
+	}
 
 	return configuration
 }
 
 // Prepares DeploymentSettings object out of map input
-func newRTFDeploymentDeploymentSettings(deployment_settings_d map[string]any, sendResources bool) *application_manager_v2.DeploymentSettings {
+func newRTFDeploymentDeploymentSettings(deployment_settings_d map[string]any, sendResources, sendVCores bool) *application_manager_v2.DeploymentSettings {
 	//http
 	http := newRTFDeploymentHttp(deployment_settings_d)
 	//runtime
@@ -841,7 +854,9 @@ func newRTFDeploymentDeploymentSettings(deployment_settings_d map[string]any, se
 	if sendResources {
 		deployment_settings.SetResources(*newRTFDeploymentResources(deployment_settings_d))
 	}
-	if val, ok := deployment_settings_d["instance_type"].(string); ok && val != "" {
+	// vCore sizing and instanceType are mutually exclusive on the platform; state may
+	// still hold an instance_type from an earlier usage-based deployment.
+	if val, ok := deployment_settings_d["instance_type"].(string); ok && val != "" && !sendVCores {
 		deployment_settings.SetInstanceType(val)
 	}
 
@@ -936,6 +951,22 @@ func rtfResourcesInRawConfig(raw cty.Value) bool {
 		return false
 	}
 	return resources.LengthInt() > 0
+}
+
+// rtfVCoresInRawConfig reports whether the configuration sets application.0.vcores.
+// vcores is Computed, so d.Get would return the echoed state; the raw config tells
+// whether the user asked for it. Any null, unknown or missing step yields false.
+func rtfVCoresInRawConfig(raw cty.Value) bool {
+	app, ok := rtfCtyAttr(raw, "application")
+	if !ok {
+		return false
+	}
+	first, ok := rtfCtyFirst(app)
+	if !ok {
+		return false
+	}
+	_, ok = rtfCtyAttr(first, "vcores")
+	return ok
 }
 
 // rtfCtyAttr returns the named attribute of a known, non-null object.

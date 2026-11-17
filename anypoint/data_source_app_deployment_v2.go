@@ -712,7 +712,7 @@ func flattenAppDeploymentV2Application(application *application_manager_v2.Appli
 		item["configuration"] = []any{flattenAppDeploymentV2Config(config)}
 	}
 	if val, ok := application.GetVCoresOk(); ok {
-		item["vcores"] = RoundFloat64(float64(*val), 1) // Insures that the value would be 0.1 and not 0.10000000149011612 for example
+		item["vcores"] = RoundFloat64(float64(*val), 2) // float32 noise: 0.1 must read 0.1, not 0.10000000149011612; two decimals keep 0.05 (Nano)
 	}
 	if integrations, ok := application.GetIntegrationsOk(); ok {
 		data := flattenAppDeploymentV2Integrations(integrations)
