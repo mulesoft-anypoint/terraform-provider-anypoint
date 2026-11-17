@@ -90,11 +90,17 @@ func tgwShareConflictHint(tgw private_space.TransitGateway, psid string) string 
 // tgwShareClaimedHint is the counterpart of tgwShareConflictHint when another
 // create-mode resource of this provider process already owns the share, which
 // the eventually consistent org list may not show yet.
-func tgwShareClaimedHint(tgw private_space.TransitGateway, psid string) string {
+// The name is omitted when empty (the org list did not show the transit
+// gateway yet).
+func tgwShareClaimedHint(tgwID, name, psid string) string {
+	label := tgwID
+	if name != "" {
+		label = fmt.Sprintf("%s (%q)", tgwID, name)
+	}
 	return fmt.Sprintf(
-		"Transit gateway %s (%q) already uses this resource share and is already used by another anypoint_private_space_transit_gateway in this apply. "+
+		"Transit gateway %s already uses this resource share and is already used by another anypoint_private_space_transit_gateway in this apply. "+
 			"To attach it to private space %s, set transit_gateway_id = %q (for example a reference to the other resource's transit_gateway_id) "+
 			"and remove name, resource_share_id and resource_share_account.",
-		tgw.GetId(), tgw.GetName(), psid, tgw.GetId(),
+		label, psid, tgwID,
 	)
 }

@@ -161,6 +161,8 @@ func resourcePrivateSpaceTransitGatewayCreate(ctx context.Context, d *schema.Res
 				strings.Join(conflicting, ", ") + ").",
 		}}
 	}
+	// Defensive: the raw config is known at apply, so an unknown id here
+	// would be an SDK change.
 	if attach && tgwID == "" {
 		tgwID = d.Get("transit_gateway_id").(string)
 		if tgwID == "" {
@@ -251,7 +253,14 @@ func rescueTGWAttach(ctx context.Context, d *schema.ResourceData, pco *ProviderC
 	}
 
 	entry, ok := lookupOrgTGWByShare(authctx, pco, org, share)
+	// Another resource of this apply owns the share. The org list is
+	// eventually consistent and may not list it yet, so the claim alone
+	// decides; its owner id ORG/PS/TGW names the transit gateway.
+	claimOwner, claimed := tgwOrgLockFor(org).ClaimOwner(share)
 	if !ok {
+		if parts := DecomposeResourceId(claimOwner); claimed && len(parts) == 3 {
+			return withDetail(tgwShareClaimedHint(parts[2], "", ps)), false
+		}
 		return diag.Diagnostics{createErr}, false
 	}
 	tgwID := entry.GetId()
@@ -265,10 +274,8 @@ func rescueTGWAttach(ctx context.Context, d *schema.ResourceData, pco *ProviderC
 		}
 		return withDetail(tgwShareConflictHint(entry, ps)), false
 	}
-	// Another resource of this apply owns the share; the org list is
-	// eventually consistent and may not show its attachment yet.
-	if tgwOrgLockFor(org).Claimed(share) {
-		return withDetail(tgwShareClaimedHint(entry, ps)), false
+	if claimed {
+		return withDetail(tgwShareClaimedHint(tgwID, entry.GetName(), ps)), false
 	}
 	shareSpec := entry.GetSpec()
 	shareRef := shareSpec.GetResourceShare()
@@ -312,13 +319,15 @@ func rescueTGWAttach(ctx context.Context, d *schema.ResourceData, pco *ProviderC
 	d.SetId(ComposeResourceId([]string{org, ps, tgwID}))
 	diags := tgwStateFromResponseDiags(d, list, tgwID)
 
-	if entry.GetName() != name {
+	if again.GetName() != name {
 		if pd := patchTGWNameWithRetry(ctx, pco, org, tgwID, name); pd != nil {
 			pd.Severity = diag.Warning
 			pd.Detail += " The transit gateway is attached; the next plan shows an in-place name update that retries it."
 			return append(diags, *pd), true
 		}
-		d.Set("name", name)
+		if err := d.Set("name", name); err != nil {
+			diags = append(diags, diag.Diagnostic{Severity: diag.Warning, Summary: "Unable to set name for transit gateway " + tgwID, Detail: err.Error()})
+		}
 	}
 	return diags, true
 }
@@ -364,7 +373,7 @@ func attachTGWWithRetry(ctx context.Context, pco *ProviderConfOutput, org, ps, t
 		if err == nil || !tgwNotReady(httpr) || time.Now().Add(delay).After(deadline) {
 			return list, httpr, err
 		}
-		log.Printf("[DEBUG] attach of transit gateway %s to private space %s answered %d; retrying in %s", tgwID, ps, httpr.StatusCode, delay)
+		log.Printf("[WARN] attach of transit gateway %s to private space %s answered %s; retrying in %s", tgwID, ps, extractAPIErrorDetail(err, httpr), delay)
 		select {
 		case <-ctx.Done():
 			return list, httpr, err
@@ -387,20 +396,17 @@ func patchTGWNameWithRetry(ctx context.Context, pco *ProviderConfOutput, org, tg
 			defer httpr.Body.Close()
 			return nil
 		}
+		failed := &diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Unable to update name for transit gateway " + tgwID,
+			Detail:   extractAPIErrorDetail(err, httpr),
+		}
 		if i == attempts || !tgwNotReady(httpr) {
-			return &diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to update name for transit gateway " + tgwID,
-				Detail:   extractAPIErrorDetail(err, httpr),
-			}
+			return failed
 		}
 		select {
 		case <-ctx.Done():
-			return &diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "Unable to update name for transit gateway " + tgwID,
-				Detail:   extractAPIErrorDetail(err, httpr),
-			}
+			return failed
 		case <-time.After(tgwAttachRetryBase):
 		}
 	}

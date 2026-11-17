@@ -67,6 +67,15 @@ func (l *tgwOrgLock) Claimed(share string) bool {
 	return ok
 }
 
+// ClaimOwner returns the id of the resource of this process that claimed
+// share, if any.
+func (l *tgwOrgLock) ClaimOwner(share string) (string, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	owner, ok := l.claims[share]
+	return owner, ok
+}
+
 // Claim records that the resource with id owner owns share.
 func (l *tgwOrgLock) Claim(share, owner string) {
 	l.mu.Lock()

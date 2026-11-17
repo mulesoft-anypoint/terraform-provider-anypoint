@@ -375,8 +375,18 @@ func TestTGWCreate_ModeRuleAtApply(t *testing.T) {
 	e := newTGWFlowEnv(t)
 	// At plan time transit_gateway_id was unknown, so the SDK skipped
 	// ConflictsWith; at apply the raw config is known.
-	raw := e.raw("ps-b", map[string]string{"transit_gateway_id": tgwTestID, "name": "n"}, []string{tgwTestRoute})
-	_, diags := e.apply(context.Background(), nil, raw)
+	r := resourcePrivateSpaceTransitGateway()
+	planned := e.raw("ps-b", map[string]string{"name": "n"}, []string{tgwTestRoute}, "transit_gateway_id")
+	if diags := r.Validate(tgwShim(planned)); diags.HasError() {
+		t.Fatalf("plan-time Validate must pass with an unknown id: %v", diags)
+	}
+	ctx := context.Background()
+	d, err := r.Diff(ctx, nil, tgwShim(planned), e.meta)
+	if err != nil || d == nil {
+		t.Fatalf("diff: %v, %v", d, err)
+	}
+	d.RawConfig = e.raw("ps-b", map[string]string{"transit_gateway_id": tgwTestID, "name": "n"}, []string{tgwTestRoute})
+	_, diags := r.Apply(ctx, nil, d, e.meta)
 	errs := tgwErrors(diags)
 	if len(errs) != 1 {
 		t.Fatalf("want one error, got %v", diags)
@@ -537,6 +547,40 @@ func TestTGWCreate_Rescue_ClaimedInProcess_Hint(t *testing.T) {
 	}
 	if strings.Contains(errs[0].Detail, "is attached to .") {
 		t.Errorf("claim hint must not use the empty live-space wording:\n%s", errs[0].Detail)
+	}
+	assertTGWRequests(t, e.mock.requests(), []tgwReq{
+		{"POST", e.spacePath("ps-a"), tgwCreateBody()},
+		{"POST", e.spacePath("ps-b"), tgwCreateBody()},
+		{"GET", e.orgPath(), ""},
+	})
+}
+
+// The org list is eventually consistent: right after A's 201 it may not list
+// the share at all. The claim alone must produce the hint, naming A's tgw id.
+func TestTGWCreate_Rescue_ClaimedInProcess_NotListed_Hint(t *testing.T) {
+	e := rescueEnv(t, tgwTestName, []any{})
+	e.mock.on("POST", e.spacePath("ps-a"), tgwMockResp{201, tgwPerSpace(tgwTestID, tgwTestName, "space-a", "pending")})
+
+	if _, diags := e.apply(context.Background(), nil, e.createModeRaw("ps-a")); diags.HasError() {
+		t.Fatalf("first create: %v", diags)
+	}
+	_, diags := e.apply(context.Background(), nil, e.createModeRaw("ps-b"))
+	errs := tgwErrors(diags)
+	if len(errs) != 1 {
+		t.Fatalf("want one error, got %v", diags)
+	}
+	for _, want := range []string{
+		"Transit gateway " + tgwTestID + " already uses this resource share",
+		"is already used by another anypoint_private_space_transit_gateway in this apply",
+		`set transit_gateway_id = "` + tgwTestID + `"`,
+		tgwOriginalCreateDetail(),
+	} {
+		if !strings.Contains(errs[0].Detail, want) {
+			t.Errorf("detail missing %q:\n%s", want, errs[0].Detail)
+		}
+	}
+	if strings.Contains(errs[0].Detail, `("")`) {
+		t.Errorf("hint must omit an unknown name:\n%s", errs[0].Detail)
 	}
 	assertTGWRequests(t, e.mock.requests(), []tgwReq{
 		{"POST", e.spacePath("ps-a"), tgwCreateBody()},
