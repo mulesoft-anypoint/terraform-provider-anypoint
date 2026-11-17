@@ -1,6 +1,5 @@
 resource "anypoint_private_space" "my_ps" {
   org_id = var.root_org
-  region = "eu-west-1"
   name = "cat-private-space"
   environments_business_groups = [ "all" ]
   environments_type = "sandbox"
