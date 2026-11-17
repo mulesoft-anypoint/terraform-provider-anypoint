@@ -93,6 +93,7 @@ resource "anypoint_rtf_deployment" "private_space_deployment" {
     target_id = var.private_space_id
     replicas  = 1
     deployment_settings {
+      http {}
       instance_type = "mule.nano"
       runtime {
         version         = "4.9.24:10-java17"
@@ -132,6 +133,7 @@ resource "anypoint_rtf_deployment" "private_space_vcores_deployment" {
     target_id = var.private_space_id
     replicas  = 1
     deployment_settings {
+      http {}
       runtime {
         version         = "4.9.24:10-java17"
         release_channel = "LTS"
