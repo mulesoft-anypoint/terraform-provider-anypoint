@@ -456,6 +456,147 @@ func TestTGWCreate_AttachMode_BudgetExhausted_DetachHint(t *testing.T) {
 	}
 }
 
+// ---- Create, attach mode: 409 "already associated" while live-attached ----
+
+func tgwImportHintFor(e *tgwFlowEnv, ps string) string {
+	return "terraform import <resource address> " + e.org + "/" + ps + "/" + tgwTestID
+}
+
+func TestTGWCreate_AttachMode_409AlreadyLive_FailsFastWithImportHint(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{409, tgwAssociatedMsg})
+	e.mock.on("GET", e.spacePath("ps-b"), tgwMockResp{200, []any{tgwPerSpace(tgwTestID, "org-name", "space-b", "available")}})
+	_, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+	errs := tgwErrors(diags)
+	if len(errs) != 1 {
+		t.Fatalf("want one error, got %v", diags)
+	}
+	if errs[0].Summary != "Unable to attach transit gateway "+tgwTestID+" to private space ps-b" {
+		t.Errorf("summary = %q", errs[0].Summary)
+	}
+	for _, want := range []string{"already associated with this space", "is already attached to transit gateway " + tgwTestID, tgwImportHintFor(e, "ps-b"), "detach it first"} {
+		if !strings.Contains(errs[0].Detail, want) {
+			t.Errorf("detail missing %q:\n%s", want, errs[0].Detail)
+		}
+	}
+	if strings.Contains(errs[0].Detail, tgwDetachHint) {
+		t.Errorf("detail must not carry the post-detach lockout advice:\n%s", errs[0].Detail)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 1 {
+		t.Errorf("attach POSTs = %d, want exactly 1", n)
+	}
+	if n := e.mock.count("GET", e.spacePath("ps-b")); n != 1 {
+		t.Errorf("per-space list GETs = %d, want exactly 1", n)
+	}
+}
+
+func TestTGWCreate_AttachMode_409AbsentFromSpaceList_Retries(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID),
+		tgwMockResp{409, tgwAssociatedMsg},
+		tgwMockResp{200, []any{tgwPerSpace(tgwTestID, "org-name", "space-b", "refreshing")}},
+	)
+	e.mock.on("GET", e.spacePath("ps-b"), tgwMockResp{200, []any{}})
+	state, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+	if diags.HasError() {
+		t.Fatalf("apply: %v", diags)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 2 {
+		t.Fatalf("attach POSTs = %d, want 2", n)
+	}
+	if state == nil || state.ID != e.org+"/ps-b/"+tgwTestID {
+		t.Fatalf("id not set: %v", state)
+	}
+}
+
+func TestTGWCreate_AttachMode_409SpaceListFails_Retries(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID),
+		tgwMockResp{409, tgwAssociatedMsg},
+		tgwMockResp{200, []any{tgwPerSpace(tgwTestID, "org-name", "space-b", "refreshing")}},
+	)
+	e.mock.on("GET", e.spacePath("ps-b"), tgwMockResp{500, `{"message":"boom"}`})
+	state, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+	if diags.HasError() {
+		t.Fatalf("apply: %v", diags)
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 2 {
+		t.Fatalf("attach POSTs = %d, want 2 (fall back to the retry)", n)
+	}
+	if state == nil || state.ID == "" {
+		t.Fatal("id not set")
+	}
+}
+
+func TestTGWCreate_AttachMode_409SpaceListFails_BudgetExhausted_KeepsDetachHint(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	tgwAttachRetryBudget = 30 * time.Millisecond
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{409, tgwAssociatedMsg})
+	e.mock.on("GET", e.spacePath("ps-b"), tgwMockResp{500, `{"message":"boom"}`})
+	_, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+	errs := tgwErrors(diags)
+	if len(errs) != 1 || !strings.Contains(errs[0].Detail, tgwDetachHint) || strings.Contains(errs[0].Detail, "terraform import") {
+		t.Fatalf("want the post-detach hint only, got %v", diags)
+	}
+}
+
+func TestTGWCreate_AttachMode_409DetachedTombstone_NotLive_Retries(t *testing.T) {
+	for _, status := range []string{"detached", "deleted"} {
+		t.Run(status, func(t *testing.T) {
+			e := newTGWFlowEnv(t)
+			e.mock.on("POST", e.attachPath("ps-b", tgwTestID),
+				tgwMockResp{409, tgwAssociatedMsg},
+				tgwMockResp{200, []any{tgwPerSpace(tgwTestID, "org-name", "space-b", "refreshing")}},
+			)
+			e.mock.on("GET", e.spacePath("ps-b"), tgwMockResp{200, []any{tgwPerSpace(tgwTestID, "org-name", "space-b", status)}})
+			state, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID))
+			if diags.HasError() {
+				t.Fatalf("apply: %v", diags)
+			}
+			if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 2 {
+				t.Fatalf("attach POSTs = %d, want 2", n)
+			}
+			if state == nil || state.ID == "" {
+				t.Fatal("id not set")
+			}
+		})
+	}
+}
+
+func TestTGWCreate_AttachMode_409OtherMessage_NoSpaceListCheck(t *testing.T) {
+	e := newTGWFlowEnv(t)
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID),
+		tgwMockResp{409, `{"message":"transit gateway is not ready"}`},
+		tgwMockResp{200, []any{tgwPerSpace(tgwTestID, "org-name", "space-b", "refreshing")}},
+	)
+	if _, diags := e.apply(context.Background(), nil, e.attachModeRaw("ps-b", tgwTestID)); diags.HasError() {
+		t.Fatalf("apply: %v", diags)
+	}
+	if n := e.mock.count("GET", e.spacePath("ps-b")); n != 0 {
+		t.Errorf("per-space list GETs = %d, want 0 for a 409 that is not \"already associated\"", n)
+	}
+}
+
+func TestTGWCreate_Rescue_409AlreadyLive_FailsFastWithImportHint(t *testing.T) {
+	zero := tgwOrgList(tgwTestID, tgwTestName, tgwTestAccount, tgwOrgAtt("space-b", "detached"))
+	e := rescueEnv(t, tgwTestName, zero, zero)
+	e.mock.on("POST", e.attachPath("ps-b", tgwTestID), tgwMockResp{409, tgwAssociatedMsg})
+	e.mock.on("GET", e.spacePath("ps-b"), tgwMockResp{200, []any{tgwPerSpace(tgwTestID, tgwTestName, "space-b", "available")}})
+	_, diags := e.apply(context.Background(), nil, e.createModeRaw("ps-b"))
+	errs := tgwErrors(diags)
+	if len(errs) != 2 || errs[0].Detail != tgwOriginalCreateDetail() {
+		t.Fatalf("want the original error and the attach error, got %v", diags)
+	}
+	for _, want := range []string{"already associated with this space", tgwImportHintFor(e, "ps-b")} {
+		if !strings.Contains(errs[1].Detail, want) {
+			t.Errorf("attach error detail missing %q:\n%s", want, errs[1].Detail)
+		}
+	}
+	if n := e.mock.count("POST", e.attachPath("ps-b", tgwTestID)); n != 1 {
+		t.Errorf("rescue attach POSTs = %d, want exactly 1", n)
+	}
+}
+
 func TestTGWCreate_AttachMode_UnknownTGW_Hint(t *testing.T) {
 	for _, tc := range []struct {
 		status int
@@ -507,6 +648,7 @@ func TestTGWCreate_Rescue_AttachRetryOn409(t *testing.T) {
 		{"GET", e.orgPath(), ""},
 		{"GET", e.orgPath(), ""},
 		{"POST", e.attachPath("ps-b", tgwTestID), `["` + tgwTestRoute + `"]`},
+		{"GET", e.spacePath("ps-b"), ""},
 		{"POST", e.attachPath("ps-b", tgwTestID), `["` + tgwTestRoute + `"]`},
 	})
 	if state == nil || state.ID != e.org+"/ps-b/"+tgwTestID {
