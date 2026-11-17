@@ -42,7 +42,9 @@ resource "aws_ram_resource_association" "tgw" {
 
 data "aws_caller_identity" "current" {}
 
-resource "anypoint_private_space_transit_gateway" "this" {
+# Create mode: creates the transit gateway connection from the RAM share and
+# attaches it to the first private space.
+resource "anypoint_private_space_transit_gateway" "a" {
   org_id           = var.root_org
   private_space_id = var.private_space_id
   name             = "my-tgw"
@@ -62,4 +64,15 @@ resource "anypoint_private_space_transit_gateway" "this" {
     aws_ram_resource_association.tgw,
     aws_ram_principal_association.mulesoft,
   ]
+}
+
+# Attach mode: attaches the same transit gateway to a second private space in
+# the same organization and region. The reference orders the creates. The
+# name belongs to resource "a"; name and resource_share_* are not set here.
+resource "anypoint_private_space_transit_gateway" "b" {
+  org_id             = var.root_org
+  private_space_id   = var.private_space_id_b
+  transit_gateway_id = anypoint_private_space_transit_gateway.a.transit_gateway_id
+
+  routes = ["10.4.0.0/18"]
 }
