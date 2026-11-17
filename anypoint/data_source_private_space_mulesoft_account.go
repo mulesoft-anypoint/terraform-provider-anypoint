@@ -2,6 +2,8 @@ package anypoint
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -50,6 +52,17 @@ func dataSourcePrivateSpaceMulesoftAccountRead(ctx context.Context, d *schema.Re
 	}
 	defer httpr.Body.Close()
 	d.SetId(orgid + "/" + psid + "/mulesoft_account")
-	d.Set("account_id", res)
+	d.Set("account_id", unquoteJSONString(res))
 	return diags
+}
+
+// unquoteJSONString returns the string held by a JSON string literal. The
+// generated client keeps the raw response body, so the id arrives quoted.
+// Input that is not a JSON string is trimmed of whitespace and quotes instead.
+func unquoteJSONString(s string) string {
+	var out string
+	if err := json.Unmarshal([]byte(s), &out); err == nil {
+		return out
+	}
+	return strings.Trim(strings.TrimSpace(s), "\"")
 }
