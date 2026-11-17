@@ -24,6 +24,7 @@ const (
 var (
 	privateSpacePollInterval             = 30 * time.Second
 	privateSpaceMaxConsecutivePollErrors = 5
+	privateSpaceSettleWindow             = 5 * time.Minute
 )
 
 // privateSpaceStatusTerminal reports whether a provisioning status is a
@@ -33,16 +34,21 @@ func privateSpaceStatusTerminal(status string) bool {
 	return strings.Contains(status, "Fail") || strings.Contains(status, "Error")
 }
 
-// waitPrivateSpaceProvisioned polls the private space until
-// provisioning.status is InfrastructureProvisionSuccess and returns the last
-// GET object. Transient errors (5xx, 429, transport) are retried; a 404, five
-// consecutive errors, a failed status or ctx expiry end the wait with an error.
+// privateSpaceWaitError is a wait failure before it is turned into a
+// diagnostic, so Create (error) and Update (warning) can word it differently.
+type privateSpaceWaitError struct {
+	summary string
+	detail  string
+}
+
+// pollPrivateSpaceProvisioned polls until provisioning.status is
+// InfrastructureProvisionSuccess and returns the last GET object. Transient
+// errors (5xx, 429, transport) are retried; a 404, five consecutive errors, a
+// failed status or ctx expiry end the poll with an error.
 // The top-level status is not used: it reads Active about 10 minutes early.
-func waitPrivateSpaceProvisioned(ctx context.Context, pco *ProviderConfOutput, orgid, psid string) (*private_space.PrivateSpace, diag.Diagnostics) {
-	var diags diag.Diagnostics
+func pollPrivateSpaceProvisioned(ctx context.Context, pco *ProviderConfOutput, orgid, psid string) (*private_space.PrivateSpace, *privateSpaceWaitError) {
 	authctx := getPrivateSpaceAuthCtx(ctx, pco)
 	consecutiveErrors := 0
-	var lastErr string
 	for {
 		ps, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpace(authctx, orgid, psid).Execute()
 		if err == nil {
@@ -50,45 +56,112 @@ func waitPrivateSpaceProvisioned(ctx context.Context, pco *ProviderConfOutput, o
 			status, message := privateSpaceProvisioning(ps)
 			switch {
 			case status == privateSpaceProvisionSuccess:
-				return ps, diags
+				return ps, nil
 			case privateSpaceStatusTerminal(status):
-				return nil, append(diags, diag.Diagnostic{
-					Severity: diag.Error,
-					Summary:  "Unable to provision Private Space " + psid,
-					Detail: fmt.Sprintf("Provisioning ended with status %q: %s\n\nThe private space exists in org %s. Delete it, or run `terraform untaint <resource address>` after fixing the cause to keep it.",
-						status, message, orgid),
-				})
+				return nil, &privateSpaceWaitError{
+					summary: "Unable to provision Private Space " + psid,
+					detail:  fmt.Sprintf("Provisioning ended with status %q: %s", status, message),
+				}
 			}
 			consecutiveErrors = 0
 			log.Printf("[DEBUG] Private Space %s provisioning status %q, waiting", psid, status)
 		} else {
 			if ctx.Err() != nil {
-				return nil, append(diags, privateSpaceWaitTimeoutDiag(diag.Error, psid, ctx.Err()))
+				return nil, privateSpaceWaitCtxError(psid, ctx.Err())
 			}
 			details := extractAPIErrorDetail(err, httpr)
 			if httpr != nil && httpr.StatusCode == http.StatusNotFound {
-				return nil, append(diags, diag.Diagnostic{
-					Severity: diag.Error,
-					Summary:  "Unable to read Private Space " + psid + " while waiting for provisioning",
-					Detail:   "HTTP 404: the private space no longer exists. " + details,
-				})
+				return nil, &privateSpaceWaitError{
+					summary: "Unable to read Private Space " + psid + " while waiting for provisioning",
+					detail:  "HTTP 404: the private space no longer exists. " + details,
+				}
 			}
 			consecutiveErrors++
-			lastErr = details
 			log.Printf("[WARN] Private Space %s poll error %d/%d: %s", psid, consecutiveErrors, privateSpaceMaxConsecutivePollErrors, details)
 			if consecutiveErrors >= privateSpaceMaxConsecutivePollErrors {
-				return nil, append(diags, diag.Diagnostic{
-					Severity: diag.Error,
-					Summary:  "Unable to read Private Space " + psid + " while waiting for provisioning",
-					Detail: fmt.Sprintf("%d consecutive errors, last: %s\n\nThe private space exists and may still finish provisioning. Run `terraform untaint <resource address>` and refresh to keep it.",
-						consecutiveErrors, lastErr),
-				})
+				return nil, &privateSpaceWaitError{
+					summary: "Unable to read Private Space " + psid + " while waiting for provisioning",
+					detail:  fmt.Sprintf("%d consecutive errors, last: %s", consecutiveErrors, details),
+				}
 			}
 		}
 		select {
 		case <-ctx.Done():
-			return nil, append(diags, privateSpaceWaitTimeoutDiag(diag.Error, psid, ctx.Err()))
+			return nil, privateSpaceWaitCtxError(psid, ctx.Err())
 		case <-time.After(privateSpacePollInterval):
+		}
+	}
+}
+
+func privateSpaceWaitCtxError(psid string, cause error) *privateSpaceWaitError {
+	return &privateSpaceWaitError{
+		summary: "Unable to wait for Private Space " + psid + " provisioning",
+		detail:  fmt.Sprintf("%v. The wait is bounded by the `timeouts` block (60m by default).", cause),
+	}
+}
+
+// privateSpaceCreateDiag words a wait failure for Create, where the space
+// exists but the resource ends up tainted.
+func privateSpaceCreateDiag(psid string, we *privateSpaceWaitError) diag.Diagnostic {
+	return diag.Diagnostic{
+		Severity: diag.Error,
+		Summary:  we.summary,
+		Detail: we.detail + fmt.Sprintf("\n\nThe private space %s exists and may still finish provisioning. "+
+			"To keep it instead of replacing it, run `terraform untaint <resource address>` and then `terraform apply` (or refresh) once provisioning has completed.", psid),
+	}
+}
+
+// waitPrivateSpaceProvisioned is the strict wait used by Create.
+func waitPrivateSpaceProvisioned(ctx context.Context, pco *ProviderConfOutput, orgid, psid string) (*private_space.PrivateSpace, diag.Diagnostics) {
+	ps, we := pollPrivateSpaceProvisioned(ctx, pco, orgid, psid)
+	if we != nil {
+		return nil, diag.Diagnostics{privateSpaceCreateDiag(psid, we)}
+	}
+	return ps, nil
+}
+
+// waitPrivateSpaceSettled runs after the Create PATCH. The platform was observed
+// to reprovision a few minutes after a PATCH (provisioning stays Success first),
+// so a single Success GET proves nothing. Poll for up to privateSpaceSettleWindow
+// for the status to leave Success; if it does, wait strictly for Success again,
+// otherwise return when the window ends.
+func waitPrivateSpaceSettled(ctx context.Context, pco *ProviderConfOutput, orgid, psid string) diag.Diagnostics {
+	authctx := getPrivateSpaceAuthCtx(ctx, pco)
+	deadline := time.Now().Add(privateSpaceSettleWindow)
+	for {
+		ps, httpr, err := pco.privatespaceclient.DefaultAPI.GetPrivateSpace(authctx, orgid, psid).Execute()
+		if err == nil {
+			closeResponseBody(httpr)
+			if status, _ := privateSpaceProvisioning(ps); status != "" && status != privateSpaceProvisionSuccess {
+				log.Printf("[DEBUG] Private Space %s left Success (%q) after the PATCH, waiting for Success", psid, status)
+				_, diags := waitPrivateSpaceProvisioned(ctx, pco, orgid, psid)
+				return diags
+			}
+		} else {
+			if ctx.Err() != nil {
+				return diag.Diagnostics{privateSpaceCreateDiag(psid, privateSpaceWaitCtxError(psid, ctx.Err()))}
+			}
+			if httpr != nil && httpr.StatusCode == http.StatusNotFound {
+				return diag.Diagnostics{privateSpaceCreateDiag(psid, &privateSpaceWaitError{
+					summary: "Unable to read Private Space " + psid + " while waiting for provisioning",
+					detail:  "HTTP 404: the private space no longer exists. " + extractAPIErrorDetail(err, httpr),
+				})}
+			}
+			log.Printf("[WARN] Private Space %s settle poll error: %s", psid, extractAPIErrorDetail(err, httpr))
+		}
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			log.Printf("[DEBUG] Private Space %s stayed Success for the settle window, continuing", psid)
+			return nil
+		}
+		wait := privateSpacePollInterval
+		if remaining < wait {
+			wait = remaining
+		}
+		select {
+		case <-ctx.Done():
+			return diag.Diagnostics{privateSpaceCreateDiag(psid, privateSpaceWaitCtxError(psid, ctx.Err()))}
+		case <-time.After(wait):
 		}
 	}
 }
@@ -109,24 +182,15 @@ func waitPrivateSpaceAfterUpdate(ctx context.Context, pco *ProviderConfOutput, o
 		log.Printf("[DEBUG] Private Space %s provisioning status %q after update, not waiting", psid, status)
 		return nil
 	}
-	_, diags := waitPrivateSpaceProvisioned(ctx, pco, orgid, psid)
-	for i := range diags {
-		if diags[i].Severity == diag.Error {
-			diags[i].Severity = diag.Warning
-			diags[i].Summary = "The update of Private Space " + psid + " was applied but waiting for provisioning failed"
-		}
+	if _, we := pollPrivateSpaceProvisioned(ctx, pco, orgid, psid); we != nil {
+		return diag.Diagnostics{{
+			Severity: diag.Warning,
+			Summary:  "The update of Private Space " + psid + " was applied but waiting for provisioning did not complete",
+			Detail: we.summary + ": " + we.detail + "\n\nThe update was applied and the private space may still be reprovisioning; " +
+				"the next refresh reconciles the state.",
+		}}
 	}
-	return diags
-}
-
-func privateSpaceWaitTimeoutDiag(severity diag.Severity, psid string, cause error) diag.Diagnostic {
-	return diag.Diagnostic{
-		Severity: severity,
-		Summary:  "Timed out waiting for Private Space " + psid + " to finish provisioning",
-		Detail: fmt.Sprintf("%v. The private space %s exists and may still finish provisioning. "+
-			"To keep it instead of replacing it, run `terraform untaint <resource address>` and then `terraform apply` (or refresh) once provisioning has completed. "+
-			"The wait is bounded by the `timeouts` block (60m by default).", cause, psid),
-	}
+	return nil
 }
 
 func privateSpaceProvisioning(ps *private_space.PrivateSpace) (status, message string) {

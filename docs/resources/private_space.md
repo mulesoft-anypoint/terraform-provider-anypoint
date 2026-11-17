@@ -3,12 +3,12 @@
 page_title: "anypoint_private_space Resource - terraform-provider-anypoint"
 subcategory: ""
 description: |-
-  Manages a private space in your business group. Creating a private space blocks until the platform has provisioned its network (about 25 minutes); the wait is bounded by the timeouts block.
+  Manages a private space in your business group. Creating a private space blocks until the platform has provisioned its network (about 25 minutes); the wait is bounded by the timeouts block. After an update, the platform may briefly reprovision the private space a few minutes later; resources that depend on it may need to retry.
 ---
 
 # anypoint_private_space (Resource)
 
-Manages a `private space` in your business group. Creating a private space blocks until the platform has provisioned its network (about 25 minutes); the wait is bounded by the `timeouts` block.
+Manages a `private space` in your business group. Creating a private space blocks until the platform has provisioned its network (about 25 minutes); the wait is bounded by the `timeouts` block. After an update, the platform may briefly reprovision the private space a few minutes later; resources that depend on it may need to retry.
 
 ## Example Usage
 

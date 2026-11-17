@@ -179,7 +179,8 @@ func resourcePrivateSpace() *schema.Resource {
 		},
 		Description: "Manages a `private space` in your business group. " +
 			"Creating a private space blocks until the platform has provisioned its network (about 25 minutes); " +
-			"the wait is bounded by the `timeouts` block.",
+			"the wait is bounded by the `timeouts` block. " +
+			"After an update, the platform may briefly reprovision the private space a few minutes later; resources that depend on it may need to retry.",
 		Timeouts: &schema.ResourceTimeout{
 			Create: schema.DefaultTimeout(60 * time.Minute),
 			Update: schema.DefaultTimeout(60 * time.Minute),
@@ -217,11 +218,16 @@ func resourcePrivateSpaceCreate(ctx context.Context, d *schema.ResourceData, m a
 	// planned values (nothing has been read into d yet), and only when the API
 	// object shows a difference.
 	if privateSpacePlannedDiffers(d, ps) {
-		diags = append(diags, patchPrivateSpace(ctx, d, &pco, orgid, res.GetId())...)
-		if diags.HasError() {
-			return diags
+		pdiags := patchPrivateSpace(ctx, d, &pco, orgid, res.GetId())
+		if pdiags.HasError() {
+			for i := range pdiags {
+				pdiags[i].Detail += fmt.Sprintf("\n\nThe private space %s exists. To keep it instead of replacing it, run `terraform untaint <resource address>` and apply again.", res.GetId())
+			}
+			return append(diags, pdiags...)
 		}
-		if _, wdiags := waitPrivateSpaceProvisioned(ctx, &pco, orgid, res.GetId()); wdiags.HasError() {
+		diags = append(diags, pdiags...)
+		// A single Success GET proves nothing right after a PATCH: wait out the settle window.
+		if wdiags := waitPrivateSpaceSettled(ctx, &pco, orgid, res.GetId()); wdiags.HasError() {
 			return append(diags, wdiags...)
 		}
 		d.Set("last_updated", time.Now().Format(time.RFC850))
@@ -284,8 +290,15 @@ func resourcePrivateSpaceUpdate(ctx context.Context, d *schema.ResourceData, m a
 		if diags.HasError() {
 			return diags
 		}
-		diags = append(diags, waitPrivateSpaceAfterUpdate(ctx, &pco, orgid, id)...)
+		wdiags := waitPrivateSpaceAfterUpdate(ctx, &pco, orgid, id)
+		diags = append(diags, wdiags...)
 		d.Set("last_updated", time.Now().Format(time.RFC850))
+		if ctx.Err() != nil {
+			// The PATCH was applied but the deadline (or Ctrl-C) ended the wait: the
+			// context is dead, so a Read would fail. Keep the planned state; the next
+			// refresh reconciles it.
+			return diags
+		}
 		return append(diags, resourcePrivateSpaceRead(ctx, d, m)...)
 	}
 

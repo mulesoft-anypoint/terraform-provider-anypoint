@@ -63,6 +63,12 @@ func (s *psSeqServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
+func (s *psSeqServer) count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.gets
+}
+
 func psTestMeta(url string) ProviderConfOutput {
 	cfg := private_space.NewConfiguration()
 	cfg.Servers = private_space.ServerConfigurations{{URL: url}}
@@ -76,11 +82,12 @@ func psTestMeta(url string) ProviderConfOutput {
 // psFastPolling shrinks the poll seams to milliseconds for the test.
 func psFastPolling(t *testing.T) {
 	t.Helper()
-	oldInterval, oldMax := privateSpacePollInterval, privateSpaceMaxConsecutivePollErrors
+	oldInterval, oldMax, oldWindow := privateSpacePollInterval, privateSpaceMaxConsecutivePollErrors, privateSpaceSettleWindow
 	privateSpacePollInterval = 2 * time.Millisecond
 	privateSpaceMaxConsecutivePollErrors = 5
+	privateSpaceSettleWindow = 100 * time.Millisecond
 	t.Cleanup(func() {
-		privateSpacePollInterval, privateSpaceMaxConsecutivePollErrors = oldInterval, oldMax
+		privateSpacePollInterval, privateSpaceMaxConsecutivePollErrors, privateSpaceSettleWindow = oldInterval, oldMax, oldWindow
 	})
 }
 
@@ -145,8 +152,8 @@ func TestWaitPrivateSpaceProvisioned(t *testing.T) {
 					t.Fatalf("expected the last GET object with Success status, got %+v", ps)
 				}
 			}
-			if srv.gets != tc.wantGets {
-				t.Errorf("GET count = %d, want %d", srv.gets, tc.wantGets)
+			if srv.count() != tc.wantGets {
+				t.Errorf("GET count = %d, want %d", srv.count(), tc.wantGets)
 			}
 			for _, s := range tc.wantContain {
 				if !strings.Contains(diagsText(diags), s) {
@@ -189,8 +196,8 @@ func TestWaitPrivateSpaceAfterUpdate(t *testing.T) {
 		if diags := waitPrivateSpaceAfterUpdate(context.Background(), &pco, psTestOrg, psTestID); len(diags) != 0 {
 			t.Fatalf("unexpected diagnostics: %s", diagsText(diags))
 		}
-		if srv.gets != 1 {
-			t.Errorf("GET count = %d, want 1", srv.gets)
+		if srv.count() != 1 {
+			t.Errorf("GET count = %d, want 1", srv.count())
 		}
 	})
 	t.Run("empty status returns immediately", func(t *testing.T) {
@@ -202,8 +209,8 @@ func TestWaitPrivateSpaceAfterUpdate(t *testing.T) {
 		if diags := waitPrivateSpaceAfterUpdate(context.Background(), &pco, psTestOrg, psTestID); len(diags) != 0 {
 			t.Fatalf("unexpected diagnostics: %s", diagsText(diags))
 		}
-		if srv.gets != 1 {
-			t.Errorf("GET count = %d, want 1", srv.gets)
+		if srv.count() != 1 {
+			t.Errorf("GET count = %d, want 1", srv.count())
 		}
 	})
 	t.Run("in progress then success waits", func(t *testing.T) {
@@ -215,8 +222,8 @@ func TestWaitPrivateSpaceAfterUpdate(t *testing.T) {
 		if diags := waitPrivateSpaceAfterUpdate(context.Background(), &pco, psTestOrg, psTestID); len(diags) != 0 {
 			t.Fatalf("unexpected diagnostics: %s", diagsText(diags))
 		}
-		if srv.gets < 3 {
-			t.Errorf("GET count = %d, want at least 3", srv.gets)
+		if srv.count() < 3 {
+			t.Errorf("GET count = %d, want at least 3", srv.count())
 		}
 	})
 	t.Run("deadline is a warning", func(t *testing.T) {
@@ -259,8 +266,15 @@ type psMock struct {
 	post        map[string]any
 	// remaining number of GETs that still answer InProgress
 	progressLeft int
-	egress       bool
-	iam          bool
+	// number of Success GETs after a PATCH before the delayed reprovision shows
+	// (observed live: a PATCH leaves Success untouched for a while, then InProgress)
+	patchPending int
+	// Success GETs before the delayed reprovision; 0 means 2
+	patchDelay int
+	// when set, every GET answers InProgress
+	alwaysProgress bool
+	egress         bool
+	iam            bool
 }
 
 func (m *psMock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -285,14 +299,25 @@ func (m *psMock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if v, ok := body["enableIAMRole"].(bool); ok {
 			m.iam = v
 		}
-		m.progressLeft = 1
+		m.progressLeft = 0
+		m.patchPending = 2
+		if m.patchDelay > 0 {
+			m.patchPending = m.patchDelay
+		}
 		m.events = append(m.events, "PATCH")
 		_ = json.NewEncoder(w).Encode(map[string]any{"id": psTestID})
 	case http.MethodGet:
 		status, isolation := psSuccess, true
-		if m.progressLeft > 0 {
+		if m.alwaysProgress {
+			status, isolation = psProgress, false
+		} else if m.progressLeft > 0 {
 			m.progressLeft--
 			status, isolation = psProgress, false
+		} else if m.patchPending > 0 {
+			m.patchPending--
+			if m.patchPending == 0 {
+				m.progressLeft = 2
+			}
 		}
 		m.events = append(m.events, "GET:"+status)
 		network, _ := m.post["network"].(map[string]any)
@@ -358,7 +383,9 @@ func TestPrivateSpaceCreate_Order(t *testing.T) {
 			"POST",
 			"GET:" + psProgress, "GET:" + psProgress, "GET:" + psSuccess,
 			"PATCH",
-			"GET:" + psProgress, "GET:" + psSuccess,
+			"GET:" + psSuccess, "GET:" + psSuccess, // settle window: Success right after the PATCH
+			"GET:" + psProgress,                     // delayed reprovision shows up
+			"GET:" + psProgress, "GET:" + psSuccess, // strict wait
 			"GET:" + psSuccess, // final Read
 		}
 		if got := strings.Join(mock.events, ","); got != strings.Join(want, ",") {
@@ -379,6 +406,15 @@ func TestPrivateSpaceCreate_Order(t *testing.T) {
 		}
 		if got := state.Attributes["enable_network_isolation"]; got != "true" {
 			t.Errorf("state enable_network_isolation = %q, want the API value true", got)
+		}
+		// The design requires an empty plan right after the create.
+		diff, err := resourcePrivateSpace().Diff(context.Background(), state,
+			terraform.NewResourceConfigRaw(psCreateConfig(map[string]any{"enable_egress": true})), ProviderConfOutput{})
+		if err != nil {
+			t.Fatalf("diff: %v", err)
+		}
+		if diff != nil && !diff.Empty() {
+			t.Errorf("plan after create must be empty, got %v", diff.Attributes)
 		}
 	})
 	t.Run("defaults send no PATCH", func(t *testing.T) {
@@ -581,5 +617,135 @@ func TestPrivateSpacePlannedDiffers(t *testing.T) {
 				t.Errorf("privateSpacePlannedDiffers = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestWaitPrivateSpaceSettled(t *testing.T) {
+	t.Run("reprovision appears then Success", func(t *testing.T) {
+		psFastPolling(t)
+		srv := &psSeqServer{steps: []psStep{{status: psSuccess}, {status: psSuccess}, {status: psProgress}, {status: psSuccess}}}
+		ts := httptest.NewServer(srv)
+		defer ts.Close()
+		pco := psTestMeta(ts.URL)
+		start := time.Now()
+		if diags := waitPrivateSpaceSettled(context.Background(), &pco, psTestOrg, psTestID); len(diags) != 0 {
+			t.Fatalf("unexpected diagnostics: %s", diagsText(diags))
+		}
+		if srv.count() != 4 {
+			t.Errorf("GET count = %d, want 4 (S, S, P, then the strict wait's S)", srv.count())
+		}
+		if time.Since(start) >= privateSpaceSettleWindow {
+			t.Errorf("must return after the second Success, not at the window end")
+		}
+	})
+	t.Run("Success for the whole window returns at window end", func(t *testing.T) {
+		psFastPolling(t)
+		srv := &psSeqServer{steps: []psStep{{status: psSuccess}}}
+		ts := httptest.NewServer(srv)
+		defer ts.Close()
+		pco := psTestMeta(ts.URL)
+		start := time.Now()
+		if diags := waitPrivateSpaceSettled(context.Background(), &pco, psTestOrg, psTestID); len(diags) != 0 {
+			t.Fatalf("unexpected diagnostics: %s", diagsText(diags))
+		}
+		if elapsed := time.Since(start); elapsed < privateSpaceSettleWindow {
+			t.Errorf("returned after %v, before the %v window ended", elapsed, privateSpaceSettleWindow)
+		}
+		if srv.count() < 3 {
+			t.Errorf("expected several polls inside the window, got %d", srv.count())
+		}
+	})
+	t.Run("deadline inside the window is a create error", func(t *testing.T) {
+		psFastPolling(t)
+		privateSpaceSettleWindow = 10 * time.Second
+		srv := &psSeqServer{steps: []psStep{{status: psSuccess}}}
+		ts := httptest.NewServer(srv)
+		defer ts.Close()
+		pco := psTestMeta(ts.URL)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+		defer cancel()
+		diags := waitPrivateSpaceSettled(ctx, &pco, psTestOrg, psTestID)
+		if !diags.HasError() || !strings.Contains(diagsText(diags), "terraform untaint") {
+			t.Fatalf("expected an error with the untaint hint, got %s", diagsText(diags))
+		}
+	})
+}
+
+func TestPrivateSpaceCreate_DeadlineInsideSettleKeepsID(t *testing.T) {
+	psFastPolling(t)
+	privateSpaceSettleWindow = 10 * time.Second
+	mock := &psMock{patchDelay: 1 << 20} // never reprovisions: the window runs out
+	ts := httptest.NewServer(mock)
+	defer ts.Close()
+	meta := psTestMeta(ts.URL)
+	r := resourcePrivateSpace()
+	diff, err := r.Diff(context.Background(), nil, terraform.NewResourceConfigRaw(psCreateConfig(map[string]any{"enable_egress": true})), meta)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	// Provisioning (3 GETs) and the PATCH finish well inside this; the settle window does not.
+	ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer cancel()
+	state, diags := r.Apply(ctx, nil, diff, meta)
+	if !diags.HasError() {
+		t.Fatal("expected an error when the deadline hits inside the settle window")
+	}
+	if state == nil || state.ID != psTestID {
+		t.Fatalf("id must be kept, got %+v", state)
+	}
+	if !strings.Contains(diagsText(diags), "terraform untaint") {
+		t.Errorf("missing untaint hint: %s", diagsText(diags))
+	}
+	if len(mock.patchBodies) != 1 {
+		t.Errorf("expected the PATCH to have been sent, got %d", len(mock.patchBodies))
+	}
+}
+
+// An Update whose post-PATCH wait hits the deadline must end as a warning only:
+// no Read on the dead context, no untaint advice (a failed Update does not taint).
+func TestPrivateSpaceUpdate_WaitTimeoutIsWarningOnly(t *testing.T) {
+	psFastPolling(t)
+	mock := &psMock{alwaysProgress: true}
+	ts := httptest.NewServer(mock)
+	defer ts.Close()
+	meta := psTestMeta(ts.URL)
+	r := resourcePrivateSpace()
+	state := psV1114State(true)
+	diff, err := r.Diff(context.Background(), state, terraform.NewResourceConfigRaw(psCreateConfig(map[string]any{"enable_egress": true})), meta)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	if diff == nil || diff.Empty() {
+		t.Fatal("expected a diff for enable_egress")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+	newState, diags := r.Apply(ctx, state, diff, meta)
+	if diags.HasError() {
+		t.Fatalf("a wait timeout after the PATCH must not be an error: %s", diagsText(diags))
+	}
+	var warned bool
+	for _, d := range diags {
+		if d.Severity == diag.Warning {
+			warned = true
+			if strings.Contains(d.Summary+d.Detail, "untaint") {
+				t.Errorf("update warning must not mention untaint: %s | %s", d.Summary, d.Detail)
+			}
+			if !strings.Contains(d.Detail, "applied") {
+				t.Errorf("update warning must say the update was applied: %s", d.Detail)
+			}
+		}
+	}
+	if !warned {
+		t.Fatalf("expected a warning, got %v", diags)
+	}
+	if newState == nil || newState.Attributes["enable_egress"] != "true" {
+		t.Errorf("planned state must be kept, got %+v", newState)
+	}
+	// The wait (InProgress GETs) is the last server interaction: no Read afterwards.
+	mock.mu.Lock()
+	defer mock.mu.Unlock()
+	if n := len(mock.events); n == 0 || mock.events[0] != "PATCH" {
+		t.Errorf("expected PATCH first, got %v", mock.events)
 	}
 }
