@@ -160,9 +160,15 @@ var DeplApplicationRTFDefinition = &schema.Resource{
 			Elem:        DeplApplicationConfigRTFDefinition,
 		},
 		"vcores": {
-			Type:        schema.TypeFloat,
-			Description: "The allocated virtual cores.",
-			Computed:    true,
+			Type:             schema.TypeFloat,
+			Description:      "vCores per replica for CloudHub 2.0 private spaces on vCore-based pricing (e.g. 0.1, 0.2, 0.5, 1). Leave unset for Runtime Fabric targets (size with `resources`) and for usage-based pricing (size with `instance_type`). Removing it from the configuration keeps the current size.",
+			Optional:         true,
+			Computed:         true,
+			ValidateDiagFunc: VCoresValidatorDiag,
+			ConflictsWith: []string{
+				"target.0.deployment_settings.0.resources",
+				"target.0.deployment_settings.0.instance_type",
+			},
 		},
 		"object_store_v2_enabled": {
 			Type:        schema.TypeBool,
@@ -508,9 +514,10 @@ func resourceRTFDeployment() *schema.Resource {
 		ReadContext:   resourceRTFDeploymentRead,
 		UpdateContext: resourceRTFDeploymentUpdate,
 		DeleteContext: resourceRTFDeploymentDelete,
-		Description: `
-		Creates and manages a ` + "`" + `deployment` + "`" + ` of a mule app on Runtime Fabrics only.
-		`,
+		Description: "Creates and manages a `deployment` of a mule app on Runtime Fabric and on CloudHub 2.0 private spaces. " +
+			"Size the replicas with `target.deployment_settings.resources` (Runtime Fabric), " +
+			"`application.vcores` (private space on vCore-based pricing) or " +
+			"`target.deployment_settings.instance_type` (private space on usage-based pricing).",
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:        schema.TypeString,
@@ -594,7 +601,7 @@ func resourceRTFDeploymentCreate(ctx context.Context, d *schema.ResourceData, m 
 	orgid := d.Get("org_id").(string)
 	envid := d.Get("env_id").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
-	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()))
+	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()), rtfVCoresInRawConfig(d.GetRawConfig()))
 	//Execute post deployment
 	res, httpr, err := pco.appmanagerclient.DefaultAPI.PostDeployment(authctx, orgid, envid).DeploymentRequestBody(*body).Execute()
 	if err != nil {
@@ -670,7 +677,7 @@ func resourceRTFDeploymentUpdate(ctx context.Context, d *schema.ResourceData, m 
 	envid := d.Get("env_id").(string)
 	name := d.Get("name").(string)
 	authctx := getAppDeploymentV2AuthCtx(ctx, &pco)
-	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()))
+	body := newRTFDeploymentBody(d, rtfResourcesInRawConfig(d.GetRawConfig()), rtfVCoresInRawConfig(d.GetRawConfig()))
 	_, httpr, err := pco.appmanagerclient.DefaultAPI.PatchDeployment(authctx, orgid, envid, id).DeploymentRequestBody(*body).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
@@ -711,17 +718,19 @@ func resourceRTFDeploymentDelete(ctx context.Context, d *schema.ResourceData, m 
 }
 
 // Prepares Deployment Post Body out of resource data input
-// sendResources reports whether the user's configuration contains a resources block.
-func newRTFDeploymentBody(d *schema.ResourceData, sendResources bool) *application_manager_v2.DeploymentRequestBody {
+// sendResources reports whether the user's configuration contains a resources block,
+// sendVCores whether it sets application.vcores. Both are Computed, so state alone
+// cannot tell a user value from an echoed one.
+func newRTFDeploymentBody(d *schema.ResourceData, sendResources, sendVCores bool) *application_manager_v2.DeploymentRequestBody {
 	body := application_manager_v2.NewDeploymentRequestBody()
 	// -- Parsing Application
 	app_list_d := d.Get("application").([]any)
 	app_d := app_list_d[0].(map[string]any)
-	application := newRTFDeploymentApplication(app_d)
+	application := newRTFDeploymentApplication(app_d, sendVCores)
 	// -- Parsing Target
 	target_list_d := d.Get("target").([]any)
 	target_d := target_list_d[0].(map[string]any)
-	target := newRTFDeploymentTarget(target_d, sendResources)
+	target := newRTFDeploymentTarget(target_d, sendResources, sendVCores)
 	//Set Body Data
 	body.SetName(d.Get("name").(string))
 	body.SetApplication(*application)
@@ -731,7 +740,7 @@ func newRTFDeploymentBody(d *schema.ResourceData, sendResources bool) *applicati
 }
 
 // Prepares Application object out of map input
-func newRTFDeploymentApplication(app_d map[string]any) *application_manager_v2.Application {
+func newRTFDeploymentApplication(app_d map[string]any, sendVCores bool) *application_manager_v2.Application {
 	ref_list_d := app_d["ref"].([]any)
 	ref_d := ref_list_d[0].(map[string]any)
 	// Ref
@@ -755,15 +764,20 @@ func newRTFDeploymentApplication(app_d map[string]any) *application_manager_v2.A
 	application.SetConfiguration(*configuration)
 	// application.SetIntegrations(*integrations)
 	application.SetRef(*ref)
+	if sendVCores {
+		if v, ok := app_d["vcores"].(float64); ok {
+			application.SetVCores(float32(v))
+		}
+	}
 
 	return application
 }
 
 // Prepares Target object out of map input
-func newRTFDeploymentTarget(target_d map[string]any, sendResources bool) *application_manager_v2.Target {
+func newRTFDeploymentTarget(target_d map[string]any, sendResources, sendVCores bool) *application_manager_v2.Target {
 	deployment_settings_list_d := target_d["deployment_settings"].([]any)
 	deployment_settings_d := deployment_settings_list_d[0].(map[string]any)
-	deployment_settings := newRTFDeploymentDeploymentSettings(deployment_settings_d, sendResources)
+	deployment_settings := newRTFDeploymentDeploymentSettings(deployment_settings_d, sendResources, sendVCores)
 	//Prepare Target data
 	target := application_manager_v2.NewTarget()
 	target.SetProvider(target_d["provider"].(string))
@@ -819,7 +833,7 @@ func newRTFDeploymentConfiguration(configuration_d map[string]any) *application_
 }
 
 // Prepares DeploymentSettings object out of map input
-func newRTFDeploymentDeploymentSettings(deployment_settings_d map[string]any, sendResources bool) *application_manager_v2.DeploymentSettings {
+func newRTFDeploymentDeploymentSettings(deployment_settings_d map[string]any, sendResources, sendVCores bool) *application_manager_v2.DeploymentSettings {
 	//http
 	http := newRTFDeploymentHttp(deployment_settings_d)
 	//runtime
@@ -844,7 +858,9 @@ func newRTFDeploymentDeploymentSettings(deployment_settings_d map[string]any, se
 	if sendResources {
 		deployment_settings.SetResources(*newRTFDeploymentResources(deployment_settings_d))
 	}
-	if val, ok := deployment_settings_d["instance_type"].(string); ok && val != "" {
+	// vCore sizing and instanceType are mutually exclusive on the platform; state may
+	// still hold an instance_type from an earlier usage-based deployment.
+	if val, ok := deployment_settings_d["instance_type"].(string); ok && val != "" && !sendVCores {
 		deployment_settings.SetInstanceType(val)
 	}
 
@@ -939,6 +955,22 @@ func rtfResourcesInRawConfig(raw cty.Value) bool {
 		return false
 	}
 	return resources.LengthInt() > 0
+}
+
+// rtfVCoresInRawConfig reports whether the configuration sets application.0.vcores.
+// vcores is Computed, so d.Get would return the echoed state; the raw config tells
+// whether the user asked for it. Any null, unknown or missing step yields false.
+func rtfVCoresInRawConfig(raw cty.Value) bool {
+	app, ok := rtfCtyAttr(raw, "application")
+	if !ok {
+		return false
+	}
+	first, ok := rtfCtyFirst(app)
+	if !ok {
+		return false
+	}
+	_, ok = rtfCtyAttr(first, "vcores")
+	return ok
 }
 
 // rtfCtyAttr returns the named attribute of a known, non-null object.

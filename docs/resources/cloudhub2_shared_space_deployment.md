@@ -117,7 +117,7 @@ Required:
 
 Optional:
 
-- `mule_agent_logging_service` (Block List, Max: 1) The mule app logging props (see [below for nested schema](#nestedblock--application--configuration--mule_agent_logging_service))
+- `mule_agent_logging_service` (Block List, Max: 1) The mule app logging props. When omitted, the current logging configuration is kept; an empty block clears the additional scope log levels. (see [below for nested schema](#nestedblock--application--configuration--mule_agent_logging_service))
 
 Read-Only:
 
