@@ -3,6 +3,7 @@ package anypoint
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -93,7 +94,9 @@ func resourceAMECreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	authctx := getAMEAuthCtx(ctx, &pco)
 	body := newAMECreateBody(d)
 	//request user creation
-	_, httpr, err := pco.ameclient.DefaultApi.CreateAME(authctx, orgid, envid, regionid, exchangeid).ExchangeBody(*body).Execute()
+	_, httpr, err := retryTransientWith(ctx, "ame create "+exchangeid, mqRetryPolicy, func() (ame.Exchange, *http.Response, error) {
+		return pco.ameclient.DefaultApi.CreateAME(authctx, orgid, envid, regionid, exchangeid).ExchangeBody(*body).Execute()
+	})
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -107,10 +110,16 @@ func resourceAMECreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 
 	d.SetId(ComposeResourceId([]string{orgid, envid, regionid, exchangeid}))
 
-	return resourceAMERead(ctx, d, m)
+	// a failed post-create read taints the resource, so it gets the full MQ policy
+	return resourceAMEReadWithPolicy(ctx, d, m, mqRetryPolicy)
 }
 
+// resourceAMERead is the plain refresh read: single-shot except for 429.
 func resourceAMERead(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+	return resourceAMEReadWithPolicy(ctx, d, m, mqReadRetryPolicy)
+}
+
+func resourceAMEReadWithPolicy(ctx context.Context, d *schema.ResourceData, m any, policy retryPolicy) diag.Diagnostics {
 	var diags diag.Diagnostics
 	pco := m.(ProviderConfOutput)
 	orgid := d.Get("org_id").(string)
@@ -126,7 +135,9 @@ func resourceAMERead(ctx context.Context, d *schema.ResourceData, m any) diag.Di
 	}
 	authctx := getAMEAuthCtx(ctx, &pco)
 	//request resource
-	res, httpr, err := pco.ameclient.DefaultApi.GetAME(authctx, orgid, envid, regionid, exchangeid).Execute()
+	res, httpr, err := retryTransientWith(ctx, "ame read "+exchangeid, policy, func() (ame.Exchange, *http.Response, error) {
+		return pco.ameclient.DefaultApi.GetAME(authctx, orgid, envid, regionid, exchangeid).Execute()
+	})
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
@@ -174,7 +185,9 @@ func resourceAMEUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	if d.HasChanges(getAMEPatchWatchAttributes()...) {
 		body := newAMECreateBody(d)
 		//request resource creation
-		_, httpr, err := pco.ameclient.DefaultApi.UpdateAME(authctx, orgid, envid, regionid, exchangeid).ExchangeBody(*body).Execute()
+		_, httpr, err := retryTransientWith(ctx, "ame update "+exchangeid, mqRetryPolicy, func() (ame.Exchange, *http.Response, error) {
+			return pco.ameclient.DefaultApi.UpdateAME(authctx, orgid, envid, regionid, exchangeid).ExchangeBody(*body).Execute()
+		})
 		if err != nil {
 			details := extractAPIErrorDetail(err, httpr)
 			diags := append(diags, diag.Diagnostic{
@@ -186,7 +199,7 @@ func resourceAMEUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.
 		}
 		defer httpr.Body.Close()
 		d.Set("last_updated", time.Now().Format(time.RFC850))
-		return resourceAMERead(ctx, d, m)
+		return resourceAMEReadWithPolicy(ctx, d, m, mqRetryPolicy)
 	}
 	return diags
 }
@@ -200,7 +213,9 @@ func resourceAMEDelete(ctx context.Context, d *schema.ResourceData, m any) diag.
 	exchangeid := d.Get("exchange_id").(string)
 	authctx := getAMEAuthCtx(ctx, &pco)
 	//perform request
-	httpr, err := pco.ameclient.DefaultApi.DeleteAME(authctx, orgid, envid, regionid, exchangeid).Execute()
+	httpr, err := retryMQDelete(ctx, "ame delete "+exchangeid, func() (*http.Response, error) {
+		return pco.ameclient.DefaultApi.DeleteAME(authctx, orgid, envid, regionid, exchangeid).Execute()
+	})
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
