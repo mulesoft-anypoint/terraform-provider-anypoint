@@ -3,6 +3,7 @@ package anypoint
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -20,8 +21,14 @@ func resourcePrivateSpaceTransitGateway() *schema.Resource {
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
+		Timeouts: &schema.ResourceTimeout{
+			Create: schema.DefaultTimeout(30 * time.Minute),
+		},
 		Description: "Manages an AWS Transit Gateway attachment on an Anypoint CloudHub 2.0 private space. " +
-			"Requires a RAM resource share owned by your AWS account, with the MuleSoft AWS account whitelisted as principal and the TGW associated with the share.",
+			"Two modes: create mode (`name`, `resource_share_id`, `resource_share_account`) creates the transit gateway connection from a RAM resource share owned by your AWS account, " +
+			"with the MuleSoft AWS account whitelisted as principal and the TGW associated with the share; " +
+			"attach mode (`transit_gateway_id`) attaches an existing organization transit gateway, for example the one created by another resource, to this private space. " +
+			"Deleting the resource only detaches the private space: the organization transit gateway stays listed after its last detach.",
 		Schema: map[string]*schema.Schema{
 			"id": {
 				Type:        schema.TypeString,
@@ -47,26 +54,38 @@ func resourcePrivateSpaceTransitGateway() *schema.Resource {
 				Description: "The private space id.",
 			},
 			"transit_gateway_id": {
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "The AWS transit gateway id (e.g. tgw-...).",
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+				ForceNew: true,
+				Description: "The AWS transit gateway id (e.g. tgw-...). Set it to attach an existing organization transit gateway " +
+					"(for example another resource's `transit_gateway_id`) to this private space; leave it unset to create the transit gateway connection from a RAM resource share.",
+				ExactlyOneOf:     []string{"transit_gateway_id", "resource_share_id"},
+				ValidateDiagFunc: validation.ToDiagFunc(validation.StringMatch(regexp.MustCompile("^tgw-[0-9a-f]+$"), "must look like tgw-...")),
 			},
 			"name": {
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "Display name of the transit gateway attachment.",
+				Type:          schema.TypeString,
+				Optional:      true,
+				Computed:      true,
+				Description:   "Display name of the transit gateway attachment. Create mode only: in attach mode the name belongs to the resource that created the transit gateway and is read back.",
+				ConflictsWith: []string{"transit_gateway_id"},
 			},
 			"resource_share_id": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "RAM resource share UUID (trailing GUID of the ARN, NOT the full ARN).",
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ForceNew:     true,
+				Description:  "RAM resource share UUID (trailing GUID of the ARN, NOT the full ARN). Create mode only; requires `resource_share_account` and `name`.",
+				ExactlyOneOf: []string{"transit_gateway_id", "resource_share_id"},
+				RequiredWith: []string{"resource_share_account", "name"},
 			},
 			"resource_share_account": {
-				Type:        schema.TypeString,
-				Required:    true,
-				ForceNew:    true,
-				Description: "AWS account id that owns the RAM share (your AWS account, NOT MuleSoft's).",
+				Type:          schema.TypeString,
+				Optional:      true,
+				Computed:      true,
+				ForceNew:      true,
+				Description:   "AWS account id that owns the RAM share (your AWS account, NOT MuleSoft's). Create mode only.",
+				ConflictsWith: []string{"transit_gateway_id"},
 			},
 			"routes": {
 				Type:        schema.TypeSet,
