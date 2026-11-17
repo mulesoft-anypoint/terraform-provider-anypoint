@@ -314,7 +314,7 @@ Optional:
 - `instance_type` (String) Replica size for CloudHub 2.0 private-space deployments on usage-based pricing (e.g. `mule.nano`, `mule.micro`). Leave unset for Runtime Fabric targets. Once set, removing it from the configuration keeps the current value; set a different size to change it.
 - `jvm_args` (String) The java virtual machine arguments
 - `persistent_object_store` (Boolean) Whether persistent object store is enabled.
-- `resources` (Block List, Max: 1) The mule app allocated resources. Required for Runtime Fabric targets; omit on CloudHub 2.0 private spaces sized by `instance_type`. (see [below for nested schema](#nestedblock--target--deployment_settings--resources))
+- `resources` (Block List, Max: 1) The mule app allocated resources. Runtime Fabric targets are sized with `resources`; omit it on CloudHub 2.0 private spaces, which are sized with `application.vcores` (vCore-priced) or `instance_type` (usage-based). (see [below for nested schema](#nestedblock--target--deployment_settings--resources))
 - `runtime` (Block List, Max: 1) The Mule app runtime version info. (see [below for nested schema](#nestedblock--target--deployment_settings--runtime))
 - `update_strategy` (String) The mule app deployment update strategy: rolling or recreate
 

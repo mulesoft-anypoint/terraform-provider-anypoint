@@ -414,7 +414,7 @@ var DeplTargetDeploymentSettingsRTFDefinition = &schema.Resource{
 		"resources": {
 			Type:        schema.TypeList,
 			MaxItems:    1,
-			Description: "The mule app allocated resources. Required for Runtime Fabric targets; omit on CloudHub 2.0 private spaces sized by `instance_type`.",
+			Description: "The mule app allocated resources. Runtime Fabric targets are sized with `resources`; omit it on CloudHub 2.0 private spaces, which are sized with `application.vcores` (vCore-priced) or `instance_type` (usage-based).",
 			Elem:        DeplTargetDeplSettResourcesRTFDefinition,
 			Optional:    true,
 			Computed:    true,

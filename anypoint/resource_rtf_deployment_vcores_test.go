@@ -387,6 +387,62 @@ func TestDeployments_HTTPOmitted_EmptyDiff(t *testing.T) {
 	}
 }
 
+// httpOfBody returns target.deploymentSettings.http of a recorded POST/PATCH body as compact JSON.
+func httpOfBody(t *testing.T, body map[string]any) string {
+	t.Helper()
+	target, _ := body["target"].(map[string]any)
+	settings, _ := target["deploymentSettings"].(map[string]any)
+	h, ok := settings["http"]
+	if !ok {
+		t.Fatalf("body has no deploymentSettings.http: %v", body)
+	}
+	b, err := json.Marshal(h)
+	if err != nil {
+		t.Fatalf("marshal http: %v", err)
+	}
+	return string(b)
+}
+
+// The create body sent when http is omitted must stay what v1.11.4 sent (the SDK
+// never applied the list DefaultFunc, so the wire object was an empty "http": {}).
+// A configured http block keeps its v1.11.4 shape.
+func TestDeployments_HTTPCreateBody_MatchesV1114(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		r              func() *schema.Resource
+		cfg            func(extra map[string]any) map[string]any
+		wantOmitted    string
+		wantConfigured string
+	}{
+		{"anypoint_rtf_deployment", resourceRTFDeployment, func(extra map[string]any) map[string]any {
+			return rtfVCoresRawConfig(0.1, extra)
+		}, `{}`, `{"inbound":{"forwardSslSession":false,"lastMileSecurity":true,"publicUrl":"https://app.example.com"}}`},
+		{"anypoint_cloudhub2_shared_space_deployment", resourceCloudhub2SharedSpaceDeployment, func(extra map[string]any) map[string]any {
+			cfg := rtfVCoresRawConfig(0.1, extra)
+			cfg["target"].([]any)[0].(map[string]any)["target_id"] = "cloudhub-us-east-1"
+			return cfg
+		}, `{}`, `{"inbound":{"lastMileSecurity":true}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newRTFApplyHarness(t, tc.r())
+			h.apply(nil, tc.cfg(map[string]any{}))
+			if got := httpOfBody(t, h.mock.bodies[0]); got != tc.wantOmitted {
+				t.Errorf("POST http with http omitted = %s, want %s (v1.11.4)", got, tc.wantOmitted)
+			}
+
+			h = newRTFApplyHarness(t, tc.r())
+			httpCfg := map[string]any{"inbound_last_mile_security": true}
+			if tc.name == "anypoint_rtf_deployment" {
+				httpCfg["inbound_public_url"] = "https://app.example.com"
+			}
+			h.apply(nil, tc.cfg(map[string]any{"http": []any{httpCfg}}))
+			if got := httpOfBody(t, h.mock.bodies[0]); got != tc.wantConfigured {
+				t.Errorf("POST http with http configured = %s, want %s", got, tc.wantConfigured)
+			}
+		})
+	}
+}
+
 // Import then plan: state rebuilt from the flattener for a vCore private-space
 // deployment (vCores echoed, no resources/instanceType/http/logging configured) must
 // not diff against a config that only sets vcores.
