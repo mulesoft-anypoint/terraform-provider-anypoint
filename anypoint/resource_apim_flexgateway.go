@@ -586,7 +586,7 @@ func resourceApimFlexGatewayRead(ctx context.Context, d *schema.ResourceData, m 
 		return diags
 	}
 
-	res, httpr, err := pco.apimclient.DefaultAPI.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
+	res, httpr, err := pco.apimclient.DefaultAPI.GetApimInstanceDetails(authctx, orgid, envid, id).IncludeTlsContexts(true).Execute()
 	if err != nil {
 		if httpr != nil && httpr.StatusCode == 404 {
 			d.SetId("")
