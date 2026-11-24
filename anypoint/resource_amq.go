@@ -70,19 +70,19 @@ func resourceAMQ() *schema.Resource {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Computed:    true,
-				Description: "The default TTL applied to messages in milliseconds. If unset, the broker applies its own default.",
+				Description: "The default TTL applied to messages in milliseconds. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.",
 			},
 			"default_lock_ttl": {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Computed:    true,
-				Description: "The default time to live of the created locks in milliseconds. If unset, the broker applies its own default.",
+				Description: "The default time to live of the created locks in milliseconds. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.",
 			},
 			"default_delivery_delay": {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Computed:    true,
-				Description: "The default delivery delay in seconds. If unset, the broker applies its own default.",
+				Description: "The default delivery delay in seconds. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.",
 			},
 			"type": {
 				Type:        schema.TypeString,
@@ -93,7 +93,7 @@ func resourceAMQ() *schema.Resource {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Computed:    true,
-				Description: "To encrypt the queue. If unset, the broker decides and the value it reports is kept in state.",
+				Description: "To encrypt the queue. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.",
 			},
 			"dead_letter_queue_id": {
 				Type:         schema.TypeString,

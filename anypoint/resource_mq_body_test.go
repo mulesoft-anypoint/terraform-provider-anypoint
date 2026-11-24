@@ -60,6 +60,13 @@ func TestAttrsSetInRawConfig(t *testing.T) {
 			}
 		}
 	}
+	for _, in := range []cty.Value{cty.StringVal("x"), cty.ListValEmpty(cty.String)} {
+		for k, v := range attrsSetInRawConfig(in, "default_ttl", "encrypted") {
+			if v {
+				t.Errorf("%s should be false for non-object %#v", k, in)
+			}
+		}
+	}
 	unknownAttr := cty.ObjectVal(map[string]cty.Value{"encrypted": cty.UnknownVal(cty.Bool)})
 	if attrsSetInRawConfig(unknownAttr, "encrypted")["encrypted"] {
 		t.Error("unknown attribute must not count as set")
@@ -225,5 +232,25 @@ func TestAMEDiff_UnsetEncryptedWithBrokerValueNoDiff(t *testing.T) {
 	}
 	if a, ok := diff.Attributes["encrypted"]; ok {
 		t.Errorf("unexpected diff on encrypted: %q -> %q", a.Old, a.New)
+	}
+}
+
+func TestNewAMQCreateBody_UpdateResendsFalseEncryptedFromState(t *testing.T) {
+	d := schema.TestResourceDataRaw(t, resourceAMQ().Schema, map[string]any{
+		"org_id": "o", "env_id": "e", "region_id": "us-east-1", "queue_id": "q", "encrypted": false,
+	})
+	got := mqBodyJSON(t, newAMQCreateBody(d, mqNoneSet(amqOptionalKeys...), true))
+	if v, ok := got["encrypted"]; !ok || v != false {
+		t.Errorf("encrypted=false in state must be re-sent on update: %v", got)
+	}
+}
+
+func TestNewAMECreateBody_UpdateResendsFalseEncryptedFromState(t *testing.T) {
+	d := schema.TestResourceDataRaw(t, resourceAME().Schema, map[string]any{
+		"org_id": "o", "env_id": "e", "region_id": "us-east-1", "exchange_id": "x", "encrypted": false,
+	})
+	got := mqBodyJSON(t, newAMECreateBody(d, mqNoneSet("encrypted"), true))
+	if v, ok := got["encrypted"]; !ok || v != false {
+		t.Errorf("encrypted=false in state must be re-sent on update: %v", got)
 	}
 }

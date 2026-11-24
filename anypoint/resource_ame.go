@@ -70,7 +70,7 @@ func resourceAME() *schema.Resource {
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Computed:    true,
-				Description: "Whether to encrypt the Exchange or not. If unset, the broker decides and the value it reports is kept in state.",
+				Description: "Whether to encrypt the Exchange or not. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.",
 			},
 			"type": {
 				Type:        schema.TypeString,
