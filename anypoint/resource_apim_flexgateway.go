@@ -645,7 +645,9 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 					Detail:   details.Error(),
 				})
 			}
-			defer httpr.Body.Close()
+			if httpr != nil {
+				defer httpr.Body.Close()
+			}
 		}
 	}
 	if len(tocreate) > 0 && !diags.HasError() {
@@ -661,7 +663,9 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 					Detail:   details.Error(),
 				})
 			}
-			defer httpr.Body.Close()
+			if httpr != nil {
+				defer httpr.Body.Close()
+			}
 		}
 		// Refresh upstream ids into state so the routing patch body can resolve label -> id for newly-created upstreams (#133).
 		if !diags.HasError() {
@@ -682,7 +686,9 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 				Detail:   details.Error(),
 			})
 		}
-		defer httpr.Body.Close()
+		if httpr != nil {
+			defer httpr.Body.Close()
+		}
 	}
 	if len(todelete) > 0 && !diags.HasError() {
 		authctx := getApimUpstreamAuthCtx(ctx, &pco)
@@ -698,7 +704,9 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 					Detail:   details.Error(),
 				})
 			}
-			defer httpr.Body.Close()
+			if httpr != nil {
+				defer httpr.Body.Close()
+			}
 		}
 	}
 	diags = append(diags, resourceApimFlexGatewayRead(ctx, d, m)...)
@@ -859,6 +867,24 @@ func newApimFlexGatewayEndpointPostBody(d *schema.ResourceData) *apim.EndpointPo
 		body.SetTlsContextsNil()
 	}
 
+	return body
+}
+
+// newApimFlexGatewayEndpointPatchBody builds the endpoint part of an instance PATCH.
+// Unlike the POST body it never sends "tlsContexts": null, which the platform
+// treats as "clear all TLS contexts" (inbound and upstream). tlsContexts is sent
+// only when the inbound context is set, or removed (as {"inbound": null}).
+func newApimFlexGatewayEndpointPatchBody(d *schema.ResourceData) *apim.EndpointPostBody {
+	body := newApimFlexGatewayEndpointPostBody(d)
+	if _, ok := d.GetOk("endpoint_tls_inbound_context"); ok {
+		body.SetTlsContexts(*newApimFlexGatewayEndpointTlsContextPostBody(d))
+	} else if d.HasChange("endpoint_tls_inbound_context") {
+		tlscontext := apim.NewEndpointPostBodyTlsContexts()
+		tlscontext.SetInboundNil()
+		body.SetTlsContexts(*tlscontext)
+	} else {
+		body.UnsetTlsContexts()
+	}
 	return body
 }
 
@@ -1038,8 +1064,6 @@ func newApimFlexGatewayPatchBody(d *schema.ResourceData) map[string]any {
 	body := make(map[string]any)
 	deployment := newApimFlexGatewayDeploymentPostBody(d)
 	deployment_map, _ := deployment.ToMap()
-	endpoint := newApimFlexGatewayEndpointPostBody(d)
-	endpoint_map, _ := endpoint.ToMap()
 	attributes := FilterStrList(getApimFlexGatewayUpdatableAttributes(), func(s string) bool {
 		return !strings.HasPrefix(s, "endpoint") && !strings.HasPrefix(s, "deployment") && s != "routing" && s != "upstreams"
 	})
@@ -1049,9 +1073,10 @@ func newApimFlexGatewayPatchBody(d *schema.ResourceData) map[string]any {
 		}
 	}
 
-	//maps.Copy(body, newPatchBodyMap4FlattenedAttr("endpoint", getApimFlexGatewayUpdatableAttributes(), d))
-	//maps.Copy(body, newPatchBodyMap4FlattenedAttr("deployment", getApimFlexGatewayUpdatableAttributes(), d))
-	body["endpoint"] = endpoint_map
+	if d.HasChanges(getApimFlexGatewayEndpointUpdatableAttributes()...) {
+		endpoint_map, _ := newApimFlexGatewayEndpointPatchBody(d).ToMap()
+		body["endpoint"] = endpoint_map
+	}
 	body["deployment"] = deployment_map
 	maps.Copy(body, newApimFlexGatewayRoutingPatchBody(d))
 	return body
@@ -1227,6 +1252,13 @@ func getApimFlexGatewayUpdatableAttributes() []string {
 		"routing", "upstreams",
 	}
 	return attributes[:]
+}
+
+// returns the updatable attributes that belong to the endpoint block
+func getApimFlexGatewayEndpointUpdatableAttributes() []string {
+	return FilterStrList(getApimFlexGatewayUpdatableAttributes(), func(s string) bool {
+		return strings.HasPrefix(s, "endpoint")
+	})
 }
 
 // calculates the difference between old and new upstreams declaration if any
