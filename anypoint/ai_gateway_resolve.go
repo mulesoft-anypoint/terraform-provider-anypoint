@@ -30,17 +30,17 @@ type aiGatewayResourceLike interface {
 //
 // Inbound order rule (skipped slots collapse):
 //
-//	1. agent-connection-telemetry
-//	2. {prompt guard}
-//	3. {routing}
-//	4. {llm_rate_limit | request_rate_limit}
-//	5. llm-proxy-core         (ALWAYS applies)
+//  1. agent-connection-telemetry
+//  2. {prompt guard}
+//  3. {routing}
+//  4. {llm_rate_limit | request_rate_limit}
+//  5. llm-proxy-core         (ALWAYS applies)
 //
 // Outbound order rule (POST sequence; outbound policies do not honour the
 // `order` field — see PR #149 outbound follow-up PATCH note):
 //
-//	1. {transcoding}          (only for `bedrock-anthropic`)
-//	2. {provider}
+//  1. {transcoding}          (only for `bedrock-anthropic`)
+//  2. {provider}
 func resolvePolicies(d aiGatewayResourceLike) (inbound, outbound []resolvedPolicy) {
 	versions := aiGatewayAssetVersionsMap(d)
 
