@@ -65,6 +65,17 @@ func TestFlattenApimEndpointTlsContext_InboundOnly(t *testing.T) {
 	}
 }
 
+func TestFlattenApimEndpointTlsContext_AuthorizedFalse(t *testing.T) {
+	ep := apimInstanceEndpointFromJSON(t, apimInstanceTlsContextsJSON(`{"secretGroupId":"sg1","tlsContextId":"tc1","name":"in","authorized":false}`))
+	got := flattenApimEndpointTlsContext(ep.TlsContexts)
+	if got == nil {
+		t.Fatal("expected an entry for a set inbound context")
+	}
+	if got["authorized"] != "false" {
+		t.Errorf("authorized = %#v, want \"false\"", got["authorized"])
+	}
+}
+
 func TestFlattenApimEndpointTlsContext_NoInboundIsNil(t *testing.T) {
 	if got := flattenApimEndpointTlsContext(nil); got != nil {
 		t.Errorf("nil tls contexts must flatten to nil, got %#v", got)
@@ -79,17 +90,18 @@ func TestFlattenApimEndpointTlsContext_NoInboundIsNil(t *testing.T) {
 	}
 }
 
+// A present tlsContexts object without inbound means "no inbound context":
+// the key must be emitted with an empty list so removal shows as drift.
 func TestFlattenApimEndpoint_OutboundOnlyGivesEmptyInbound(t *testing.T) {
 	for name, tc := range map[string]string{
-		"null inbound, outbound set": apimInstanceTlsContextsJSON("null"),
-		"tlsContexts absent":         "",
-		"tlsContexts null":           "null",
+		"null inbound, outbound set":   apimInstanceTlsContextsJSON("null"),
+		"absent inbound, outbound set": `{"outbound":{"tlsContextId":"out"}}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			got := flattenApimEndpoint(apimInstanceEndpointFromJSON(t, tc))
 			v, ok := got["endpoint_tls_inbound_context"]
 			if !ok {
-				t.Fatal("endpoint_tls_inbound_context key must always be present so removal shows as drift")
+				t.Fatal("endpoint_tls_inbound_context key must be present when tlsContexts is returned, so removal shows as drift")
 			}
 			list, ok := v.([]map[string]any)
 			if !ok {
@@ -97,6 +109,22 @@ func TestFlattenApimEndpoint_OutboundOnlyGivesEmptyInbound(t *testing.T) {
 			}
 			if len(list) != 0 {
 				t.Errorf("expected no inbound entries, got %#v", list)
+			}
+		})
+	}
+}
+
+// If the platform returns no tlsContexts at all (flag ignored), the key must
+// not be emitted so a declared inbound context is not wiped from state.
+func TestFlattenApimEndpoint_NoTlsContextsEmitsNoKey(t *testing.T) {
+	for name, tc := range map[string]string{
+		"tlsContexts absent": "",
+		"tlsContexts null":   "null",
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := flattenApimEndpoint(apimInstanceEndpointFromJSON(t, tc))
+			if v, ok := got["endpoint_tls_inbound_context"]; ok {
+				t.Errorf("endpoint_tls_inbound_context must not be emitted without tlsContexts, got %#v", v)
 			}
 		})
 	}
@@ -127,6 +155,29 @@ func TestApimFlexGatewaySetAttributes_NoInboundClearsState(t *testing.T) {
 	}
 	if n := d.Get("endpoint_tls_inbound_context").(*schema.Set).Len(); n != 0 {
 		t.Errorf("inbound removed on the platform must clear state, got %d entries", n)
+	}
+}
+
+// The platform ignoring includeTlsContexts must leave a declared inbound
+// context in state untouched.
+func TestApimFlexGatewaySetAttributes_NoTlsContextsKeepsDeclaredInbound(t *testing.T) {
+	for name, tc := range map[string]string{"absent": "", "null": "null"} {
+		t.Run(name, func(t *testing.T) {
+			d := schema.TestResourceDataRaw(t, resourceApimFlexGateway().Schema,
+				apimFlexGatewayRawWith("1.0.0", map[string]any{"endpoint_tls_inbound_context": apimFlexGatewayInboundFixture}))
+			details := apimInstanceDetailsFromJSON(t, tc)
+			if err := setApimFlexGatewayAttributesToResourceData(d, flattenApimInstanceDetails(details)); err != nil {
+				t.Fatalf("set attributes: %v", err)
+			}
+			set := d.Get("endpoint_tls_inbound_context").(*schema.Set)
+			if set.Len() != 1 {
+				t.Fatalf("declared inbound must stay in state, got %d entries", set.Len())
+			}
+			entry := set.List()[0].(map[string]any)
+			if entry["secret_group_id"] != "sg" || entry["tls_context_id"] != "tc" {
+				t.Errorf("unexpected entry %#v", entry)
+			}
+		})
 	}
 }
 
@@ -273,7 +324,10 @@ func TestApimFlexGatewayRead_RequestsTlsContexts(t *testing.T) {
 	defer ts.Close()
 	d := schema.TestResourceDataRaw(t, resourceApimFlexGateway().Schema, apimFlexGatewayBaseRaw("1.0.0"))
 	d.SetId("1")
-	_ = resourceApimFlexGatewayRead(context.Background(), d, apimFlexGatewayTestMeta(ts.URL))
+	diags := resourceApimFlexGatewayRead(context.Background(), d, apimFlexGatewayTestMeta(ts.URL))
+	if diags.HasError() {
+		t.Fatalf("read returned errors: %#v", diags)
+	}
 	rec.assertIncludeTls(t)
 	if n := d.Get("endpoint_tls_inbound_context").(*schema.Set).Len(); n != 1 {
 		t.Errorf("expected inbound read back into state, got %d entries", n)
@@ -285,6 +339,9 @@ func TestDataSourceApimInstanceRead_RequestsTlsContexts(t *testing.T) {
 	ts := httptest.NewServer(rec.handler())
 	defer ts.Close()
 	d := schema.TestResourceDataRaw(t, dataSourceApimInstance().Schema, map[string]any{"org_id": "org", "env_id": "env", "id": "1"})
-	_ = dataSourceApimInstanceRead(context.Background(), d, apimFlexGatewayTestMeta(ts.URL))
+	diags := dataSourceApimInstanceRead(context.Background(), d, apimFlexGatewayTestMeta(ts.URL))
+	if diags.HasError() {
+		t.Fatalf("read returned errors: %#v", diags)
+	}
 	rec.assertIncludeTls(t)
 }

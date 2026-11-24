@@ -589,14 +589,17 @@ func flattenApimEndpoint(endpoint *apim.Endpoint) map[string]any {
 	if val, ok := endpoint.GetDeploymentTypeOk(); ok && val != nil {
 		result["endpoint_deployment_type"] = *val
 	}
-	// Always emit the key: an empty list lets an inbound context removed outside Terraform show as drift.
-	inbound := []map[string]any{}
-	if val, ok := endpoint.GetTlsContextsOk(); ok {
+	// Emit the key only when the platform returned a tlsContexts object. An empty
+	// list (inbound null inside a present object) lets an inbound context removed
+	// outside Terraform show as drift. Without tlsContexts (flag ignored) the key
+	// is left out so a declared inbound context is not wiped from state.
+	if val, ok := endpoint.GetTlsContextsOk(); ok && val != nil {
+		inbound := []map[string]any{}
 		if entry := flattenApimEndpointTlsContext(val); entry != nil {
 			inbound = append(inbound, entry)
 		}
+		result["endpoint_tls_inbound_context"] = inbound
 	}
-	result["endpoint_tls_inbound_context"] = inbound
 	if val, ok := endpoint.GetApiVersionIdOk(); ok && val != nil {
 		result["endpoint_api_version_id"] = *val
 	}
