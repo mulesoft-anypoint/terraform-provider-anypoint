@@ -39,10 +39,10 @@ resource "anypoint_amq" "amq" {
 ### Optional
 
 - `dead_letter_queue_id` (String) The queue Id of the dead letter queue to bind to this queue. A FIFO DLQ only works with FIFO queues.
-- `default_delivery_delay` (Number) The default delivery delay in seconds.
-- `default_lock_ttl` (Number) The default time to live of the created locks in milliseconds.
-- `default_ttl` (Number) The default TTL applied to messages in milliseconds.
-- `encrypted` (Boolean) To encrypt the queue.
+- `default_delivery_delay` (Number) The default delivery delay in seconds. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.
+- `default_lock_ttl` (Number) The default time to live of the created locks in milliseconds. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.
+- `default_ttl` (Number) The default TTL applied to messages in milliseconds. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.
+- `encrypted` (Boolean) To encrypt the queue. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.
 - `fifo` (Boolean) Whether to make this queue a FIFO.
 - `last_updated` (String) The last time this resource has been updated locally.
 - `max_deliveries` (Number) The maximum number of attempts after which the message will be routed to DLQ. This field can only be used when dead_letter_queue_id attribute is present.

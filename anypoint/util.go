@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -481,4 +482,48 @@ func retryMQDelete(ctx context.Context, op string, fn func() (*http.Response, er
 		return struct{}{}, r, e
 	})
 	return httpr, err
+}
+
+// attrsSetInRawConfig reports, for each key, whether the raw configuration sets it to a
+// known, non-null value. It exists because Optional+Computed attributes echo state through
+// d.Get, so only the raw config tells whether the user asked for a value. A null, unknown
+// or empty raw value yields false for every key.
+func attrsSetInRawConfig(raw cty.Value, keys ...string) map[string]bool {
+	set := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		set[k] = false
+	}
+	if raw == cty.NilVal || raw.IsNull() || !raw.IsKnown() || !raw.Type().IsObjectType() {
+		return set
+	}
+	for _, k := range keys {
+		if !raw.Type().HasAttribute(k) {
+			continue
+		}
+		attr := raw.GetAttr(k)
+		set[k] = !attr.IsNull() && attr.IsKnown()
+	}
+	return set
+}
+
+// mqOptionalInt returns the value to send for an optional Optional+Computed int attribute
+// of an MQ resource: the configured value when inConfig[key], else on update the state
+// value if positive (0 is the zero value of an unset field, which the API rejects), else
+// nothing.
+func mqOptionalInt(d *schema.ResourceData, key string, inConfig map[string]bool, isUpdate bool) (int32, bool) {
+	v := int32(d.Get(key).(int))
+	if inConfig[key] || (isUpdate && v > 0) {
+		return v, true
+	}
+	return 0, false
+}
+
+// mqOptionalBool is the bool counterpart of mqOptionalInt; on update the state value is
+// always re-sent because false is a legitimate value.
+func mqOptionalBool(d *schema.ResourceData, key string, inConfig map[string]bool, isUpdate bool) (bool, bool) {
+	v := d.Get(key).(bool)
+	if inConfig[key] || isUpdate {
+		return v, true
+	}
+	return false, false
 }

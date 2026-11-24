@@ -69,17 +69,20 @@ func resourceAMQ() *schema.Resource {
 			"default_ttl": {
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Description: "The default TTL applied to messages in milliseconds.",
+				Computed:    true,
+				Description: "The default TTL applied to messages in milliseconds. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.",
 			},
 			"default_lock_ttl": {
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Description: "The default time to live of the created locks in milliseconds.",
+				Computed:    true,
+				Description: "The default time to live of the created locks in milliseconds. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.",
 			},
 			"default_delivery_delay": {
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Description: "The default delivery delay in seconds.",
+				Computed:    true,
+				Description: "The default delivery delay in seconds. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.",
 			},
 			"type": {
 				Type:        schema.TypeString,
@@ -89,8 +92,8 @@ func resourceAMQ() *schema.Resource {
 			"encrypted": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
-				Description: "To encrypt the queue.",
+				Computed:    true,
+				Description: "To encrypt the queue. If unset, the broker's default is used on create; removing the value from the configuration keeps the current one.",
 			},
 			"dead_letter_queue_id": {
 				Type:         schema.TypeString,
@@ -126,7 +129,7 @@ func resourceAMQCreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	regionid := d.Get("region_id").(string)
 	queueid := d.Get("queue_id").(string)
 	authctx := getAMQAuthCtx(ctx, &pco)
-	body := newAMQCreateBody(d)
+	body := newAMQCreateBody(d, attrsSetInRawConfig(d.GetRawConfig(), amqOptionalAttrs...), false)
 	//request resource creation
 	_, httpr, err := retryTransientWith(ctx, "amq create "+queueid, mqRetryPolicy, func() (amq.Queue, *http.Response, error) {
 		return pco.amqclient.DefaultApi.CreateAMQ(authctx, orgid, envid, regionid, queueid).QueueBody(*body).Execute()
@@ -218,7 +221,7 @@ func resourceAMQUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	authctx := getAMQAuthCtx(ctx, &pco)
 	//check for changes
 	if d.HasChanges(getAMQPatchWatchAttributes()...) {
-		body := newAMQCreateBody(d)
+		body := newAMQCreateBody(d, attrsSetInRawConfig(d.GetRawConfig(), amqOptionalAttrs...), true)
 		//request user creation
 		_, httpr, err := retryTransientWith(ctx, "amq update "+queueid, mqRetryPolicy, func() (amq.Queue, *http.Response, error) {
 			return pco.amqclient.DefaultApi.UpdateAMQ(authctx, orgid, envid, regionid, queueid).QueueBody(*body).Execute()
@@ -270,22 +273,28 @@ func resourceAMQDelete(ctx context.Context, d *schema.ResourceData, m any) diag.
 	return diags
 }
 
-// Creates AMQ body
-func newAMQCreateBody(d *schema.ResourceData) *amq.QueueBody {
+// amqOptionalAttrs are the queue attributes the broker defaults when they are not sent.
+var amqOptionalAttrs = []string{"default_ttl", "default_lock_ttl", "default_delivery_delay", "encrypted"}
+
+// Creates AMQ body. inConfig tells which of amqOptionalAttrs the user set in the
+// configuration. A configured value is always sent. An unset one is omitted on create, so
+// the broker applies its own default, and on update the value held in state is re-sent
+// because the update is a full replacement of the queue.
+func newAMQCreateBody(d *schema.ResourceData, inConfig map[string]bool, isUpdate bool) *amq.QueueBody {
 	body := new(amq.QueueBody)
 
 	body.SetType("queue")
-	if defaultTtl := d.Get("default_ttl"); defaultTtl != nil {
-		body.SetDefaultTtl(int32(defaultTtl.(int)))
+	if v, ok := mqOptionalInt(d, "default_ttl", inConfig, isUpdate); ok {
+		body.SetDefaultTtl(v)
 	}
-	if defaultLockTtl := d.Get("default_lock_ttl"); defaultLockTtl != nil {
-		body.SetDefaultLockTtl(int32(defaultLockTtl.(int)))
+	if v, ok := mqOptionalInt(d, "default_lock_ttl", inConfig, isUpdate); ok {
+		body.SetDefaultLockTtl(v)
 	}
-	if encrypted := d.Get("encrypted"); encrypted != nil {
-		body.SetEncrypted(encrypted.(bool))
+	if v, ok := mqOptionalBool(d, "encrypted", inConfig, isUpdate); ok {
+		body.SetEncrypted(v)
 	}
-	if defaultDeliveryDelay := d.Get("default_delivery_delay"); defaultDeliveryDelay != nil {
-		body.SetDefaultDeliveryDelay(int32(defaultDeliveryDelay.(int)))
+	if v, ok := mqOptionalInt(d, "default_delivery_delay", inConfig, isUpdate); ok {
+		body.SetDefaultDeliveryDelay(v)
 	}
 	if deadLetterQueueId := d.Get("dead_letter_queue_id"); deadLetterQueueId != nil {
 		val := deadLetterQueueId.(string)
