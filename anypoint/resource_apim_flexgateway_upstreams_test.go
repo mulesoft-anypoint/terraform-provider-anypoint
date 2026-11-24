@@ -75,6 +75,24 @@ func TestCalcUpstreamsDiff(t *testing.T) {
 			old:  []any{oldU},
 			new:  apimFlexGatewayUpstreamsRaw(u),
 		},
+		// upstreams are paired by list position: the second slot keeps id b and is relabelled
+		{
+			name:         "add and remove",
+			old:          []any{oldU, oldV},
+			new:          apimFlexGatewayUpstreamsRaw(u, w),
+			wantUpdateID: []string{"b"},
+		},
+		{
+			name:         "reorder",
+			old:          []any{oldU, oldV},
+			new:          apimFlexGatewayUpstreamsRaw(v, u),
+			wantUpdateID: []string{"a", "b"},
+		},
+		{
+			name: "old entry without id is never deleted",
+			old:  []any{oldU, map[string]any{"id": "", "label": "x", "uri": "https://x.example"}},
+			new:  apimFlexGatewayUpstreamsRaw(u),
+		},
 	}
 	ids := func(items []any) []string {
 		out := make([]string, 0, len(items))
@@ -83,19 +101,29 @@ func TestCalcUpstreamsDiff(t *testing.T) {
 		}
 		return out
 	}
-	equal := func(a, b []string) bool { return strings.Join(a, ",") == strings.Join(b, ",") }
+	equal := func(a, b []string) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			d := apimFlexGatewayUpstreamChangeData(t, tt.old, tt.new)
 			tocreate, toupdate, todelete := calcUpstreamsDiff(d)
 			if got := upstreamLabels(tocreate); !equal(got, tt.wantCreate) {
-				t.Errorf("tocreate labels = %v, want %v", got, tt.wantCreate)
+				t.Errorf("tocreate labels = %q, want %q", got, tt.wantCreate)
 			}
 			if got := ids(toupdate); !equal(got, tt.wantUpdateID) {
-				t.Errorf("toupdate ids = %v, want %v", got, tt.wantUpdateID)
+				t.Errorf("toupdate ids = %q, want %q", got, tt.wantUpdateID)
 			}
 			if got := ids(todelete); !equal(got, tt.wantDeleteID) {
-				t.Errorf("todelete ids = %v, want %v", got, tt.wantDeleteID)
+				t.Errorf("todelete ids = %q, want %q", got, tt.wantDeleteID)
 			}
 		})
 	}

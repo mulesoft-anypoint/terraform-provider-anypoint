@@ -1288,6 +1288,10 @@ func calcUpstreamsDiff(d *schema.ResourceData) ([]any, []any, []any) {
 		}
 		for _, old_upstream := range old_upstreams_list {
 			old := old_upstream.(map[string]any)
+			// an old entry without id has nothing to delete on the platform
+			if oldid, ok := old["id"].(string); !ok || oldid == "" {
+				continue
+			}
 			filtered := FilterMapList(new_upstreams_list, func(m map[string]any) bool {
 				if id, ok := m["id"].(string); ok && id != "" {
 					return old["id"] == id
