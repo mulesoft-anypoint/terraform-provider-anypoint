@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -414,7 +415,7 @@ func dataSourceApimInstanceRead(ctx context.Context, d *schema.ResourceData, m a
 	id := d.Get("id").(string)
 	authctx := getApimAuthCtx(ctx, &pco)
 	//perform request
-	res, httpr, err := pco.apimclient.DefaultAPI.GetApimInstanceDetails(authctx, orgid, envid, id).Execute()
+	res, httpr, err := pco.apimclient.DefaultAPI.GetApimInstanceDetails(authctx, orgid, envid, id).IncludeTlsContexts(true).Execute()
 	if err != nil {
 		details := extractAPIErrorDetail(err, httpr)
 		diags := append(diags, diag.Diagnostic{
@@ -588,8 +589,16 @@ func flattenApimEndpoint(endpoint *apim.Endpoint) map[string]any {
 	if val, ok := endpoint.GetDeploymentTypeOk(); ok && val != nil {
 		result["endpoint_deployment_type"] = *val
 	}
-	if val, ok := endpoint.GetTlsContextsOk(); ok {
-		result["endpoint_tls_inbound_context"] = []map[string]any{flattenApimEndpointTlsContext(val)}
+	// Emit the key only when the platform returned a tlsContexts object. An empty
+	// list (inbound null inside a present object) lets an inbound context removed
+	// outside Terraform show as drift. Without tlsContexts (flag ignored) the key
+	// is left out so a declared inbound context is not wiped from state.
+	if val, ok := endpoint.GetTlsContextsOk(); ok && val != nil {
+		inbound := []map[string]any{}
+		if entry := flattenApimEndpointTlsContext(val); entry != nil {
+			inbound = append(inbound, entry)
+		}
+		result["endpoint_tls_inbound_context"] = inbound
 	}
 	if val, ok := endpoint.GetApiVersionIdOk(); ok && val != nil {
 		result["endpoint_api_version_id"] = *val
@@ -597,27 +606,31 @@ func flattenApimEndpoint(endpoint *apim.Endpoint) map[string]any {
 	return result
 }
 
-// flattens tls context of endpoints in any api manager
+// flattens the inbound tls context of endpoints in any api manager.
+// Returns nil when there is no inbound context. The outbound context belongs
+// to the upstream and is deliberately ignored.
 func flattenApimEndpointTlsContext(tc *apim.EndpointTlsContexts) map[string]any {
 	if tc == nil {
 		return nil
 	}
-	result := make(map[string]any)
-	if inbound, ok := tc.GetInboundOk(); ok {
-		if val, ok := inbound.GetSecretGroupIdOk(); ok {
-			result["secret_group_id"] = *val
-		}
-		if val, ok := inbound.GetTlsContextIdOk(); ok {
-			result["tls_context_id"] = *val
-		}
-		if val, ok := inbound.GetNameOk(); ok {
-			result["name"] = *val
-		}
-		if val, ok := inbound.GetAuthorizedOk(); ok {
-			result["authorized"] = *val
-		}
+	inbound, ok := tc.GetInboundOk()
+	if !ok || inbound == nil {
+		return nil
 	}
-	if val, ok := tc.GetAuditOk(); ok {
+	result := make(map[string]any)
+	if val, ok := inbound.GetSecretGroupIdOk(); ok && val != nil {
+		result["secret_group_id"] = *val
+	}
+	if val, ok := inbound.GetTlsContextIdOk(); ok && val != nil {
+		result["tls_context_id"] = *val
+	}
+	if val, ok := inbound.GetNameOk(); ok && val != nil {
+		result["name"] = *val
+	}
+	if val, ok := inbound.GetAuthorizedOk(); ok && val != nil {
+		result["authorized"] = strconv.FormatBool(*val)
+	}
+	if val, ok := tc.GetAuditOk(); ok && val != nil {
 		result["audit"] = flattenApimAudit(val)
 	}
 	return result
