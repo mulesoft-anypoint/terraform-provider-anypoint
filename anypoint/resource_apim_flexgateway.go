@@ -1273,8 +1273,9 @@ func calcUpstreamsDiff(d *schema.ResourceData) ([]any, []any, []any) {
 		new_upstreams_list := new_upstreams.([]any)
 		for _, new_upstream := range new_upstreams_list {
 			new := new_upstream.(map[string]any)
-			if id, ok := new["id"]; ok {
-				filtered := FilterMapList(old_upstreams_list, func(m map[string]any) bool { return id.(string) == m["id"].(string) })
+			// the SDK fills id with "" for a block that does not exist yet
+			if id, ok := new["id"].(string); ok && id != "" {
+				filtered := FilterMapList(old_upstreams_list, func(m map[string]any) bool { return id == m["id"].(string) })
 				if len(filtered) > 0 {
 					old_match := filtered[0].(map[string]any)
 					if !isUpstreamsEqual(new, old_match) {
@@ -1288,7 +1289,7 @@ func calcUpstreamsDiff(d *schema.ResourceData) ([]any, []any, []any) {
 		for _, old_upstream := range old_upstreams_list {
 			old := old_upstream.(map[string]any)
 			filtered := FilterMapList(new_upstreams_list, func(m map[string]any) bool {
-				if id, ok := m["id"]; ok {
+				if id, ok := m["id"].(string); ok && id != "" {
 					return old["id"] == id
 				}
 				return false
