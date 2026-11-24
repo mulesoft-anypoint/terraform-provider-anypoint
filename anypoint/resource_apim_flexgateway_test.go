@@ -299,6 +299,32 @@ func TestApimFlexGatewayPatchBody_ProxyURIChangeNoTlsContexts(t *testing.T) {
 	}
 }
 
+func TestApimFlexGatewayPatchBody_DeploymentTypeOnlySendsEndpoint(t *testing.T) {
+	body := apimFlexGatewayPatchJSON(t,
+		apimFlexGatewayRawWith("1.0.0", map[string]any{"endpoint_deployment_type": "HY"}),
+		apimFlexGatewayRawWith("1.0.0", map[string]any{"endpoint_deployment_type": "CH2"}))
+	ep := endpointOf(t, body)
+	if ep["deploymentType"] != "CH2" {
+		t.Errorf("deploymentType = %v, want CH2", ep["deploymentType"])
+	}
+	if _, ok := ep["tlsContexts"]; ok {
+		t.Errorf("endpoint must not contain tlsContexts, got %#v", ep["tlsContexts"])
+	}
+}
+
+func TestApimFlexGatewayPatchBody_RegistrationURIOnlySendsEndpoint(t *testing.T) {
+	body := apimFlexGatewayPatchJSON(t,
+		apimFlexGatewayRawWith("1.0.0", map[string]any{"endpoint_proxy_registration_uri": "http://0.0.0.0:8082/a"}),
+		apimFlexGatewayRawWith("1.0.0", map[string]any{"endpoint_proxy_registration_uri": "http://0.0.0.0:8082/b"}))
+	ep := endpointOf(t, body)
+	if ep["proxyRegistrationUri"] != "http://0.0.0.0:8082/b" {
+		t.Errorf("proxyRegistrationUri = %v, want http://0.0.0.0:8082/b", ep["proxyRegistrationUri"])
+	}
+	if _, ok := ep["tlsContexts"]; ok {
+		t.Errorf("endpoint must not contain tlsContexts, got %#v", ep["tlsContexts"])
+	}
+}
+
 func assertInbound(t *testing.T, ep map[string]any) {
 	t.Helper()
 	tc, ok := ep["tlsContexts"].(map[string]any)
