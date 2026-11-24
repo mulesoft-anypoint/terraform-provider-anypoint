@@ -645,7 +645,9 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 					Detail:   details.Error(),
 				})
 			}
-			defer httpr.Body.Close()
+			if httpr != nil {
+				defer httpr.Body.Close()
+			}
 		}
 	}
 	if len(tocreate) > 0 && !diags.HasError() {
@@ -661,7 +663,9 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 					Detail:   details.Error(),
 				})
 			}
-			defer httpr.Body.Close()
+			if httpr != nil {
+				defer httpr.Body.Close()
+			}
 		}
 		// Refresh upstream ids into state so the routing patch body can resolve label -> id for newly-created upstreams (#133).
 		if !diags.HasError() {
@@ -682,7 +686,9 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 				Detail:   details.Error(),
 			})
 		}
-		defer httpr.Body.Close()
+		if httpr != nil {
+			defer httpr.Body.Close()
+		}
 	}
 	if len(todelete) > 0 && !diags.HasError() {
 		authctx := getApimUpstreamAuthCtx(ctx, &pco)
@@ -698,7 +704,9 @@ func resourceApimFlexGatewayUpdate(ctx context.Context, d *schema.ResourceData, 
 					Detail:   details.Error(),
 				})
 			}
-			defer httpr.Body.Close()
+			if httpr != nil {
+				defer httpr.Body.Close()
+			}
 		}
 	}
 	diags = append(diags, resourceApimFlexGatewayRead(ctx, d, m)...)

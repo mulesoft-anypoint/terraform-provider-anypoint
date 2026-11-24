@@ -3,11 +3,16 @@ package anypoint
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
+
+	apim "github.com/mulesoft-anypoint/anypoint-client-go/apim"
+	apim_upstream "github.com/mulesoft-anypoint/anypoint-client-go/apim_upstream"
 )
 
 func TestApimFlexGatewaySchema_AssetVersionNotForceNew(t *testing.T) {
@@ -376,6 +381,136 @@ func TestApimFlexGatewayPatchBody_NeverNullTlsContexts(t *testing.T) {
 				if _, isMap := v.(map[string]any); !isMap {
 					t.Errorf("tlsContexts must be absent or an object, got %#v", v)
 				}
+			}
+		})
+	}
+}
+
+// apimFlexGatewayTestMeta aims the apim and apim_upstream clients at url.
+func apimFlexGatewayTestMeta(url string) ProviderConfOutput {
+	apimCfg := apim.NewConfiguration()
+	apimCfg.Servers = apim.ServerConfigurations{{URL: url}}
+	upstreamCfg := apim_upstream.NewConfiguration()
+	upstreamCfg.Servers = apim_upstream.ServerConfigurations{{URL: url}}
+	return ProviderConfOutput{
+		access_token:       "x",
+		server_index:       0,
+		apimclient:         apim.NewAPIClient(apimCfg),
+		apimupstreamclient: apim_upstream.NewAPIClient(upstreamCfg),
+	}
+}
+
+// apimFlexGatewayClosedServerURL returns the URL of an httptest server that is
+// already closed, so every call fails at transport level with a nil response.
+func apimFlexGatewayClosedServerURL() string {
+	ts := httptest.NewServer(http.NotFoundHandler())
+	url := ts.URL
+	ts.Close()
+	return url
+}
+
+// apimFlexGatewayUpstreamChangeData is like apimFlexGatewayChangeData but the
+// old state carries upstreams with server-assigned ids, as after a real apply.
+func apimFlexGatewayUpstreamChangeData(t *testing.T, oldUpstreams []any, newRaw map[string]any) *schema.ResourceData {
+	t.Helper()
+	r := resourceApimFlexGateway()
+	old := schema.TestResourceDataRaw(t, r.Schema, apimFlexGatewayBaseRaw("1.0.0"))
+	old.SetId("1")
+	if err := old.Set("upstreams", oldUpstreams); err != nil {
+		t.Fatalf("set upstreams: %v", err)
+	}
+	state := old.State()
+	diff, err := r.Diff(context.Background(), state, terraform.NewResourceConfigRaw(newRaw), nil)
+	if err != nil {
+		t.Fatalf("diff: %v", err)
+	}
+	d, err := schema.InternalMap(r.Schema).Data(state, diff)
+	if err != nil {
+		t.Fatalf("data: %v", err)
+	}
+	return d
+}
+
+func TestApimFlexGatewayUpdate_TransportErrorNoPanic(t *testing.T) {
+	oldUpstreams := []any{
+		map[string]any{"id": "a", "label": "u", "uri": "https://example.com"},
+		map[string]any{"id": "b", "label": "v", "uri": "https://v.example.com"},
+	}
+	upstreamsRaw := func(uris ...string) map[string]any {
+		raw := apimFlexGatewayBaseRaw("1.0.0")
+		var ups []any
+		for i, uri := range uris {
+			ups = append(ups, map[string]any{"label": []string{"u", "v"}[i], "uri": uri})
+		}
+		raw["upstreams"] = ups
+		return raw
+	}
+
+	// instanceOKThenDrop answers the instance PATCH so Update reaches the
+	// upstream DELETE loop, then drops every other connection mid-request.
+	instanceOKThenDrop := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte("{}"))
+			return
+		}
+		conn, _, err := w.(http.Hijacker).Hijack()
+		if err == nil {
+			conn.Close()
+		}
+	})
+
+	tests := []struct {
+		name    string
+		summary string // the failing call must be the one under test
+		data    func(t *testing.T) *schema.ResourceData
+		url     func(t *testing.T) string
+	}{
+		{
+			name:    "upstream patch",
+			summary: "Unable to update Flex Gateway upstream a",
+			data: func(t *testing.T) *schema.ResourceData {
+				return apimFlexGatewayUpstreamChangeData(t, oldUpstreams, upstreamsRaw("https://changed.example.com", "https://v.example.com"))
+			},
+			url: func(t *testing.T) string { return apimFlexGatewayClosedServerURL() },
+		},
+		{
+			name:    "instance patch",
+			summary: "Unable to update Flex Gateway instance 1",
+			data: func(t *testing.T) *schema.ResourceData {
+				return apimFlexGatewayChangeData(t,
+					apimFlexGatewayRawWith("1.0.0", map[string]any{"description": "a"}),
+					apimFlexGatewayRawWith("1.0.0", map[string]any{"description": "b"}))
+			},
+			url: func(t *testing.T) string { return apimFlexGatewayClosedServerURL() },
+		},
+		{
+			name:    "upstream delete",
+			summary: "Unable to remove Flex Gateway upstream b",
+			data: func(t *testing.T) *schema.ResourceData {
+				return apimFlexGatewayUpstreamChangeData(t, oldUpstreams, upstreamsRaw("https://example.com"))
+			},
+			url: func(t *testing.T) string {
+				ts := httptest.NewServer(instanceOKThenDrop)
+				t.Cleanup(ts.Close)
+				return ts.URL
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("panic: %v", r)
+				}
+			}()
+			d := tc.data(t)
+			diags := resourceApimFlexGatewayUpdate(context.Background(), d, apimFlexGatewayTestMeta(tc.url(t)))
+			if !diags.HasError() {
+				t.Fatalf("expected an error diagnostic, got %v", diags)
+			}
+			if got := diagsText(diags); !strings.Contains(got, tc.summary) {
+				t.Errorf("expected diagnostic %q, got:\n%s", tc.summary, got)
 			}
 		})
 	}
