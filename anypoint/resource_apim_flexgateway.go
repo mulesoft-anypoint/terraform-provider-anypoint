@@ -535,6 +535,12 @@ func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, 
 	diags = append(diags, resourceApimFlexGatewayRoutingUpdate(ctx, d, m)...)
 	// removes default upstream that is systematically created along with the api flex gateway instance
 	diags = append(diags, resourceApimFlexGatewayDeleteDefaultUpstream(ctx, d, m)...)
+	// the platform deploys the gateway only from the instance POST and from a PATCH carrying
+	// `deployment`: upstream and routing calls never redeploy. Redeploy last, so the gateway
+	// serves the final upstreams (#206). Skipped when an earlier step failed.
+	if !diags.HasError() {
+		diags = append(diags, resourceApimFlexGatewayRedeploy(ctx, d, m)...)
+	}
 	//perform read
 	diags = append(diags, resourceApimFlexGatewayRead(ctx, d, m)...)
 
@@ -1350,4 +1356,33 @@ func isUpstreamTlsContextEqual(a *schema.Set, b *schema.Set) bool {
 func getFlexGatewayAuthCtx(ctx context.Context, pco *ProviderConfOutput) context.Context {
 	tmp := context.WithValue(ctx, flexgateway.ContextAccessToken, pco.access_token)
 	return context.WithValue(tmp, flexgateway.ContextServerIndex, pco.server_index)
+}
+
+// returns the minimal patch body that makes the platform deploy the instance again: the deployment block only, never endpoint (#203)
+func newApimFlexGatewayRedeployBody(d *schema.ResourceData) map[string]any {
+	deployment_map, _ := newApimFlexGatewayDeploymentPostBody(d).ToMap()
+	return map[string]any{"deployment": deployment_map}
+}
+
+// redeploys the flex gateway instance after create. Failure is a warning only: an error would taint the resource
+// and force its replacement, while the next in-place apply sends the deployment block again.
+func resourceApimFlexGatewayRedeploy(ctx context.Context, d *schema.ResourceData, m any) diag.Diagnostics {
+	var diags diag.Diagnostics
+	pco := m.(ProviderConfOutput)
+	orgid := d.Get("org_id").(string)
+	envid := d.Get("env_id").(string)
+	id := d.Get("id").(string)
+	authctx := getApimAuthCtx(ctx, &pco)
+	_, httpr, err := pco.apimclient.DefaultAPI.PatchApimInstance(authctx, orgid, envid, id).Body(newApimFlexGatewayRedeployBody(d)).Execute()
+	if err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Warning,
+			Summary:  "Unable to redeploy Flex Gateway instance " + id,
+			Detail:   extractAPIErrorDetail(err, httpr) + " - the deployment will be sent again on the next apply",
+		})
+	}
+	if httpr != nil {
+		defer httpr.Body.Close()
+	}
+	return diags
 }
