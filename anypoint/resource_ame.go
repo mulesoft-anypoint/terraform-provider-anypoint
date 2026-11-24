@@ -69,8 +69,8 @@ func resourceAME() *schema.Resource {
 			"encrypted": {
 				Type:        schema.TypeBool,
 				Optional:    true,
-				Default:     false,
-				Description: "Whether to encrypt the Exchange or not.",
+				Computed:    true,
+				Description: "Whether to encrypt the Exchange or not. If unset, the broker decides and the value it reports is kept in state.",
 			},
 			"type": {
 				Type:        schema.TypeString,
@@ -92,7 +92,7 @@ func resourceAMECreate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	regionid := d.Get("region_id").(string)
 	exchangeid := d.Get("exchange_id").(string)
 	authctx := getAMEAuthCtx(ctx, &pco)
-	body := newAMECreateBody(d)
+	body := newAMECreateBody(d, attrsSetInRawConfig(d.GetRawConfig(), "encrypted"), false)
 	//request user creation
 	_, httpr, err := retryTransientWith(ctx, "ame create "+exchangeid, mqRetryPolicy, func() (ame.Exchange, *http.Response, error) {
 		return pco.ameclient.DefaultApi.CreateAME(authctx, orgid, envid, regionid, exchangeid).ExchangeBody(*body).Execute()
@@ -183,7 +183,7 @@ func resourceAMEUpdate(ctx context.Context, d *schema.ResourceData, m any) diag.
 	authctx := getAMEAuthCtx(ctx, &pco)
 	//check for changes
 	if d.HasChanges(getAMEPatchWatchAttributes()...) {
-		body := newAMECreateBody(d)
+		body := newAMECreateBody(d, attrsSetInRawConfig(d.GetRawConfig(), "encrypted"), true)
 		//request resource creation
 		_, httpr, err := retryTransientWith(ctx, "ame update "+exchangeid, mqRetryPolicy, func() (ame.Exchange, *http.Response, error) {
 			return pco.ameclient.DefaultApi.UpdateAME(authctx, orgid, envid, regionid, exchangeid).ExchangeBody(*body).Execute()
@@ -233,12 +233,13 @@ func resourceAMEDelete(ctx context.Context, d *schema.ResourceData, m any) diag.
 	return diags
 }
 
-// Creates AME body
-func newAMECreateBody(d *schema.ResourceData) *ame.ExchangeBody {
+// Creates AME body. A configured encrypted is always sent; an unset one is omitted on
+// create and re-sent from state on update (the update replaces the whole exchange).
+func newAMECreateBody(d *schema.ResourceData, inConfig map[string]bool, isUpdate bool) *ame.ExchangeBody {
 	body := new(ame.ExchangeBody)
 
-	if encrypted := d.Get("encrypted"); encrypted != nil {
-		body.SetEncrypted(encrypted.(bool))
+	if v, ok := mqOptionalBool(d, "encrypted", inConfig, isUpdate); ok {
+		body.SetEncrypted(v)
 	}
 
 	return body

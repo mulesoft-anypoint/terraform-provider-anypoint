@@ -34,7 +34,7 @@ resource "anypoint_ame" "ame" {
 
 ### Optional
 
-- `encrypted` (Boolean) Whether to encrypt the Exchange or not.
+- `encrypted` (Boolean) Whether to encrypt the Exchange or not. If unset, the broker decides and the value it reports is kept in state.
 - `last_updated` (String) The last time this resource has been updated locally.
 
 ### Read-Only
