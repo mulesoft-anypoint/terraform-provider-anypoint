@@ -419,6 +419,18 @@ Use stdlib `log` with bracketed level prefix; the Terraform Plugin SDK routes it
 log.Println("[DEBUG] something happened")
 ```
 
+## Subagent models
+
+When work is delegated to subagents, set the model explicitly on every dispatch:
+
+| Role | Model |
+|---|---|
+| Development: implementers, fix rounds, live checks that belong to a code task | `sonnet` |
+| Reviews: task reviews, re-reviews, whole-branch reviews | `opus` |
+| Planning: designs, implementation plans, isolation spikes that decide a design | `opus` |
+
+This overrides any "cheapest model that can do it" tiering from skills or tools.
+
 ---
 
 # Go style
