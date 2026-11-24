@@ -537,8 +537,12 @@ func resourceApimFlexGatewayCreate(ctx context.Context, d *schema.ResourceData, 
 	diags = append(diags, resourceApimFlexGatewayDeleteDefaultUpstream(ctx, d, m)...)
 	// the platform deploys the gateway only from the instance POST and from a PATCH carrying
 	// `deployment`: upstream and routing calls never redeploy. Redeploy last, so the gateway
-	// serves the final upstreams (#206). Skipped when an earlier step failed.
-	if !diags.HasError() {
+	// serves the final upstreams (#206). Skipped when an earlier step failed, or when the Read
+	// inside the routing update found the instance gone (empty id).
+	// The body is built here, after that Read, on purpose: it re-sends the deployment as the
+	// platform resolved it from the instance POST (e.g. the gateway version when the config
+	// leaves it unset), which is the body proven live; a config-built body was never tested.
+	if !diags.HasError() && d.Id() != "" {
 		diags = append(diags, resourceApimFlexGatewayRedeploy(ctx, d, m)...)
 	}
 	//perform read
