@@ -127,7 +127,12 @@ func TestApimFlexGatewayUpdate_AddedUpstreamIsPosted(t *testing.T) {
 			map[string]any{"label": "v", "uri": "https://v.example"},
 		))
 	// later calls are expected to hit the 404 handler; only the POST matters here
-	_ = resourceApimFlexGatewayUpdate(context.Background(), d, apimFlexGatewayTestMeta(ts.URL))
+	diags := resourceApimFlexGatewayUpdate(context.Background(), d, apimFlexGatewayTestMeta(ts.URL))
+	for _, diag := range diags {
+		if strings.HasPrefix(diag.Summary, "Unable to create Flex Gateway upstream") {
+			t.Errorf("upstream create failed: %s: %s", diag.Summary, diag.Detail)
+		}
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -141,6 +146,9 @@ func TestApimFlexGatewayUpdate_AddedUpstreamIsPosted(t *testing.T) {
 	var got map[string]any
 	if err := json.Unmarshal([]byte(body), &got); err != nil {
 		t.Fatalf("invalid POST body %q: %v", body, err)
+	}
+	if _, hasID := got["id"]; hasID {
+		t.Errorf("POST body must not carry an id, got %v", got)
 	}
 	if got["label"] != "v" || got["uri"] != "https://v.example" {
 		t.Errorf("unexpected POST body %v", got)
